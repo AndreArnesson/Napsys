@@ -380,7 +380,19 @@ export function parseBoersdataInfoSheet(workbook: XLSX.WorkBook): ParsedCompanyI
     }
     if ((label.includes('number of shares') || label.includes('antal aktier') || label.includes('shares outstanding')) && row[1] != null) {
       const s = typeof row[1] === 'number' ? row[1] : parseFloat(String(row[1]).replace(/\s/g, '').replace(',', '.'));
-      if (!isNaN(s)) info.sharesOutstanding = Math.round(s);
+      if (!isNaN(s)) {
+        // Check for unit indicator in column C (row[2]) or in the label itself
+        const unitHint = row[2] ? String(row[2]).trim().toLowerCase() : '';
+        const labelLower = label;
+        const isMillions = unitHint.includes('milj') || unitHint === 'm' || unitHint.includes('million') || unitHint.includes('msek') || labelLower.includes('milj');
+        const isThousands = unitHint.includes('tus') || unitHint === 'k' || unitHint.includes('thousand');
+        let multiplier = 1;
+        if (isMillions) multiplier = 1_000_000;
+        else if (isThousands) multiplier = 1_000;
+        // If value looks too small (< 1000), likely in millions
+        else if (s < 1000) multiplier = 1_000_000;
+        info.sharesOutstanding = Math.round(s * multiplier);
+      }
     }
   }
   console.log('[Import] Parsed Info sheet:', info);

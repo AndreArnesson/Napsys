@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Trash2, Star, Loader2, X } from 'lucide-react';
+import { Plus, Trash2, Star, Loader2, X, GripVertical, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import debounce from 'lodash/debounce';
 
@@ -36,6 +36,7 @@ export function WatchlistSection() {
   const queryClient = useQueryClient();
   const [newColName, setNewColName] = useState('');
   const [addColOpen, setAddColOpen] = useState(false);
+  const [columnOrder, setColumnOrder] = useState<string[]>([]);
 
   const { data: watchlist, isLoading } = useQuery({
     queryKey: ['watchlist', user?.id],
@@ -54,15 +55,22 @@ export function WatchlistSection() {
     enabled: !!user,
   });
 
-  // Derive custom column names from all rows
+  // Derive custom column names from all rows, preserving order
   const customColumnNames = useMemo(() => {
     if (!watchlist) return [];
     const names = new Set<string>();
     watchlist.forEach(item => {
       Object.keys(item.custom_columns || {}).forEach(k => names.add(k));
     });
-    return Array.from(names);
-  }, [watchlist]);
+    const allNames = Array.from(names);
+    // If we have a stored order, use it; otherwise use discovery order
+    if (columnOrder.length > 0) {
+      const ordered = columnOrder.filter(n => allNames.includes(n));
+      const remaining = allNames.filter(n => !columnOrder.includes(n));
+      return [...ordered, ...remaining];
+    }
+    return allNames;
+  }, [watchlist, columnOrder]);
 
   const updateMutation = useMutation({
     mutationFn: async ({ itemId, updates }: { itemId: string; updates: Record<string, any> }) => {
@@ -100,7 +108,6 @@ export function WatchlistSection() {
     },
   });
 
-  // Debounced cell save
   const debouncedUpdate = useCallback(
     debounce((itemId: string, updates: Record<string, any>) => {
       updateMutation.mutate({ itemId, updates });
@@ -109,11 +116,9 @@ export function WatchlistSection() {
   );
 
   const handleCellChange = (item: WatchlistItem, field: string, value: string) => {
-    // For fixed columns, update directly
     if (['ticker', 'company_name', 'conviction', 'notes', 'ai_impact'].includes(field)) {
       debouncedUpdate(item.id, { [field]: value || null });
     } else {
-      // Custom column
       const newCustom = { ...item.custom_columns, [field]: value };
       debouncedUpdate(item.id, { custom_columns: newCustom });
     }
@@ -121,7 +126,6 @@ export function WatchlistSection() {
 
   const handleAddColumn = () => {
     if (!newColName.trim()) return;
-    // Just add empty value to all existing rows
     if (watchlist) {
       watchlist.forEach(item => {
         if (!(newColName in (item.custom_columns || {}))) {
@@ -130,6 +134,7 @@ export function WatchlistSection() {
         }
       });
     }
+    setColumnOrder(prev => [...prev, newColName]);
     setNewColName('');
     setAddColOpen(false);
     toast.success(`Kolumn "${newColName}" tillagd`);
@@ -142,7 +147,40 @@ export function WatchlistSection() {
       delete newCustom[colName];
       updateMutation.mutate({ itemId: item.id, updates: { custom_columns: newCustom } });
     });
+    setColumnOrder(prev => prev.filter(n => n !== colName));
     toast.success(`Kolumn "${colName}" borttagen`);
+  };
+
+  // Move row up/down
+  const moveRow = async (index: number, direction: 'up' | 'down') => {
+    if (!watchlist) return;
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= watchlist.length) return;
+    
+    // Swap created_at timestamps to reorder
+    const itemA = watchlist[index];
+    const itemB = watchlist[newIndex];
+    await supabase.from('watchlist').update({ created_at: itemB.id } as any).eq('id', 'noop'); // dummy
+    
+    // We swap by updating created_at of both
+    const tempDate = new Date().toISOString();
+    const dateA = (itemA as any).created_at;
+    const dateB = (itemB as any).created_at;
+    
+    await Promise.all([
+      supabase.from('watchlist').update({ created_at: dateB } as any).eq('id', itemA.id),
+      supabase.from('watchlist').update({ created_at: dateA } as any).eq('id', itemB.id),
+    ]);
+    queryClient.invalidateQueries({ queryKey: ['watchlist'] });
+  };
+
+  // Move custom column left/right
+  const moveColumn = (colIndex: number, direction: 'left' | 'right') => {
+    const cols = [...customColumnNames];
+    const newIndex = direction === 'left' ? colIndex - 1 : colIndex + 1;
+    if (newIndex < 0 || newIndex >= cols.length) return;
+    [cols[colIndex], cols[newIndex]] = [cols[newIndex], cols[colIndex]];
+    setColumnOrder(cols);
   };
 
   return (
@@ -163,13 +201,36 @@ export function WatchlistSection() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10"></TableHead>
                     {FIXED_COLUMNS.map(col => (
                       <TableHead key={col.key} className="min-w-[100px]">{col.label}</TableHead>
                     ))}
-                    {customColumnNames.map(colName => (
+                    {customColumnNames.map((colName, ci) => (
                       <TableHead key={colName} className="min-w-[100px]">
                         <div className="flex items-center gap-1">
-                          <span>{colName}</span>
+                          <div className="flex flex-col">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-4 w-4 opacity-40 hover:opacity-100"
+                              onClick={() => moveColumn(ci, 'left')}
+                              disabled={ci === 0}
+                            >
+                              <ArrowLeft className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <span className="flex-1">{colName}</span>
+                          <div className="flex flex-col gap-0.5">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-4 w-4 opacity-40 hover:opacity-100"
+                              onClick={() => moveColumn(ci, 'right')}
+                              disabled={ci === customColumnNames.length - 1}
+                            >
+                              <ArrowRight className="h-3 w-3" />
+                            </Button>
+                          </div>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -207,8 +268,30 @@ export function WatchlistSection() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {watchlist?.map((item) => (
+                  {watchlist?.map((item, rowIndex) => (
                     <TableRow key={item.id}>
+                      <TableCell className="p-1">
+                        <div className="flex flex-col items-center gap-0.5">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 opacity-40 hover:opacity-100"
+                            onClick={() => moveRow(rowIndex, 'up')}
+                            disabled={rowIndex === 0}
+                          >
+                            <ArrowUp className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 opacity-40 hover:opacity-100"
+                            onClick={() => moveRow(rowIndex, 'down')}
+                            disabled={rowIndex === (watchlist?.length ?? 0) - 1}
+                          >
+                            <ArrowDown className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
                       {FIXED_COLUMNS.map(col => (
                         <TableCell key={col.key} className="p-1">
                           <Input
@@ -238,7 +321,7 @@ export function WatchlistSection() {
                   ))}
                   {/* Add row button */}
                   <TableRow>
-                    <TableCell colSpan={FIXED_COLUMNS.length + customColumnNames.length + 1} className="p-1">
+                    <TableCell colSpan={FIXED_COLUMNS.length + customColumnNames.length + 2} className="p-1">
                       <Button
                         variant="ghost"
                         size="sm"
