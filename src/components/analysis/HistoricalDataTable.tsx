@@ -166,10 +166,10 @@ export function HistoricalDataTable({
 
   const computeEV = (row: HistoricalYear) => {
     if (!currentPrice || !sharesOutstanding) return undefined;
-    const marketCap = currentPrice * sharesOutstanding;
+    const marketCapMSEK = (currentPrice * sharesOutstanding) / 1_000_000;
     const debt = row.total_debt ?? 0;
     const cash = row.cash ?? 0;
-    return marketCap + debt - cash;
+    return marketCapMSEK + debt - cash;
   };
 
   const computeNetDebt = (row: HistoricalYear) => {
