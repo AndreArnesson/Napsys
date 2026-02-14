@@ -499,6 +499,7 @@ export type Database = {
           company_name: string | null
           conviction: string | null
           created_at: string
+          custom_columns: Json | null
           id: string
           notes: string | null
           ticker: string
@@ -512,6 +513,7 @@ export type Database = {
           company_name?: string | null
           conviction?: string | null
           created_at?: string
+          custom_columns?: Json | null
           id?: string
           notes?: string | null
           ticker: string
@@ -525,6 +527,7 @@ export type Database = {
           company_name?: string | null
           conviction?: string | null
           created_at?: string
+          custom_columns?: Json | null
           id?: string
           notes?: string | null
           ticker?: string

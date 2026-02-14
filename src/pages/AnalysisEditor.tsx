@@ -290,7 +290,20 @@ export default function AnalysisEditor() {
       }
       // Also set on analysis level
       if (companyInfo.latestPrice) setCurrentPrice(String(companyInfo.latestPrice));
-      if (companyInfo.sharesOutstanding) setSharesOutstanding(String(companyInfo.sharesOutstanding));
+      if (companyInfo.sharesOutstanding) {
+        setSharesOutstanding(String(companyInfo.sharesOutstanding));
+      }
+    }
+
+    // Fallback: if sharesOutstanding not in companyInfo, check parsed data rows
+    if (!companyInfo?.sharesOutstanding) {
+      const sortedYearly = [...data.filter(d => !d.quarter)].sort((a, b) => b.fiscal_year - a.fiscal_year);
+      const latestShares = sortedYearly.find(d => d.shares_outstanding)?.shares_outstanding;
+      if (latestShares) {
+        setSharesOutstanding(String(Math.round(latestShares)));
+        await supabase.from('companies').update({ shares_outstanding: Math.round(latestShares) }).eq('id', id);
+        queryClient.invalidateQueries({ queryKey: ['company', id] });
+      }
     }
 
     queryClient.invalidateQueries({ queryKey: ['income_statement', id, analysisId] });
@@ -446,6 +459,7 @@ export default function AnalysisEditor() {
               notes={notes}
               onNotesChange={setNotes}
               currency={company?.reporting_currency}
+              showQuarterly={showQuarterly}
             />
             <DebtSection data={(balanceData || []).map((b: any) => ({
               fiscal_year: b.fiscal_year,
