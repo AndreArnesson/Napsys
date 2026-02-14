@@ -2,9 +2,6 @@ import { describe, it, expect } from 'vitest';
 import * as XLSX from 'xlsx';
 import { parseBoersdataExcel, ParsedFinancialData } from '@/components/company/FileImportDialog';
 
-/**
- * Helper to build a mock XLSX workbook from sheet data.
- */
 function buildWorkbook(sheetNames: string[], sheetsData: Record<string, any[][]>): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
   for (const name of sheetNames) {
@@ -15,10 +12,6 @@ function buildWorkbook(sheetNames: string[], sheetsData: Record<string, any[][]>
   return wb;
 }
 
-/**
- * Build a workbook where the Year sheet has an artificially narrow !ref,
- * simulating the Börsdata export bug where cells exist beyond the reported range.
- */
 function buildWorkbookWithNarrowRef(
   sheetNames: string[],
   sheetsData: Record<string, any[][]>,
@@ -39,11 +32,8 @@ describe('parseBoersdataExcel', () => {
         ['EBIT', 'MSEK', null, null, 200, 180, 160],
         ['Net Income', 'MSEK', null, null, 100, 90, 80],
       ];
-      const wb = buildWorkbook(
-        ['Info', 'Year'],
-        { 'Info': [['Company']], 'Year': data }
-      );
-      const result = parseBoersdataExcel(wb);
+      const wb = buildWorkbook(['Info', 'Year'], { 'Info': [['Company']], 'Year': data });
+      const { yearly: result } = parseBoersdataExcel(wb);
       expect(result.length).toBe(3);
       expect(result[0].fiscal_year).toBe(2022);
       expect(result[0].revenue).toBe(800);
@@ -76,14 +66,10 @@ describe('parseBoersdataExcel', () => {
         ['Vinstmarginal', '%', null, null, 13.2, -0.9, 2.2],
         ['Soliditet', '%', null, null, 50.2, 47.3, 51.8],
       ];
-      const wb = buildWorkbook(
-        ['Info', 'Year'],
-        { 'Info': [['Company']], 'Year': data }
-      );
-      const result = parseBoersdataExcel(wb);
+      const wb = buildWorkbook(['Info', 'Year'], { 'Info': [['Company']], 'Year': data });
+      const { yearly: result } = parseBoersdataExcel(wb);
       expect(result.length).toBe(3);
 
-      // 2022
       const y2022 = result.find(r => r.fiscal_year === 2022)!;
       expect(y2022.revenue).toBe(636);
       expect(y2022.gross_income).toBe(257);
@@ -104,22 +90,14 @@ describe('parseBoersdataExcel', () => {
 
   describe('narrow !ref correction', () => {
     it('should correct a narrow !ref and parse data beyond reported range', () => {
-      // This simulates the actual Börsdata bug where !ref is A1:B79
-      // but data extends to column L
       const data: any[][] = [
         ['Report', null, null, null, 2022, 2023, 2024],
         ['Nettoomsättning', 'MSEK', null, null, 636, 479, 486],
         ['Rörelseresultat', 'MSEK', null, null, 115, -1.4, 15.3],
         ['EBITDA', 'MSEK', null, null, 126, 12.4, 34.1],
       ];
-      const wb = buildWorkbookWithNarrowRef(
-        ['Info', 'Year'],
-        { 'Info': [['Company']], 'Year': data },
-        'A1:B4',
-        'Year'
-      );
-
-      const result = parseBoersdataExcel(wb);
+      const wb = buildWorkbookWithNarrowRef(['Info', 'Year'], { 'Info': [['Company']], 'Year': data }, 'A1:B4', 'Year');
+      const { yearly: result } = parseBoersdataExcel(wb);
       expect(result.length).toBe(3);
       expect(result[0].fiscal_year).toBe(2022);
       expect(result[0].revenue).toBe(636);
@@ -140,16 +118,13 @@ describe('parseBoersdataExcel', () => {
         ['Bruttomarginal', '%', null, null, 41.0, 39.4, 40.4, 34.9, 39.0, 41.9, 40.1],
         ['Soliditet', '%', null, null, 47.5, 47.5, 50.2, 47.3, 51.8, 61.5, 62.8],
       ];
-      // Set narrow !ref to simulate the bug
       const wb = buildWorkbookWithNarrowRef(
         ['Info', 'Year', 'R12', 'Quarter', 'PriceDay', 'PriceWeek', 'PriceMonth', 'Styles'],
         { 'Info': [['Company']], 'Year': data, 'R12': [[]], 'Quarter': [[]], 'PriceDay': [[]], 'PriceWeek': [[]], 'PriceMonth': [[]], 'Styles': [[]] },
-        'A1:B8',
-        'Year'
+        'A1:B8', 'Year'
       );
-
-      const result = parseBoersdataExcel(wb);
-      expect(result.length).toBe(7); // 2018-2024
+      const { yearly: result } = parseBoersdataExcel(wb);
+      expect(result.length).toBe(7);
       
       const y2024 = result.find(r => r.fiscal_year === 2024)!;
       expect(y2024).toBeDefined();
@@ -180,11 +155,8 @@ describe('parseBoersdataExcel', () => {
         ['2023/12', 180],
         ['2022/12', 160],
       ];
-      const wb = buildWorkbook(
-        ['Info', 'Year'],
-        { 'Info': [['Company']], 'Year': data }
-      );
-      const result = parseBoersdataExcel(wb);
+      const wb = buildWorkbook(['Info', 'Year'], { 'Info': [['Company']], 'Year': data });
+      const { yearly: result } = parseBoersdataExcel(wb);
       expect(result.length).toBe(3);
       expect(result[0].fiscal_year).toBe(2022);
       expect(result[0].revenue).toBe(800);
@@ -204,11 +176,8 @@ describe('parseBoersdataExcel', () => {
         ['2024', 500],
         ['2023', 450],
       ];
-      const wb = buildWorkbook(
-        ['Info', 'Year'],
-        { 'Info': [['Company']], 'Year': data }
-      );
-      const result = parseBoersdataExcel(wb);
+      const wb = buildWorkbook(['Info', 'Year'], { 'Info': [['Company']], 'Year': data });
+      const { yearly: result } = parseBoersdataExcel(wb);
       expect(result.length).toBe(2);
       expect(result[0].fiscal_year).toBe(2023);
       expect(result[0].revenue).toBe(450);
@@ -228,11 +197,8 @@ describe('parseBoersdataExcel', () => {
         ['2024/12', 200],
         ['2023/12', 180],
       ];
-      const wb = buildWorkbook(
-        ['Info', 'Year'],
-        { 'Info': [['Company']], 'Year': data }
-      );
-      const result = parseBoersdataExcel(wb);
+      const wb = buildWorkbook(['Info', 'Year'], { 'Info': [['Company']], 'Year': data });
+      const { yearly: result } = parseBoersdataExcel(wb);
       expect(result.length).toBe(2);
       expect(result[0].fiscal_year).toBe(2023);
       expect(result[0].revenue).toBe(900);
@@ -242,20 +208,14 @@ describe('parseBoersdataExcel', () => {
 
   describe('sheet selection', () => {
     it('should find the Year sheet by name', () => {
-      const wb = buildWorkbook(
-        ['Info', 'Year'],
-        { 'Info': [['X']], 'Year': [['Report', null, 2024, 2023, 2022], ['Revenue', null, 100, 90, 80], ['EBIT', null, 20, 18, 16]] }
-      );
-      const result = parseBoersdataExcel(wb);
+      const wb = buildWorkbook(['Info', 'Year'], { 'Info': [['X']], 'Year': [['Report', null, 2024, 2023, 2022], ['Revenue', null, 100, 90, 80], ['EBIT', null, 20, 18, 16]] });
+      const { yearly: result } = parseBoersdataExcel(wb);
       expect(result.length).toBe(3);
     });
 
     it('should find the År sheet by name', () => {
-      const wb = buildWorkbook(
-        ['Info', 'År'],
-        { 'Info': [['X']], 'År': [['Report', null, 2024, 2023, 2022], ['Revenue', null, 100, 90, 80], ['EBIT', null, 20, 18, 16]] }
-      );
-      const result = parseBoersdataExcel(wb);
+      const wb = buildWorkbook(['Info', 'År'], { 'Info': [['X']], 'År': [['Report', null, 2024, 2023, 2022], ['Revenue', null, 100, 90, 80], ['EBIT', null, 20, 18, 16]] });
+      const { yearly: result } = parseBoersdataExcel(wb);
       expect(result.length).toBe(3);
     });
   });

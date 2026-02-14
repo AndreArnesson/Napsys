@@ -20,8 +20,10 @@ export type Database = {
           created_at: string
           current_price: number | null
           id: string
+          images: Json | null
           is_draft: boolean | null
           margin_of_safety: number | null
+          name: string | null
           rating: string | null
           shares_outstanding: number | null
           summary_comment: string | null
@@ -33,8 +35,10 @@ export type Database = {
           created_at?: string
           current_price?: number | null
           id?: string
+          images?: Json | null
           is_draft?: boolean | null
           margin_of_safety?: number | null
+          name?: string | null
           rating?: string | null
           shares_outstanding?: number | null
           summary_comment?: string | null
@@ -46,8 +50,10 @@ export type Database = {
           created_at?: string
           current_price?: number | null
           id?: string
+          images?: Json | null
           is_draft?: boolean | null
           margin_of_safety?: number | null
+          name?: string | null
           rating?: string | null
           shares_outstanding?: number | null
           summary_comment?: string | null
@@ -66,6 +72,7 @@ export type Database = {
       }
       balance_sheet: {
         Row: {
+          analysis_id: string | null
           cash_equivalents: number | null
           company_id: string
           created_at: string
@@ -81,6 +88,7 @@ export type Database = {
           total_liabilities: number | null
         }
         Insert: {
+          analysis_id?: string | null
           cash_equivalents?: number | null
           company_id: string
           created_at?: string
@@ -96,6 +104,7 @@ export type Database = {
           total_liabilities?: number | null
         }
         Update: {
+          analysis_id?: string | null
           cash_equivalents?: number | null
           company_id?: string
           created_at?: string
@@ -112,6 +121,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "balance_sheet_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "balance_sheet_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -126,6 +142,7 @@ export type Database = {
           current_price: number | null
           description: string | null
           id: string
+          images: Json | null
           management: Json | null
           moats: string | null
           name: string
@@ -141,6 +158,7 @@ export type Database = {
           current_price?: number | null
           description?: string | null
           id?: string
+          images?: Json | null
           management?: Json | null
           moats?: string | null
           name: string
@@ -156,6 +174,7 @@ export type Database = {
           current_price?: number | null
           description?: string | null
           id?: string
+          images?: Json | null
           management?: Json | null
           moats?: string | null
           name?: string
@@ -170,8 +189,11 @@ export type Database = {
       }
       income_statement: {
         Row: {
+          analysis_id: string | null
           company_id: string
           created_at: string
+          dividend: number | null
+          earnings_per_share: number | null
           ebit: number | null
           ebitda: number | null
           fiscal_year: number
@@ -181,10 +203,14 @@ export type Database = {
           net_margin: number | null
           operating_margin: number | null
           revenue: number | null
+          shares_outstanding: number | null
         }
         Insert: {
+          analysis_id?: string | null
           company_id: string
           created_at?: string
+          dividend?: number | null
+          earnings_per_share?: number | null
           ebit?: number | null
           ebitda?: number | null
           fiscal_year: number
@@ -194,10 +220,14 @@ export type Database = {
           net_margin?: number | null
           operating_margin?: number | null
           revenue?: number | null
+          shares_outstanding?: number | null
         }
         Update: {
+          analysis_id?: string | null
           company_id?: string
           created_at?: string
+          dividend?: number | null
+          earnings_per_share?: number | null
           ebit?: number | null
           ebitda?: number | null
           fiscal_year?: number
@@ -207,8 +237,16 @@ export type Database = {
           net_margin?: number | null
           operating_margin?: number | null
           revenue?: number | null
+          shares_outstanding?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "income_statement_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "income_statement_company_id_fkey"
             columns: ["company_id"]
@@ -247,6 +285,144 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      quarterly_balance_sheet: {
+        Row: {
+          analysis_id: string | null
+          cash_equivalents: number | null
+          company_id: string
+          created_at: string
+          current_assets: number | null
+          current_liabilities: number | null
+          equity_ratio: number | null
+          fiscal_year: number
+          id: string
+          long_term_debt: number | null
+          quarter: number
+          shareholders_equity: number | null
+          short_term_debt: number | null
+          total_assets: number | null
+          total_liabilities: number | null
+        }
+        Insert: {
+          analysis_id?: string | null
+          cash_equivalents?: number | null
+          company_id: string
+          created_at?: string
+          current_assets?: number | null
+          current_liabilities?: number | null
+          equity_ratio?: number | null
+          fiscal_year: number
+          id?: string
+          long_term_debt?: number | null
+          quarter: number
+          shareholders_equity?: number | null
+          short_term_debt?: number | null
+          total_assets?: number | null
+          total_liabilities?: number | null
+        }
+        Update: {
+          analysis_id?: string | null
+          cash_equivalents?: number | null
+          company_id?: string
+          created_at?: string
+          current_assets?: number | null
+          current_liabilities?: number | null
+          equity_ratio?: number | null
+          fiscal_year?: number
+          id?: string
+          long_term_debt?: number | null
+          quarter?: number
+          shareholders_equity?: number | null
+          short_term_debt?: number | null
+          total_assets?: number | null
+          total_liabilities?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quarterly_balance_sheet_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quarterly_balance_sheet_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quarterly_income_statement: {
+        Row: {
+          analysis_id: string | null
+          company_id: string
+          created_at: string
+          dividend: number | null
+          earnings_per_share: number | null
+          ebit: number | null
+          ebitda: number | null
+          fiscal_year: number
+          gross_margin: number | null
+          id: string
+          net_income: number | null
+          net_margin: number | null
+          operating_margin: number | null
+          quarter: number
+          revenue: number | null
+        }
+        Insert: {
+          analysis_id?: string | null
+          company_id: string
+          created_at?: string
+          dividend?: number | null
+          earnings_per_share?: number | null
+          ebit?: number | null
+          ebitda?: number | null
+          fiscal_year: number
+          gross_margin?: number | null
+          id?: string
+          net_income?: number | null
+          net_margin?: number | null
+          operating_margin?: number | null
+          quarter: number
+          revenue?: number | null
+        }
+        Update: {
+          analysis_id?: string | null
+          company_id?: string
+          created_at?: string
+          dividend?: number | null
+          earnings_per_share?: number | null
+          ebit?: number | null
+          ebitda?: number | null
+          fiscal_year?: number
+          gross_margin?: number | null
+          id?: string
+          net_income?: number | null
+          net_margin?: number | null
+          operating_margin?: number | null
+          quarter?: number
+          revenue?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quarterly_income_statement_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quarterly_income_statement_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shares: {
         Row: {
