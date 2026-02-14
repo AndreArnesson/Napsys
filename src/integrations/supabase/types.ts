@@ -146,6 +146,7 @@ export type Database = {
           management: Json | null
           moats: string | null
           name: string
+          pilotskolan: string | null
           reporting_currency: string | null
           shares_outstanding: number | null
           ticker: string | null
@@ -162,6 +163,7 @@ export type Database = {
           management?: Json | null
           moats?: string | null
           name: string
+          pilotskolan?: string | null
           reporting_currency?: string | null
           shares_outstanding?: number | null
           ticker?: string | null
@@ -178,6 +180,7 @@ export type Database = {
           management?: Json | null
           moats?: string | null
           name?: string
+          pilotskolan?: string | null
           reporting_currency?: string | null
           shares_outstanding?: number | null
           ticker?: string | null
