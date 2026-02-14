@@ -16,10 +16,13 @@ export interface YearlyProjection {
   quarter?: number;
   revenue?: number;
   ebit?: number;
+  ebitda?: number;
   price?: number;
   revenueGrowth?: number;
   revenuePerShare?: number;
   netMargin?: number;
+  ebitMargin?: number;
+  ebitdaMargin?: number;
   earningsPerShare?: number;
   targetPE?: number;
   estimatedPrice?: number;
@@ -66,6 +69,8 @@ export function SpreadsheetAnalysis({
   const [targetPE, setTargetPE] = useState(15);
   const [mode, setMode] = useState<'yearly' | 'quarterly'>(showQuarterly ? 'quarterly' : 'yearly');
   const [perShare, setPerShare] = useState(false);
+  const [showEbitMargin, setShowEbitMargin] = useState(false);
+  const [showEbitdaMargin, setShowEbitdaMargin] = useState(false);
 
   const currentYear = new Date().getFullYear();
 
@@ -221,31 +226,39 @@ export function SpreadsheetAnalysis({
     onProjectionsChange(newProjections);
   };
 
-  // Build rows dynamically based on perShare toggle
-  const rows: { label: string; key: string; editable: boolean; bg?: boolean }[] = perShare
-    ? [
-        { label: 'Kurs', key: 'price', editable: true, bg: true },
-        { label: 'Omsättningstillv (%)', key: 'revenueGrowth', editable: true },
-        { label: 'Omsättning/aktie', key: 'revenuePerShare', editable: true },
-        { label: 'Vinstmarginal (%)', key: 'netMargin', editable: true },
-        { label: 'Vinst/aktie', key: 'earningsPerShare', editable: false, bg: true },
-        { label: 'P/E', key: 'pe', editable: false },
-        { label: 'Rimlig P/E', key: 'targetPE', editable: true, bg: true },
-        { label: 'Estimerad kurs', key: 'estimatedPrice', editable: false },
-        { label: 'MOS', key: 'mos', editable: false },
-      ]
-    : [
-        { label: 'Kurs', key: 'price', editable: true, bg: true },
-        { label: 'Omsättningstillv (%)', key: 'revenueGrowth', editable: true },
-        { label: 'Omsättning (MSEK)', key: 'revenue', editable: true },
-        { label: 'EBIT (MSEK)', key: 'ebit', editable: true },
-        { label: 'Vinstmarginal (%)', key: 'netMargin', editable: true },
-        { label: 'Vinst/aktie', key: 'earningsPerShare', editable: false, bg: true },
-        { label: 'P/E', key: 'pe', editable: false },
-        { label: 'Rimlig P/E', key: 'targetPE', editable: true, bg: true },
-        { label: 'Estimerad kurs', key: 'estimatedPrice', editable: false },
-        { label: 'MOS', key: 'mos', editable: false },
-      ];
+  // Build rows dynamically based on perShare toggle and margin options
+  const rows: { label: string; key: string; editable: boolean; bg?: boolean }[] = useMemo(() => {
+    const base: { label: string; key: string; editable: boolean; bg?: boolean }[] = [
+      { label: 'Kurs', key: 'price', editable: true, bg: true },
+      { label: 'Omsättningstillv (%)', key: 'revenueGrowth', editable: true },
+    ];
+    
+    if (perShare) {
+      base.push({ label: 'Omsättning/aktie', key: 'revenuePerShare', editable: true });
+    } else {
+      base.push({ label: 'Omsättning (MSEK)', key: 'revenue', editable: true });
+      base.push({ label: 'EBIT (MSEK)', key: 'ebit', editable: true });
+    }
+
+    base.push({ label: 'Vinstmarginal (%)', key: 'netMargin', editable: true });
+    
+    if (showEbitMargin) {
+      base.push({ label: 'EBIT-marginal (%)', key: 'ebitMargin', editable: true });
+    }
+    if (showEbitdaMargin) {
+      base.push({ label: 'EBITDA-marginal (%)', key: 'ebitdaMargin', editable: true });
+    }
+
+    base.push(
+      { label: 'Vinst/aktie', key: 'earningsPerShare', editable: false, bg: true },
+      { label: 'P/E', key: 'pe', editable: false },
+      { label: 'Rimlig P/E', key: 'targetPE', editable: true, bg: true },
+      { label: 'Estimerad kurs', key: 'estimatedPrice', editable: false },
+      { label: 'MOS', key: 'mos', editable: false },
+    );
+
+    return base;
+  }, [perShare, showEbitMargin, showEbitdaMargin]);
 
   return (
     <div className="space-y-6">
@@ -261,7 +274,7 @@ export function SpreadsheetAnalysis({
                 {analysisDate ? `Analysis date: ${analysisDate}` : 'Skriv in dina estimat'}
               </CardDescription>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               <Tabs value={mode} onValueChange={(v) => setMode(v as 'yearly' | 'quarterly')}>
                 <TabsList className="h-8">
                   <TabsTrigger value="yearly" className="text-xs px-3 h-7">Helår</TabsTrigger>
@@ -271,6 +284,14 @@ export function SpreadsheetAnalysis({
               <div className="flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground">Per aktie</Label>
                 <Switch checked={perShare} onCheckedChange={setPerShare} />
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground">EBIT-marginal</Label>
+                <Switch checked={showEbitMargin} onCheckedChange={setShowEbitMargin} />
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground">EBITDA-marginal</Label>
+                <Switch checked={showEbitdaMargin} onCheckedChange={setShowEbitdaMargin} />
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Target P/E:</span>

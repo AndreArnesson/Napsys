@@ -330,6 +330,33 @@ function parseSheetData(sheet: XLSX.Sheet, workbook: XLSX.WorkBook): ParsedFinan
     result.set(key, { fiscal_year: year, quarter: quarter });
   }
 
+  // Detect unit column - check if column index 1 has unit-like text
+  const unitMultipliers: Map<string, number> = new Map();
+  for (let i = headerRowIndex + 1; i < data.length; i++) {
+    const row = data[i];
+    if (!row) continue;
+    const rawLabel = row[labelColIndex];
+    if (!rawLabel || typeof rawLabel !== 'string') continue;
+    const mappedKey = lookupField(rawLabel);
+    if (!mappedKey) continue;
+    
+    // Check adjacent columns (between label and first year) for unit hints
+    const firstYearCol = yearColumns[0]?.colIndex || 2;
+    for (let c = 1; c < firstYearCol; c++) {
+      const unitCell = row[c];
+      if (unitCell && typeof unitCell === 'string') {
+        const u = unitCell.trim().toLowerCase();
+        if (mappedKey === 'shares_outstanding') {
+          if (u.includes('milj') || u === 'm' || u.includes('million')) {
+            unitMultipliers.set(`${i}-${mappedKey}`, 1_000_000);
+          } else if (u.includes('tus') || u === 'k') {
+            unitMultipliers.set(`${i}-${mappedKey}`, 1_000);
+          }
+        }
+      }
+    }
+  }
+
   // Parse data rows
   for (let i = headerRowIndex + 1; i < data.length; i++) {
     const row = data[i];
@@ -338,6 +365,8 @@ function parseSheetData(sheet: XLSX.Sheet, workbook: XLSX.WorkBook): ParsedFinan
     if (!rawLabel || typeof rawLabel !== 'string') continue;
     const mappedKey = lookupField(rawLabel);
     if (!mappedKey) continue;
+
+    const multiplier = unitMultipliers.get(`${i}-${mappedKey}`) || 1;
 
     for (const { year, colIndex, quarter } of yearColumns) {
       const cell = row[colIndex];
@@ -350,7 +379,7 @@ function parseSheetData(sheet: XLSX.Sheet, workbook: XLSX.WorkBook): ParsedFinan
       if (percentageFields.has(mappedKey)) {
         (yearData as any)[mappedKey] = numValue / 100;
       } else {
-        (yearData as any)[mappedKey] = numValue;
+        (yearData as any)[mappedKey] = numValue * multiplier;
       }
     }
   }
@@ -379,19 +408,37 @@ export function parseBoersdataInfoSheet(workbook: XLSX.WorkBook): ParsedCompanyI
       if (!isNaN(p)) info.latestPrice = p;
     }
     if ((label.includes('number of shares') || label.includes('antal aktier') || label.includes('shares outstanding')) && row[1] != null) {
-      const s = typeof row[1] === 'number' ? row[1] : parseFloat(String(row[1]).replace(/\s/g, '').replace(',', '.'));
-      if (!isNaN(s)) {
-        // Check for unit indicator in column C (row[2]) or in the label itself
+      // Column B might be the value OR the unit (like "Milj")
+      const colB = row[1];
+      const colBStr = String(colB).trim().toLowerCase();
+      const isColBUnit = colBStr.includes('milj') || colBStr === 'm' || colBStr.includes('million') || colBStr.includes('tus') || colBStr === 'k' || colBStr === 'st';
+      
+      let sharesValue: number | undefined;
+      let unitMultiplier = 1;
+      
+      if (isColBUnit) {
+        // Column B is the unit, look for value in column C or later
+        if (colBStr.includes('milj') || colBStr === 'm' || colBStr.includes('million')) unitMultiplier = 1_000_000;
+        else if (colBStr.includes('tus') || colBStr === 'k') unitMultiplier = 1_000;
+        // Try column C onwards for actual value
+        for (let ci = 2; ci < row.length; ci++) {
+          if (row[ci] != null) {
+            const v = typeof row[ci] === 'number' ? row[ci] : parseFloat(String(row[ci]).replace(/\s/g, '').replace(',', '.'));
+            if (!isNaN(v)) { sharesValue = v; break; }
+          }
+        }
+      } else {
+        // Column B is the value itself
+        sharesValue = typeof colB === 'number' ? colB : parseFloat(String(colB).replace(/\s/g, '').replace(',', '.'));
+        // Check column C for unit
         const unitHint = row[2] ? String(row[2]).trim().toLowerCase() : '';
-        const labelLower = label;
-        const isMillions = unitHint.includes('milj') || unitHint === 'm' || unitHint.includes('million') || unitHint.includes('msek') || labelLower.includes('milj');
-        const isThousands = unitHint.includes('tus') || unitHint === 'k' || unitHint.includes('thousand');
-        let multiplier = 1;
-        if (isMillions) multiplier = 1_000_000;
-        else if (isThousands) multiplier = 1_000;
-        // If value looks too small (< 1000), likely in millions
-        else if (s < 1000) multiplier = 1_000_000;
-        info.sharesOutstanding = Math.round(s * multiplier);
+        if (unitHint.includes('milj') || unitHint === 'm' || unitHint.includes('million')) unitMultiplier = 1_000_000;
+        else if (unitHint.includes('tus') || unitHint === 'k') unitMultiplier = 1_000;
+        else if (sharesValue !== undefined && !isNaN(sharesValue) && sharesValue < 1000) unitMultiplier = 1_000_000;
+      }
+      
+      if (sharesValue !== undefined && !isNaN(sharesValue)) {
+        info.sharesOutstanding = Math.round(sharesValue * unitMultiplier);
       }
     }
   }
