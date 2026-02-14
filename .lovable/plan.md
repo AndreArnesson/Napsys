@@ -1,60 +1,60 @@
 
 
-# Plan: 3 Improvements
+# Fix: Missing 2025 Data and Wrong EV/EBIT Calculations
 
-## 1. Excel-style Watchlist (Bevakningslistan)
+## Problem 1: EV/EBIT and EV/EBITDA show absurd values (6,738,116x)
 
-Replace the current dialog-based watchlist with an inline-editable spreadsheet table. Users can:
-- Click any cell to edit it directly (inline inputs)
-- Press "+" button at the bottom to add a new empty row
-- Press "+" button on the right header to add a new custom column (stored as a JSONB `custom_columns` field)
-- Delete rows with a trash icon per row
+The root cause is a **unit mismatch**. In `AnalysisEditor.tsx`, the EV (Enterprise Value) is calculated as:
+- `marketCap = price * sharesOutstanding = 13.56 * 29,119,000 = ~395,000,000 SEK` (raw SEK)
+- `netDebt = long_term_debt - cash = 14.6 - 50.6 = -36 MSEK` (in millions from DB)
 
-**Database change**: Add `custom_columns JSONB DEFAULT '{}'` to the `watchlist` table. This stores user-defined column names and values as key-value pairs per row.
+Then `EV / EBIT = 395,000,000 / 58.6 = 6,738,116x` -- completely wrong because EBIT (58.6) is in MSEK but marketCap is in raw SEK.
 
-**Component rewrite** (`WatchlistSection.tsx`):
-- Remove the dialog-based form entirely
-- Render cells as `<Input>` fields that auto-save on blur (debounced)
-- Column headers for custom columns are also editable
-- A "+" column header button opens a small popover to name a new column
-- The "+" row button at the bottom inserts a new watchlist row via Supabase and refetches
+**Fix**: Convert marketCap to MSEK before computing EV ratios. Divide `marketCap` by `1,000,000` so all values are in the same unit (MSEK).
 
-## 2. Quarterly Estimates in SpreadsheetAnalysis
+**File**: `src/pages/AnalysisEditor.tsx` (lines 405-418)
 
-The current `SpreadsheetAnalysis` component only supports yearly columns (Year 0-3). It needs a mode toggle for quarterly estimates.
+The same unit issue also exists in `HistoricalDataTable.tsx` `computeEV` function (line 168-173), where `currentPrice * sharesOutstanding` gives raw SEK but debt/cash are in MSEK.
 
-**Changes to `SpreadsheetAnalysis.tsx`**:
-- Add a `mode` toggle: "Yearly" vs "Quarterly"
-- When quarterly is selected, columns become `2026 Q1`, `2026 Q2`, `2026 Q3`, `2026 Q4`, `2027 Q1`, etc.
-- Update the `YearlyProjection` interface to include an optional `quarter` field
-- The `updateProjection` function keys on `year + quarter` instead of just `year`
-- Revenue, EBIT, net margin, EPS, P/E, target P/E, estimated price, and MOS all work per-quarter
-- Add props for quarterly mode control from `AnalysisEditor`
+**Files**: `src/components/analysis/HistoricalDataTable.tsx` (lines 167-173)
 
-**Changes to `AnalysisEditor.tsx`**:
-- Pass the `showQuarterly` state to `SpreadsheetAnalysis` so estimates match the data view mode
+## Problem 2: Missing 2025 historical data
 
-## 3. Auto-populate "Antal aktier" from Uploaded Financials
+The Boersdata Excel says "Senaste rapport: Q4 2025", meaning there should be 2025 data. The Year sheet header columns likely include 2025 (formatted as `2025/12` which becomes an Excel date serial number). The parser's `extractYear` function handles date serials, but there may be an edge case where 2025/12 is stored differently.
 
-The parsing already extracts `sharesOutstanding` from the Info sheet and per-year data. The issue is that when importing from the Analysis page, the `companyInfo.sharesOutstanding` is used to update the company table BUT not the analysis-level `sharesOutstanding` state reliably.
+**Investigation needed**: Add console logging for the exact header values found. Additionally, the Boersdata "R12" (Rolling 12 months) sheet may contain the latest 2025 full-year data that the Year sheet doesn't yet have. The parser currently only reads the "Year" sheet -- it should also try the "R12" sheet for the most recent fiscal year if it contains newer data than the Year sheet.
 
-**Fix in `AnalysisEditor.tsx`**:
-- In `handleAnalysisImport`, after setting `setSharesOutstanding(String(companyInfo.sharesOutstanding))`, also check the latest year's `shares_outstanding` from the parsed data rows themselves (not just Info sheet)
-- If `companyInfo.sharesOutstanding` is missing but individual year rows have `shares_outstanding`, use the latest year's value
+**Fix**: In `parseBoersdataExcel`, also parse the R12 sheet and merge in any fiscal years not already present in the yearly data.
 
-**Fix in `CompanyDetail.tsx`**:
-- Same logic: after import, also check if the company's `shares_outstanding` was updated and invalidate queries
+**File**: `src/components/company/FileImportDialog.tsx`
 
----
+## Technical Changes
 
-## Technical Details
+### 1. Fix EV unit mismatch in `AnalysisEditor.tsx`
+Change the EV calculation block (lines 405-418) to convert marketCap to MSEK:
 
-### Database Migration
-- Add `custom_columns JSONB DEFAULT '{}'::jsonb` to `watchlist` table
+```typescript
+const marketCap = priceNum * sharesNum;
+const marketCapMSEK = marketCap / 1_000_000;
+// netDebt, ebit, ebitda are already in MSEK from DB
+const ev = netDebt !== null ? marketCapMSEK + netDebt : null;
+```
 
-### Files Modified
-- `src/components/watchlist/WatchlistSection.tsx` -- full rewrite to inline-editable spreadsheet
-- `src/components/analysis/SpreadsheetAnalysis.tsx` -- add quarterly mode with year+quarter columns
-- `src/pages/AnalysisEditor.tsx` -- pass quarterly mode to SpreadsheetAnalysis, fix shares auto-populate
-- `src/pages/CompanyDetail.tsx` -- fix shares auto-populate from import
+Also update display to show `ev / 1e3` for Mdr instead of `ev / 1e9`.
 
+### 2. Fix EV unit mismatch in `HistoricalDataTable.tsx`
+Same fix in `computeEV`:
+
+```typescript
+const marketCap = currentPrice * sharesOutstanding;
+const marketCapMSEK = marketCap / 1_000_000;
+return marketCapMSEK + debt - cash;
+```
+
+Update the EV display formatting accordingly.
+
+### 3. Parse R12 sheet for latest data in `FileImportDialog.tsx`
+In `parseBoersdataExcel`, after parsing the Year sheet, also look for an "R12" sheet. If it contains a fiscal year not present in the yearly data (e.g., 2025), merge that data in.
+
+### 4. Fix Borsvarde/EV display in sidebar
+The sidebar shows `(priceNum * sharesNum) / 1e9` for Borsvarde in "Mdr" -- this is correct since price*shares is in raw SEK. But EV must use the corrected MSEK calculation and display as `(evMSEK / 1000).toFixed(2) Mdr`.
