@@ -303,6 +303,56 @@ export type Database = {
           },
         ]
       }
+      watchlist: {
+        Row: {
+          ai_impact: string | null
+          buy_more: boolean
+          company_id: string | null
+          company_name: string | null
+          conviction: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          ticker: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_impact?: string | null
+          buy_more?: boolean
+          company_id?: string | null
+          company_name?: string | null
+          conviction?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          ticker: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_impact?: string | null
+          buy_more?: boolean
+          company_id?: string | null
+          company_name?: string | null
+          conviction?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          ticker?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watchlist_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
