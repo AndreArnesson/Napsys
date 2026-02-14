@@ -18,10 +18,12 @@ export type Database = {
         Row: {
           company_id: string
           created_at: string
+          current_price: number | null
           id: string
           is_draft: boolean | null
           margin_of_safety: number | null
           rating: string | null
+          shares_outstanding: number | null
           summary_comment: string | null
           updated_at: string
           user_id: string
@@ -29,10 +31,12 @@ export type Database = {
         Insert: {
           company_id: string
           created_at?: string
+          current_price?: number | null
           id?: string
           is_draft?: boolean | null
           margin_of_safety?: number | null
           rating?: string | null
+          shares_outstanding?: number | null
           summary_comment?: string | null
           updated_at?: string
           user_id: string
@@ -40,10 +44,12 @@ export type Database = {
         Update: {
           company_id?: string
           created_at?: string
+          current_price?: number | null
           id?: string
           is_draft?: boolean | null
           margin_of_safety?: number | null
           rating?: string | null
+          shares_outstanding?: number | null
           summary_comment?: string | null
           updated_at?: string
           user_id?: string
@@ -70,6 +76,7 @@ export type Database = {
           id: string
           long_term_debt: number | null
           shareholders_equity: number | null
+          short_term_debt: number | null
           total_assets: number | null
           total_liabilities: number | null
         }
@@ -84,6 +91,7 @@ export type Database = {
           id?: string
           long_term_debt?: number | null
           shareholders_equity?: number | null
+          short_term_debt?: number | null
           total_assets?: number | null
           total_liabilities?: number | null
         }
@@ -98,6 +106,7 @@ export type Database = {
           id?: string
           long_term_debt?: number | null
           shareholders_equity?: number | null
+          short_term_debt?: number | null
           total_assets?: number | null
           total_liabilities?: number | null
         }

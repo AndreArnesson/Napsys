@@ -83,7 +83,7 @@ export default function AnalysisEditor() {
         gross_margin: row.gross_margin ? row.gross_margin * 100 : undefined,
         operating_margin: row.operating_margin ? row.operating_margin * 100 : undefined,
         net_margin: row.net_margin ? row.net_margin * 100 : undefined,
-        total_debt: bs ? ((bs.long_term_debt ?? 0) + (bs.short_term_debt ?? 0)) || undefined : undefined,
+        total_debt: bs ? ((bs.long_term_debt ?? 0) + ((bs as any).short_term_debt ?? 0)) || undefined : undefined,
         cash: bs?.cash_equivalents ?? undefined,
         shareholders_equity: bs?.shareholders_equity ?? undefined,
       };
@@ -263,7 +263,7 @@ export default function AnalysisEditor() {
                       const marketCap = priceNum * sharesNum;
                       const ebit = latestIncome?.ebit;
                       const ebitda = latestIncome?.ebitda;
-                      const netDebt = latestBalance ? ((latestBalance.long_term_debt ?? 0) + (latestBalance.short_term_debt ?? 0) - (latestBalance.cash_equivalents ?? 0)) : null;
+                      const netDebt = latestBalance ? ((latestBalance.long_term_debt ?? 0) + ((latestBalance as any).short_term_debt ?? 0) - (latestBalance.cash_equivalents ?? 0)) : null;
                       const ev = netDebt !== null ? marketCap + netDebt : null;
                       return (
                         <>
