@@ -17,61 +17,34 @@ export type Database = {
       analyses: {
         Row: {
           company_id: string
-          confidence_level: number | null
           created_at: string
-          discount_rate: number | null
-          estimation_mode: string | null
-          growth_rate: number | null
           id: string
-          intrinsic_value: number | null
-          is_draft: boolean
-          margin_assumption: number | null
+          is_draft: boolean | null
           margin_of_safety: number | null
           rating: string | null
           summary_comment: string | null
-          target_ev_ebit: number | null
-          target_pe: number | null
-          terminal_growth_rate: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
           company_id: string
-          confidence_level?: number | null
           created_at?: string
-          discount_rate?: number | null
-          estimation_mode?: string | null
-          growth_rate?: number | null
           id?: string
-          intrinsic_value?: number | null
-          is_draft?: boolean
-          margin_assumption?: number | null
+          is_draft?: boolean | null
           margin_of_safety?: number | null
           rating?: string | null
           summary_comment?: string | null
-          target_ev_ebit?: number | null
-          target_pe?: number | null
-          terminal_growth_rate?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
           company_id?: string
-          confidence_level?: number | null
           created_at?: string
-          discount_rate?: number | null
-          estimation_mode?: string | null
-          growth_rate?: number | null
           id?: string
-          intrinsic_value?: number | null
-          is_draft?: boolean
-          margin_assumption?: number | null
+          is_draft?: boolean | null
           margin_of_safety?: number | null
           rating?: string | null
           summary_comment?: string | null
-          target_ev_ebit?: number | null
-          target_pe?: number | null
-          terminal_growth_rate?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -92,15 +65,11 @@ export type Database = {
           created_at: string
           current_assets: number | null
           current_liabilities: number | null
-          current_ratio: number | null
-          debt_to_equity: number | null
           equity_ratio: number | null
           fiscal_year: number
           id: string
           long_term_debt: number | null
-          quick_ratio: number | null
           shareholders_equity: number | null
-          short_term_debt: number | null
           total_assets: number | null
           total_liabilities: number | null
         }
@@ -110,15 +79,11 @@ export type Database = {
           created_at?: string
           current_assets?: number | null
           current_liabilities?: number | null
-          current_ratio?: number | null
-          debt_to_equity?: number | null
           equity_ratio?: number | null
           fiscal_year: number
           id?: string
           long_term_debt?: number | null
-          quick_ratio?: number | null
           shareholders_equity?: number | null
-          short_term_debt?: number | null
           total_assets?: number | null
           total_liabilities?: number | null
         }
@@ -128,15 +93,11 @@ export type Database = {
           created_at?: string
           current_assets?: number | null
           current_liabilities?: number | null
-          current_ratio?: number | null
-          debt_to_equity?: number | null
           equity_ratio?: number | null
           fiscal_year?: number
           id?: string
           long_term_debt?: number | null
-          quick_ratio?: number | null
           shareholders_equity?: number | null
-          short_term_debt?: number | null
           total_assets?: number | null
           total_liabilities?: number | null
         }
@@ -152,50 +113,47 @@ export type Database = {
       }
       companies: {
         Row: {
-          board_members: Json | null
           created_at: string
           current_price: number | null
           description: string | null
           id: string
-          management: string | null
+          management: Json | null
           moats: string | null
           name: string
-          reporting_currency: string
+          reporting_currency: string | null
           shares_outstanding: number | null
           ticker: string | null
-          trading_currency: string
+          trading_currency: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
-          board_members?: Json | null
           created_at?: string
           current_price?: number | null
           description?: string | null
           id?: string
-          management?: string | null
+          management?: Json | null
           moats?: string | null
           name: string
-          reporting_currency?: string
+          reporting_currency?: string | null
           shares_outstanding?: number | null
           ticker?: string | null
-          trading_currency?: string
+          trading_currency?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
-          board_members?: Json | null
           created_at?: string
           current_price?: number | null
           description?: string | null
           id?: string
-          management?: string | null
+          management?: Json | null
           moats?: string | null
           name?: string
-          reporting_currency?: string
+          reporting_currency?: string | null
           shares_outstanding?: number | null
           ticker?: string | null
-          trading_currency?: string
+          trading_currency?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -253,105 +211,52 @@ export type Database = {
       }
       profiles: {
         Row: {
-          avatar_url: string | null
           created_at: string
-          default_currency: string
-          default_language: string
+          default_currency: string | null
+          default_language: string | null
           display_name: string | null
-          email: string | null
           id: string
           updated_at: string
           user_id: string
         }
         Insert: {
-          avatar_url?: string | null
           created_at?: string
-          default_currency?: string
-          default_language?: string
+          default_currency?: string | null
+          default_language?: string | null
           display_name?: string | null
-          email?: string | null
           id?: string
           updated_at?: string
           user_id: string
         }
         Update: {
-          avatar_url?: string | null
           created_at?: string
-          default_currency?: string
-          default_language?: string
+          default_currency?: string | null
+          default_language?: string | null
           display_name?: string | null
-          email?: string | null
           id?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: []
       }
-      quarterly_estimates: {
-        Row: {
-          analysis_id: string
-          created_at: string
-          ebit: number | null
-          id: string
-          quarter: number
-          revenue: number | null
-          year: number
-        }
-        Insert: {
-          analysis_id: string
-          created_at?: string
-          ebit?: number | null
-          id?: string
-          quarter: number
-          revenue?: number | null
-          year: number
-        }
-        Update: {
-          analysis_id?: string
-          created_at?: string
-          ebit?: number | null
-          id?: string
-          quarter?: number
-          revenue?: number | null
-          year?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "quarterly_estimates_analysis_id_fkey"
-            columns: ["analysis_id"]
-            isOneToOne: false
-            referencedRelation: "analyses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       shares: {
         Row: {
           company_id: string
           created_at: string
           id: string
-          owner_id: string
-          permission: string
-          shared_with_email: string
-          shared_with_user_id: string | null
+          shared_with_user_id: string
         }
         Insert: {
           company_id: string
           created_at?: string
           id?: string
-          owner_id: string
-          permission?: string
-          shared_with_email: string
-          shared_with_user_id?: string | null
+          shared_with_user_id: string
         }
         Update: {
           company_id?: string
           created_at?: string
           id?: string
-          owner_id?: string
-          permission?: string
-          shared_with_email?: string
-          shared_with_user_id?: string | null
+          shared_with_user_id?: string
         }
         Relationships: [
           {
@@ -365,49 +270,30 @@ export type Database = {
       }
       timeline_events: {
         Row: {
-          analysis_id: string | null
           comment: string | null
           company_id: string
           created_at: string
-          event_date: string
-          event_type: string
+          event_date: string | null
           id: string
-          insider_data: Json | null
           rating: string | null
-          user_id: string
         }
         Insert: {
-          analysis_id?: string | null
           comment?: string | null
           company_id: string
           created_at?: string
-          event_date?: string
-          event_type: string
+          event_date?: string | null
           id?: string
-          insider_data?: Json | null
           rating?: string | null
-          user_id: string
         }
         Update: {
-          analysis_id?: string | null
           comment?: string | null
           company_id?: string
           created_at?: string
-          event_date?: string
-          event_type?: string
+          event_date?: string | null
           id?: string
-          insider_data?: Json | null
           rating?: string | null
-          user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "timeline_events_analysis_id_fkey"
-            columns: ["analysis_id"]
-            isOneToOne: false
-            referencedRelation: "analyses"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "timeline_events_company_id_fkey"
             columns: ["company_id"]
