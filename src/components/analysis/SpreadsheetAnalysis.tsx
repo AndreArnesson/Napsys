@@ -34,6 +34,7 @@ interface SpreadsheetAnalysisProps {
   currentPrice: number;
   sharesOutstanding: number;
   historicalData?: { year: number; revenue: number; netIncome: number }[];
+  quarterlyHistoricalData?: { year: number; quarter: number; revenue: number; netIncome: number }[];
   projections: YearlyProjection[];
   onProjectionsChange: (projections: YearlyProjection[]) => void;
   rating?: 'buy' | 'hold' | 'sell';
@@ -64,6 +65,7 @@ export function SpreadsheetAnalysis({
   onNotesChange,
   currency = 'SEK',
   showQuarterly = false,
+  quarterlyHistoricalData = [],
 }: SpreadsheetAnalysisProps) {
   const { t, language } = useLanguage();
   const [targetPE, setTargetPE] = useState(15);
@@ -160,7 +162,21 @@ export function SpreadsheetAnalysis({
       
       if (revenue === undefined && growth !== undefined) {
         let prevRev: number | undefined;
-        if (i === 0 && historicalData.length > 0) {
+        if (mode === 'quarterly' && col.quarter) {
+          // In quarterly mode, find same quarter from previous year (YoY)
+          if (i >= 4) {
+            // We have a result 4 quarters back (same quarter, previous year)
+            prevRev = results[i - 4].calculatedRevenue;
+          } else {
+            // Look in quarterly historical data for same quarter previous year
+            const sameQPrevYear = quarterlyHistoricalData.find(
+              h => h.quarter === col.quarter && h.year === col.year - 1
+            );
+            if (sameQPrevYear) {
+              prevRev = sameQPrevYear.revenue;
+            }
+          }
+        } else if (i === 0 && historicalData.length > 0) {
           prevRev = historicalData[historicalData.length - 1].revenue;
         } else if (i > 0) {
           prevRev = results[i - 1].calculatedRevenue;
@@ -186,7 +202,16 @@ export function SpreadsheetAnalysis({
       let actualGrowth = growth;
       if (actualGrowth === undefined && revenue !== undefined) {
         let prevRev: number | undefined;
-        if (i === 0 && historicalData.length > 0) {
+        if (mode === 'quarterly' && col.quarter) {
+          if (i >= 4) {
+            prevRev = results[i - 4].calculatedRevenue;
+          } else {
+            const sameQPrevYear = quarterlyHistoricalData.find(
+              h => h.quarter === col.quarter && h.year === col.year - 1
+            );
+            if (sameQPrevYear) prevRev = sameQPrevYear.revenue;
+          }
+        } else if (i === 0 && historicalData.length > 0) {
           prevRev = historicalData[historicalData.length - 1].revenue;
         } else if (i > 0) {
           prevRev = results[i - 1].calculatedRevenue;

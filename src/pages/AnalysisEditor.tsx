@@ -452,6 +452,12 @@ export default function AnalysisEditor() {
                 revenue: h.revenue || 0,
                 netIncome: h.net_income || 0,
               }))}
+              quarterlyHistoricalData={quarterlyHistoricalData.map(h => ({
+                year: h.fiscal_year,
+                quarter: h.quarter || 1,
+                revenue: h.revenue || 0,
+                netIncome: h.net_income || 0,
+              }))}
               projections={projections}
               onProjectionsChange={setProjections}
               rating={rating}
