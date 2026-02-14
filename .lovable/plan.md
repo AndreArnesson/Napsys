@@ -1,148 +1,60 @@
 
 
-# Plan: 10 Improvements to Analysis and Company Pages
+# Plan: 3 Improvements
 
-This is a large set of changes spanning database schema, file parsing, UI components, and business logic. Here's the breakdown:
+## 1. Excel-style Watchlist (Bevakningslistan)
 
----
+Replace the current dialog-based watchlist with an inline-editable spreadsheet table. Users can:
+- Click any cell to edit it directly (inline inputs)
+- Press "+" button at the bottom to add a new empty row
+- Press "+" button on the right header to add a new custom column (stored as a JSONB `custom_columns` field)
+- Delete rows with a trash icon per row
 
-## 1. Toggle Total vs Per Share in Analysis Page
+**Database change**: Add `custom_columns JSONB DEFAULT '{}'` to the `watchlist` table. This stores user-defined column names and values as key-value pairs per row.
 
-**Current state**: The `HistoricalDataTable` already has a total/per-share toggle button, but the `SpreadsheetAnalysis` component (the estimates grid) does not.
+**Component rewrite** (`WatchlistSection.tsx`):
+- Remove the dialog-based form entirely
+- Render cells as `<Input>` fields that auto-save on blur (debounced)
+- Column headers for custom columns are also editable
+- A "+" column header button opens a small popover to name a new column
+- The "+" row button at the bottom inserts a new watchlist row via Supabase and refetches
 
-**Changes**:
-- Add a `perShare` toggle state to `SpreadsheetAnalysis`
-- When active, divide revenue and other absolute values by `sharesOutstanding`
-- Display both modes in the spreadsheet grid
+## 2. Quarterly Estimates in SpreadsheetAnalysis
 
----
+The current `SpreadsheetAnalysis` component only supports yearly columns (Year 0-3). It needs a mode toggle for quarterly estimates.
 
-## 2. Show Dividend Data
+**Changes to `SpreadsheetAnalysis.tsx`**:
+- Add a `mode` toggle: "Yearly" vs "Quarterly"
+- When quarterly is selected, columns become `2026 Q1`, `2026 Q2`, `2026 Q3`, `2026 Q4`, `2027 Q1`, etc.
+- Update the `YearlyProjection` interface to include an optional `quarter` field
+- The `updateProjection` function keys on `year + quarter` instead of just `year`
+- Revenue, EBIT, net margin, EPS, P/E, target P/E, estimated price, and MOS all work per-quarter
+- Add props for quarterly mode control from `AnalysisEditor`
 
-**Current state**: `ParsedFinancialData` already parses `dividend` from Excel, but it's never stored in the database or displayed.
+**Changes to `AnalysisEditor.tsx`**:
+- Pass the `showQuarterly` state to `SpreadsheetAnalysis` so estimates match the data view mode
 
-**Changes**:
-- **Database migration**: Add `dividend NUMERIC` and `earnings_per_share NUMERIC` columns to `income_statement`
-- **FileImportDialog**: Include `dividend` and `earnings_per_share` in the income rows sent to DB
-- **HistoricalDataTable**: Add a "Utdelning" column option
-- **CompanyDetail financials tab**: Show dividend in the table
+## 3. Auto-populate "Antal aktier" from Uploaded Financials
 
----
+The parsing already extracts `sharesOutstanding` from the Info sheet and per-year data. The issue is that when importing from the Analysis page, the `companyInfo.sharesOutstanding` is used to update the company table BUT not the analysis-level `sharesOutstanding` state reliably.
 
-## 3. Quarterly Data Support + Quarterly Estimates
+**Fix in `AnalysisEditor.tsx`**:
+- In `handleAnalysisImport`, after setting `setSharesOutstanding(String(companyInfo.sharesOutstanding))`, also check the latest year's `shares_outstanding` from the parsed data rows themselves (not just Info sheet)
+- If `companyInfo.sharesOutstanding` is missing but individual year rows have `shares_outstanding`, use the latest year's value
 
-**Current state**: Only yearly data is supported. No quarterly tables exist.
-
-**Changes**:
-- **Database migration**: Create `quarterly_income_statement` and `quarterly_balance_sheet` tables with `fiscal_year`, `quarter` columns, plus same financial fields. Add RLS policies mirroring the yearly tables.
-- **FileImportDialog**: Detect and parse Borsdata "Quarter"/"Kvartal" sheet, store to quarterly tables
-- **CompanyDetail**: Add yearly/quarterly toggle on financials tab
-- **AnalysisEditor**: Fetch quarterly data and allow estimates on quarter basis in the SpreadsheetAnalysis component
-- **HistoricalDataTable**: Accept a `period` mode prop to show quarterly data
-
----
-
-## 4. Name Your Analysis
-
-**Current state**: Analyses have no name/title field. The analysis list shows only rating + MOS + timestamp.
-
-**Changes**:
-- **Database migration**: Add `name TEXT` column to `analyses`
-- **AnalysisEditor**: Add a name input field in the header
-- **CompanyDetail analysis list**: Display the analysis name prominently in each card
+**Fix in `CompanyDetail.tsx`**:
+- Same logic: after import, also check if the company's `shares_outstanding` was updated and invalidate queries
 
 ---
 
-## 5. Upload Images in Analysis and Overview
+## Technical Details
 
-**Current state**: No image upload capability exists.
+### Database Migration
+- Add `custom_columns JSONB DEFAULT '{}'::jsonb` to `watchlist` table
 
-**Changes**:
-- **Storage**: Create a storage bucket `analysis-images` via migration
-- **AnalysisEditor**: Add an image upload area (drag-and-drop) that uploads to storage and saves the URL
-- **Database migration**: Add `images JSONB` column to `analyses` table (stores array of image URLs)
-- **CompanyDetail overview**: Add image upload section for company-level images; add `images JSONB` to `companies` table
-- **Display**: Show uploaded images as a gallery/grid in both views
-
----
-
-## 6. Fix EV/EBIT/EBITDA in "Vardering" Column Selection
-
-**Current state**: The `HistoricalDataTable` defines `ev`, `ev_ebit`, `ev_ebitda` columns in `ALL_COLUMNS` and they can be toggled on, but the table rendering never handles these column keys. The `computeEV` function returns `undefined` because it lacks market cap data.
-
-**Changes**:
-- The EV columns require a current market cap. Pass `currentPrice` as a prop to `HistoricalDataTable`
-- Compute EV per year as: `(currentPrice * sharesOutstanding) + totalDebt - cash` (using current market cap as approximation)
-- Add rendering for `isVisible('ev')`, `isVisible('ev_ebit')`, `isVisible('ev_ebitda')` in both `TableHeader` and `TableBody`
-
----
-
-## 7. Financial Import Scoped to Analysis (Not Global)
-
-**Current state**: Uploading financials overwrites ALL income/balance data for the company, affecting every analysis.
-
-**Changes**:
-- **Database migration**: Add `analysis_id UUID REFERENCES analyses(id)` column to `income_statement` and `balance_sheet` (nullable -- null means "company-level/shared data")
-- **AnalysisEditor**: Add an import button that stores data with the specific `analysis_id`
-- **AnalysisEditor queries**: When fetching data, prefer analysis-specific data if it exists, fall back to company-level
-- **CompanyDetail**: Keep existing import as company-level (analysis_id = null), which serves as the default baseline
-- Update RLS policies for the new column
-
----
-
-## 8. Read Number of Shares from Uploaded Financial
-
-**Current state**: `parseBoersdataInfoSheet` already looks for "number of shares" / "antal aktier" in the Info sheet and stores it to `companyInfo.sharesOutstanding`. This is then saved to the `companies` table.
-
-**Changes**:
-- Also check the Year/data sheet for "antal aktier" / "number of shares" row and parse it per year
-- Add `shares_outstanding BIGINT` to `income_statement` (or a dedicated field) so per-year share counts are preserved
-- Display in the historical data table
-
----
-
-## 9. Fix 2025 Data Not Showing
-
-**Current state**: The `extractYear` function accepts years 2000-2035, so 2025 should work. The issue is likely in the Excel parsing -- the year header detection or the sheet range correction.
-
-**Changes**:
-- Debug by checking the console logs from the import. The likely cause is that 2025 data appears as a date serial (e.g., "2025/12" formatted as an Excel date like 45657) that isn't being correctly extracted.
-- Update `extractYear` to handle more date serial formats and partial-year strings like "2025/12"
-- Add more robust logging and fix edge cases in `parseBoersdataExcel` where the header row scan might miss 2025 columns
-- Verify with the user's actual file format
-
----
-
-## 10. Add "Karaktar" (Nature) to Insider Trading Table
-
-**Current state**: The FI CSV parser reads column index 11 for type (Forvary/Avyttring) but doesn't extract "Karaktar" (Nature of transaction). The `InsiderTrade` interface and `InsiderTable` don't have this field.
-
-**Changes**:
-- **ParsedInsiderTrade**: Add `nature?: string` field
-- **parseInsiderCSV**: Extract the "Karaktar" column from the FI CSV (typically around column index 12 or nearby)
-- **InsiderTrade interface**: Add `nature?: string`
-- **InsiderTable**: Add a "Karaktar" column showing the nature of the transaction
-
----
-
-## Technical Summary
-
-### Database Migrations Needed:
-1. Add `dividend`, `earnings_per_share` to `income_statement`
-2. Add `name`, `images` to `analyses`
-3. Add `images` to `companies`
-4. Create `quarterly_income_statement` and `quarterly_balance_sheet` tables with RLS
-5. Create storage bucket `analysis-images`
-6. Add `analysis_id` to `income_statement` and `balance_sheet` for per-analysis scoping
-
-### Files to Modify:
-- `src/components/company/FileImportDialog.tsx` -- parse dividend, quarterly data, shares per year, fix 2025
-- `src/components/company/InsiderTable.tsx` -- add "Karaktar" column
-- `src/components/analysis/HistoricalDataTable.tsx` -- render EV columns, add dividend, quarterly mode
-- `src/components/analysis/SpreadsheetAnalysis.tsx` -- per-share toggle, quarterly estimates
-- `src/pages/AnalysisEditor.tsx` -- analysis name, image upload, per-analysis import, pass currentPrice to HistoricalDataTable
-- `src/pages/CompanyDetail.tsx` -- analysis name display, image upload on overview, quarterly toggle on financials
-
-### New Files:
-- Image upload component (shared between analysis and overview)
+### Files Modified
+- `src/components/watchlist/WatchlistSection.tsx` -- full rewrite to inline-editable spreadsheet
+- `src/components/analysis/SpreadsheetAnalysis.tsx` -- add quarterly mode with year+quarter columns
+- `src/pages/AnalysisEditor.tsx` -- pass quarterly mode to SpreadsheetAnalysis, fix shares auto-populate
+- `src/pages/CompanyDetail.tsx` -- fix shares auto-populate from import
 
