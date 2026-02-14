@@ -9,6 +9,7 @@ import { MOSBadge } from '@/components/company/MOSBadge';
 import { RatingBadge } from '@/components/company/RatingBadge';
 import { HistoricalDataTable, HistoricalYear } from '@/components/analysis/HistoricalDataTable';
 import { SpreadsheetAnalysis, YearlyProjection } from '@/components/analysis/SpreadsheetAnalysis';
+import { DebtSection } from '@/components/analysis/DebtSection';
 import { ImageUpload } from '@/components/company/ImageUpload';
 import { FileImportDialog, ParsedFinancialData, ParsedCompanyInfo } from '@/components/company/FileImportDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -446,6 +447,15 @@ export default function AnalysisEditor() {
               onNotesChange={setNotes}
               currency={company?.reporting_currency}
             />
+            <DebtSection data={(balanceData || []).map((b: any) => ({
+              fiscal_year: b.fiscal_year,
+              long_term_debt: b.long_term_debt,
+              short_term_debt: b.short_term_debt,
+              cash_equivalents: b.cash_equivalents,
+              total_liabilities: b.total_liabilities,
+              shareholders_equity: b.shareholders_equity,
+              equity_ratio: b.equity_ratio,
+            }))} />
             <ImageUpload
               images={analysisImages}
               onImagesChange={setAnalysisImages}

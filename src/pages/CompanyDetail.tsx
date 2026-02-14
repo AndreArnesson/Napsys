@@ -8,6 +8,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { MOSBadge } from '@/components/company/MOSBadge';
 import { RatingBadge } from '@/components/company/RatingBadge';
 import { CEOSection } from '@/components/company/CEOSection';
+import { PilotskolanSection } from '@/components/company/PilotskolanSection';
 import { KeyDataEditor } from '@/components/company/KeyDataEditor';
 import { InsiderTable, InsiderTrade } from '@/components/company/InsiderTable';
 import { InsiderOwnership, OwnershipEntry } from '@/components/company/InsiderOwnership';
@@ -313,6 +314,10 @@ export default function CompanyDetail() {
               </Collapsible>
             </div>
             <CEOSection ceo={ceoData} onUpdate={handleCEOUpdate} />
+            <PilotskolanSection
+              value={(company as any)?.pilotskolan || ''}
+              onUpdate={(val) => updateCompany.mutate({ pilotskolan: val } as any)}
+            />
             <InsiderOwnership data={ownershipData} onUpdate={handleOwnershipUpdate} />
             <ImageUpload
               images={companyImages}
