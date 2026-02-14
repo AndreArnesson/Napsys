@@ -467,6 +467,12 @@ export function parseBoersdataExcel(workbook: XLSX.WorkBook): { yearly: ParsedFi
   if (yearSheetName) {
     console.log('[Import] Using yearly sheet:', yearSheetName);
     yearly = parseSheetData(workbook.Sheets[yearSheetName], workbook);
+    // Year sheet should never have quarters — strip quarter info from headers like "Q4 2025"
+    yearly = yearly.map(d => ({ ...d, quarter: undefined }));
+    // Deduplicate by fiscal_year (keep latest)
+    const yearMap = new Map<number, ParsedFinancialData>();
+    for (const d of yearly) yearMap.set(d.fiscal_year, d);
+    yearly = Array.from(yearMap.values()).sort((a, b) => a.fiscal_year - b.fiscal_year);
     console.log('[Import] Parsed', yearly.length, 'years of data');
     if (yearly.length > 0) console.log('[Import] Sample (first year):', JSON.stringify(yearly[0]));
   }
@@ -476,11 +482,16 @@ export function parseBoersdataExcel(workbook: XLSX.WorkBook): { yearly: ParsedFi
   if (r12SheetName) {
     console.log('[Import] Found R12 sheet:', r12SheetName);
     const r12Data = parseSheetData(workbook.Sheets[r12SheetName], workbook);
-    console.log('[Import] R12 parsed', r12Data.length, 'periods');
-    const existingYears = new Set(yearly.filter(d => !d.quarter).map(d => d.fiscal_year));
-    for (const r12Row of r12Data) {
-      if (!r12Row.quarter && !existingYears.has(r12Row.fiscal_year)) {
-        console.log('[Import] Adding R12 data for missing year:', r12Row.fiscal_year);
+    // R12 data is rolling 12-month (full-year equivalent), strip quarters
+    const r12Yearly = r12Data.map(d => ({ ...d, quarter: undefined }));
+    // Deduplicate R12 by year, keep last entry per year
+    const r12Map = new Map<number, ParsedFinancialData>();
+    for (const d of r12Yearly) r12Map.set(d.fiscal_year, d);
+    console.log('[Import] R12 parsed', r12Map.size, 'unique years');
+    const existingYears = new Set(yearly.map(d => d.fiscal_year));
+    for (const [year, r12Row] of r12Map) {
+      if (!existingYears.has(year)) {
+        console.log('[Import] Adding R12 data for missing year:', year);
         yearly.push(r12Row);
       }
     }
