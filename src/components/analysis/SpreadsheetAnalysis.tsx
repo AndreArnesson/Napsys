@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Calculator, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { cn } from '@/lib/utils';
@@ -50,6 +52,7 @@ export function SpreadsheetAnalysis({
   analysisDate,
   currentPrice,
   sharesOutstanding,
+  historicalData = [],
   projections,
   onProjectionsChange,
   rating,
@@ -62,6 +65,7 @@ export function SpreadsheetAnalysis({
   const { t, language } = useLanguage();
   const [targetPE, setTargetPE] = useState(15);
   const [mode, setMode] = useState<'yearly' | 'quarterly'>(showQuarterly ? 'quarterly' : 'yearly');
+  const [perShare, setPerShare] = useState(false);
 
   const currentYear = new Date().getFullYear();
 
@@ -120,22 +124,91 @@ export function SpreadsheetAnalysis({
     return projections.find(p => p.year === col.year && (p.quarter || undefined) === col.quarter) || { year: col.year, quarter: col.quarter };
   };
 
+  // Get previous period's revenue for growth calculations
+  const getPrevRevenue = (colIndex: number): number | undefined => {
+    if (colIndex === 0) {
+      // Use last historical data point
+      if (historicalData.length > 0) {
+        return historicalData[historicalData.length - 1].revenue;
+      }
+      return undefined;
+    }
+    // Use previous column's calculated revenue
+    const prevCol = columns[colIndex - 1];
+    const prevProj = findProj(prevCol);
+    return prevProj.revenue;
+  };
+
   const calculatedProjections = useMemo(() => {
-    return columns.map((col, i) => {
+    // We need to calculate sequentially because each depends on the previous
+    const results: (YearlyProjection & ColumnDef & { calculatedRevenue?: number; calculatedEbit?: number })[] = [];
+    
+    for (let i = 0; i < columns.length; i++) {
+      const col = columns[i];
       const proj = findProj(col);
       const isFirst = i === 0 && mode === 'yearly';
       const price = isFirst ? currentPrice : proj.price || currentPrice;
-      const revenueGrowth = proj.revenueGrowth || 0;
-      const revenuePerShare = proj.revenuePerShare || 0;
-      const netMargin = proj.netMargin || 8;
+      
+      // Revenue: if user set explicit revenue, use it. If only growth% is set, calculate from previous
+      let revenue = proj.revenue;
+      const growth = proj.revenueGrowth;
+      
+      if (revenue === undefined && growth !== undefined) {
+        let prevRev: number | undefined;
+        if (i === 0 && historicalData.length > 0) {
+          prevRev = historicalData[historicalData.length - 1].revenue;
+        } else if (i > 0) {
+          prevRev = results[i - 1].calculatedRevenue;
+        }
+        if (prevRev !== undefined && prevRev > 0) {
+          revenue = prevRev * (1 + growth / 100);
+        }
+      }
+
+      // EBIT: if user set explicit, use it. If net margin is set, calculate from revenue
+      let ebit = proj.ebit;
+      const netMargin = proj.netMargin || 0;
+      
+      // Calculate derived values
+      const effectiveRevenue = revenue || 0;
+      const revenuePerShare = sharesOutstanding > 0 ? effectiveRevenue / sharesOutstanding : 0;
       const earningsPerShare = revenuePerShare * (netMargin / 100);
       const peToUse = proj.targetPE || targetPE;
       const estimatedPrice = earningsPerShare * peToUse;
       const mos = price > 0 ? ((estimatedPrice - price) / price) * 100 : 0;
 
-      return { ...proj, ...col, price, revenueGrowth, revenuePerShare, netMargin, earningsPerShare, targetPE: peToUse, estimatedPrice, mos };
-    });
-  }, [projections, currentPrice, targetPE, columns, mode]);
+      // Calculate actual growth from previous period
+      let actualGrowth = growth;
+      if (actualGrowth === undefined && revenue !== undefined) {
+        let prevRev: number | undefined;
+        if (i === 0 && historicalData.length > 0) {
+          prevRev = historicalData[historicalData.length - 1].revenue;
+        } else if (i > 0) {
+          prevRev = results[i - 1].calculatedRevenue;
+        }
+        if (prevRev && prevRev > 0) {
+          actualGrowth = ((revenue - prevRev) / prevRev) * 100;
+        }
+      }
+
+      results.push({
+        ...proj,
+        ...col,
+        price,
+        revenue,
+        calculatedRevenue: revenue,
+        calculatedEbit: ebit,
+        revenueGrowth: actualGrowth ?? growth ?? 0,
+        revenuePerShare,
+        netMargin,
+        earningsPerShare,
+        targetPE: peToUse,
+        estimatedPrice,
+        mos,
+      });
+    }
+    return results;
+  }, [projections, currentPrice, targetPE, columns, mode, historicalData, sharesOutstanding]);
 
   const updateProjection = (col: ColumnDef, field: keyof YearlyProjection, value: number) => {
     const existingIndex = projections.findIndex(p => p.year === col.year && (p.quarter || undefined) === col.quarter);
@@ -148,19 +221,31 @@ export function SpreadsheetAnalysis({
     onProjectionsChange(newProjections);
   };
 
-  const rows: { label: string; key: string; editable: boolean; bg?: boolean }[] = [
-    { label: 'Kurs', key: 'price', editable: true, bg: true },
-    { label: 'Omsättningstillv (%)', key: 'revenueGrowth', editable: true },
-    { label: 'Omsättning (MSEK)', key: 'revenue', editable: true },
-    { label: 'EBIT (MSEK)', key: 'ebit', editable: true },
-    { label: 'Omsättning/aktie', key: 'revenuePerShare', editable: true },
-    { label: 'Vinstmarginal (%)', key: 'netMargin', editable: true },
-    { label: 'Vinst/aktie', key: 'earningsPerShare', editable: false, bg: true },
-    { label: 'P/E', key: 'pe', editable: false },
-    { label: 'Rimlig P/E', key: 'targetPE', editable: true, bg: true },
-    { label: 'Estimerad kurs', key: 'estimatedPrice', editable: false },
-    { label: 'MOS', key: 'mos', editable: false },
-  ];
+  // Build rows dynamically based on perShare toggle
+  const rows: { label: string; key: string; editable: boolean; bg?: boolean }[] = perShare
+    ? [
+        { label: 'Kurs', key: 'price', editable: true, bg: true },
+        { label: 'Omsättningstillv (%)', key: 'revenueGrowth', editable: true },
+        { label: 'Omsättning/aktie', key: 'revenuePerShare', editable: true },
+        { label: 'Vinstmarginal (%)', key: 'netMargin', editable: true },
+        { label: 'Vinst/aktie', key: 'earningsPerShare', editable: false, bg: true },
+        { label: 'P/E', key: 'pe', editable: false },
+        { label: 'Rimlig P/E', key: 'targetPE', editable: true, bg: true },
+        { label: 'Estimerad kurs', key: 'estimatedPrice', editable: false },
+        { label: 'MOS', key: 'mos', editable: false },
+      ]
+    : [
+        { label: 'Kurs', key: 'price', editable: true, bg: true },
+        { label: 'Omsättningstillv (%)', key: 'revenueGrowth', editable: true },
+        { label: 'Omsättning (MSEK)', key: 'revenue', editable: true },
+        { label: 'EBIT (MSEK)', key: 'ebit', editable: true },
+        { label: 'Vinstmarginal (%)', key: 'netMargin', editable: true },
+        { label: 'Vinst/aktie', key: 'earningsPerShare', editable: false, bg: true },
+        { label: 'P/E', key: 'pe', editable: false },
+        { label: 'Rimlig P/E', key: 'targetPE', editable: true, bg: true },
+        { label: 'Estimerad kurs', key: 'estimatedPrice', editable: false },
+        { label: 'MOS', key: 'mos', editable: false },
+      ];
 
   return (
     <div className="space-y-6">
@@ -183,6 +268,10 @@ export function SpreadsheetAnalysis({
                   <TabsTrigger value="quarterly" className="text-xs px-3 h-7">Kvartal</TabsTrigger>
                 </TabsList>
               </Tabs>
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground">Per aktie</Label>
+                <Switch checked={perShare} onCheckedChange={setPerShare} />
+              </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Target P/E:</span>
                 <Input
@@ -223,7 +312,7 @@ export function SpreadsheetAnalysis({
                       const isFirstYearly = i === 0 && mode === 'yearly';
 
                       if (row.key === 'pe') {
-                        const pe = proj.earningsPerShare > 0 ? proj.price! / proj.earningsPerShare : undefined;
+                        const pe = proj.earningsPerShare && proj.earningsPerShare > 0 ? proj.price! / proj.earningsPerShare : undefined;
                         return (
                           <td key={`${proj.year}-${proj.quarter || ''}`} className="text-center py-2 px-3 font-mono">
                             {pe !== undefined ? formatNumber(pe, 1) : '—'}
@@ -258,14 +347,18 @@ export function SpreadsheetAnalysis({
                         );
                       }
 
+                      // For revenue row: show hint of growth-calculated value
+                      const currentVal = (proj as any)[row.key];
+
                       return (
                         <td key={`${proj.year}-${proj.quarter || ''}`} className="text-center py-2 px-3">
                           <Input
                             type="number"
-                            step={row.key === 'netMargin' ? '0.5' : '0.1'}
+                            step={row.key === 'netMargin' || row.key === 'revenueGrowth' ? '0.5' : '0.1'}
                             className="w-24 h-8 mx-auto text-center font-mono"
                             placeholder="—"
-                            defaultValue={(proj as any)[row.key] || ''}
+                            defaultValue={currentVal || ''}
+                            key={`${proj.year}-${proj.quarter || ''}-${row.key}-${currentVal}`}
                             onBlur={(e) => {
                               const v = parseFloat(e.target.value);
                               if (!isNaN(v)) updateProjection(col, row.key as keyof YearlyProjection, v);
