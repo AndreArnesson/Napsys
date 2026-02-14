@@ -471,6 +471,22 @@ export function parseBoersdataExcel(workbook: XLSX.WorkBook): { yearly: ParsedFi
     if (yearly.length > 0) console.log('[Import] Sample (first year):', JSON.stringify(yearly[0]));
   }
 
+  // Parse R12 sheet for latest rolling 12-month data (may contain newest fiscal year)
+  const r12SheetName = workbook.SheetNames.find(n => n.toLowerCase() === 'r12');
+  if (r12SheetName) {
+    console.log('[Import] Found R12 sheet:', r12SheetName);
+    const r12Data = parseSheetData(workbook.Sheets[r12SheetName], workbook);
+    console.log('[Import] R12 parsed', r12Data.length, 'periods');
+    const existingYears = new Set(yearly.filter(d => !d.quarter).map(d => d.fiscal_year));
+    for (const r12Row of r12Data) {
+      if (!r12Row.quarter && !existingYears.has(r12Row.fiscal_year)) {
+        console.log('[Import] Adding R12 data for missing year:', r12Row.fiscal_year);
+        yearly.push(r12Row);
+      }
+    }
+    yearly.sort((a, b) => a.fiscal_year - b.fiscal_year);
+  }
+
   // Find quarterly sheet
   let quarterSheetName: string | undefined;
   for (const name of workbook.SheetNames) {

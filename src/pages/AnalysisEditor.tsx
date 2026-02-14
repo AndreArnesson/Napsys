@@ -405,17 +405,17 @@ export default function AnalysisEditor() {
                     {(() => {
                       const latestIncome = incomeData?.[incomeData.length - 1] as any;
                       const latestBalance = balanceData?.[balanceData.length - 1] as any;
-                      const marketCap = priceNum * sharesNum;
+                      const marketCapMSEK = (priceNum * sharesNum) / 1_000_000;
                       const ebit = latestIncome?.ebit;
                       const ebitda = latestIncome?.ebitda;
                       const netDebt = latestBalance ? ((latestBalance.long_term_debt ?? 0) + (latestBalance.short_term_debt ?? 0) - (latestBalance.cash_equivalents ?? 0)) : null;
-                      const ev = netDebt !== null ? marketCap + netDebt : null;
+                      const ev = netDebt !== null ? marketCapMSEK + netDebt : null;
                       return (
                         <>
-                          {ev !== null && <div className="flex justify-between text-sm"><span className="text-muted-foreground">EV</span><span className="font-mono font-medium">{(ev / 1e9).toFixed(2)} Mdr</span></div>}
+                          {ev !== null && <div className="flex justify-between text-sm"><span className="text-muted-foreground">EV</span><span className="font-mono font-medium">{(ev / 1e3).toFixed(2)} Mdr</span></div>}
                           {ev !== null && ebit && ebit > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">EV/EBIT</span><span className="font-mono font-medium">{(ev / ebit).toFixed(1)}x</span></div>}
                           {ev !== null && ebitda && ebitda > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">EV/EBITDA</span><span className="font-mono font-medium">{(ev / ebitda).toFixed(1)}x</span></div>}
-                          {netDebt !== null && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Nettoskuld</span><span className="font-mono font-medium">{(netDebt / 1e6).toFixed(0)} M</span></div>}
+                          {netDebt !== null && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Nettoskuld</span><span className="font-mono font-medium">{netDebt.toFixed(0)} MSEK</span></div>}
                         </>
                       );
                     })()}
