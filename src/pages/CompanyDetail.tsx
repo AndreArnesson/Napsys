@@ -145,6 +145,16 @@ export default function CompanyDetail() {
       }
     }
 
+    // Fallback: check parsed data rows for shares_outstanding
+    if (!companyInfo?.sharesOutstanding) {
+      const sortedYearly = [...data.filter(d => !d.quarter)].sort((a, b) => b.fiscal_year - a.fiscal_year);
+      const latestShares = sortedYearly.find(d => d.shares_outstanding)?.shares_outstanding;
+      if (latestShares) {
+        await supabase.from('companies').update({ shares_outstanding: Math.round(latestShares) }).eq('id', id);
+        queryClient.invalidateQueries({ queryKey: ['company', id] });
+      }
+    }
+
     const yearly = data.filter(d => !d.quarter);
     const quarterly = data.filter(d => !!d.quarter);
 
