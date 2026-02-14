@@ -45,9 +45,19 @@ export interface ParsedInsiderTrade {
   isin?: string;
 }
 
+export interface ParsedCompanyInfo {
+  ticker?: string;
+  reportingCurrency?: string;
+  tradingCurrency?: string;
+  sector?: string;
+  industry?: string;
+  latestPrice?: number;
+  sharesOutstanding?: number;
+}
+
 interface FileImportDialogProps {
   companyId: string;
-  onImportFinancials: (data: ParsedFinancialData[]) => Promise<void>;
+  onImportFinancials: (data: ParsedFinancialData[], companyInfo?: ParsedCompanyInfo) => Promise<void>;
   onImportInsiders: (data: ParsedInsiderTrade[]) => Promise<void>;
 }
 
@@ -70,26 +80,32 @@ const fieldMappings: Record<string, keyof ParsedFinancialData> = {
   // Net income
   'profit to equity holders': 'net_income',
   'resultat till aktieägare': 'net_income',
+  'resultat hänföring aktieägare': 'net_income',
   'net income': 'net_income',
   'årets resultat': 'net_income',
   'nettoresultat': 'net_income',
   // EPS
   'earnings per share': 'earnings_per_share',
   'vinst per aktie': 'earnings_per_share',
+  'vinst/aktie': 'earnings_per_share',
   // Dividend
   'dividend': 'dividend',
   'utdelning': 'dividend',
   // Balance sheet
   'total assets': 'total_assets',
   'totala tillgångar': 'total_assets',
+  'summa tillgångar': 'total_assets',
   'total equity': 'total_equity',
   'eget kapital': 'total_equity',
+  'summa eget kapital': 'total_equity',
   'cash and equivalents': 'cash_equivalents',
   'likvida medel': 'cash_equivalents',
+  'kassa/bank': 'cash_equivalents',
   'total liabilities': 'total_liabilities',
   'totala skulder': 'total_liabilities',
   'current assets': 'current_assets',
   'omsättningstillgångar': 'current_assets',
+  'summa omsättningstillgångar': 'current_assets',
   'current liabilities': 'current_liabilities',
   'kortfristiga skulder': 'current_liabilities',
   'non-current liabilities': 'non_current_liabilities',
@@ -101,6 +117,7 @@ const fieldMappings: Record<string, keyof ParsedFinancialData> = {
   'rörelsemarginal': 'operating_margin',
   'profit margin': 'net_margin',
   'nettomarginal': 'net_margin',
+  'vinstmarginal': 'net_margin',
   // Ratios
   'equity ratio': 'equity_ratio',
   'soliditet': 'equity_ratio',
@@ -116,13 +133,126 @@ function lookupField(rawLabel: string): keyof ParsedFinancialData | undefined {
   return fieldMappings[normalized];
 }
 
-export function FileImportDialog({ companyId, onImportFinancials, onImportInsiders }: FileImportDialogProps) {
-  const { t } = useLanguage();
-  const [open, setOpen] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ success: boolean; message: string } | null>(null);
+/**
+ * Try to extract a year (2000–2035) from a cell value.
+ * Handles plain numbers, strings like "2024/12" or "2024", and Excel date serials.
+ */
+function extractYear(cell: any): number | null {
+  if (cell === null || cell === undefined) return null;
+  if (typeof cell === 'number') {
+    if (cell >= 2000 && cell <= 2035) return cell;
+    if (cell > 30000 && cell < 60000) {
+      // Excel date serial - convert to year
+      const d = new Date((cell - 25569) * 86400 * 1000);
+      const y = d.getFullYear();
+      if (y >= 2000 && y <= 2035) return y;
+    }
+  } else if (typeof cell === 'string') {
+    const m = cell.match(/^(\d{4})/);
+    if (m) {
+      const y = parseInt(m[1]);
+      if (y >= 2000 && y <= 2035) return y;
+    }
+  }
+  return null;
+}
 
-  const parseBoersdataExcel = useCallback((workbook: XLSX.WorkBook): ParsedFinancialData[] => {
+/**
+ * Parse a vertical/transposed Börsdata sheet where data is in 2 columns:
+ *   Column A: metric headers and year labels
+ *   Column B: values
+ *
+ * Layout example:
+ *   Report(s)   |
+ *   Net Sales   |
+ *   2024/12     | 1000
+ *   2023/12     |  900
+ *   EBIT        |
+ *   2024/12     |  200
+ *   ...
+ */
+function parseVerticalFormat(data: any[][]): ParsedFinancialData[] {
+  const result: Map<number, ParsedFinancialData> = new Map();
+  let currentField: keyof ParsedFinancialData | undefined;
+
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    if (!row) continue;
+
+    const cellA = row[0];
+    const cellB = row[1];
+
+    // Try to interpret cellA as a year
+    const yearVal = extractYear(cellA);
+
+    if (yearVal !== null) {
+      // This row has a year in column A and a value in column B
+      if (currentField && cellB !== null && cellB !== undefined && cellB !== '') {
+        const numValue = typeof cellB === 'number'
+          ? cellB
+          : parseFloat(String(cellB).replace(/\s/g, '').replace(',', '.'));
+        if (!isNaN(numValue)) {
+          if (!result.has(yearVal)) {
+            result.set(yearVal, { fiscal_year: yearVal });
+          }
+          const yearData = result.get(yearVal)!;
+          if (percentageFields.has(currentField)) {
+            (yearData as any)[currentField] = numValue / 100;
+          } else {
+            (yearData as any)[currentField] = numValue;
+          }
+        }
+      }
+    } else if (typeof cellA === 'string' && cellA.trim()) {
+      // Not a year row – try to match as a field/metric header
+      const mapped = lookupField(cellA);
+      if (mapped) {
+        currentField = mapped;
+      } else {
+        // Unrecognised label – stop assigning until a new recognised header appears
+        currentField = undefined;
+      }
+    }
+  }
+
+  const sorted = Array.from(result.values())
+    .filter(d => {
+      const keys = Object.keys(d).filter(k => k !== 'fiscal_year');
+      return keys.some(k => (d as any)[k] !== undefined && (d as any)[k] !== null);
+    })
+    .sort((a, b) => a.fiscal_year - b.fiscal_year);
+
+  return sorted;
+}
+
+export function parseBoersdataInfoSheet(workbook: XLSX.WorkBook): ParsedCompanyInfo {
+  const info: ParsedCompanyInfo = {};
+  const infoSheet = workbook.Sheets['Info'];
+  if (!infoSheet) return info;
+  const data: any[][] = XLSX.utils.sheet_to_json(infoSheet, { header: 1, defval: null, raw: true });
+  for (const row of data) {
+    if (!row || !row[0]) continue;
+    const label = String(row[0]).trim().toLowerCase();
+    const val = row[1] != null ? String(row[1]).trim() : undefined;
+    if (label.includes('ticker') && val) info.ticker = val;
+    if ((label.includes('report currency') || label === 'rapportvaluta') && val) info.reportingCurrency = val;
+    if ((label.includes('stock price currency') || label.includes('trading currency') || label === 'aktiekursvaluta') && val) info.tradingCurrency = val;
+    if ((label.includes('sector') || label === 'sektor') && val) info.sector = val;
+    if ((label.includes('industry') || label === 'bransch') && val) info.industry = val;
+    if ((label.includes('latest stock price') || label.includes('senaste aktiekurs')) && row[1] != null) {
+      const p = typeof row[1] === 'number' ? row[1] : parseFloat(String(row[1]).replace(',', '.'));
+      if (!isNaN(p)) info.latestPrice = p;
+    }
+    if ((label.includes('number of shares') || label.includes('antal aktier') || label.includes('shares outstanding')) && row[1] != null) {
+      const s = typeof row[1] === 'number' ? row[1] : parseFloat(String(row[1]).replace(/\s/g, '').replace(',', '.'));
+      if (!isNaN(s)) info.sharesOutstanding = Math.round(s);
+    }
+  }
+  console.log('[Import] Parsed Info sheet:', info);
+  return info;
+}
+
+export function parseBoersdataExcel(workbook: XLSX.WorkBook): ParsedFinancialData[] {
     console.log('[Import] Sheet names:', workbook.SheetNames);
     const result: Map<number, ParsedFinancialData> = new Map();
 
@@ -154,6 +284,21 @@ export function FileImportDialog({ companyId, onImportFinancials, onImportInside
 
     console.log('[Import] Using sheet:', yearSheetName);
     const sheet = workbook.Sheets[yearSheetName];
+
+    // Some Börsdata exports have an incorrect !ref that is too narrow.
+    // Recalculate the true extent by scanning all cell keys in the sheet.
+    let maxR = 0, maxC = 0;
+    for (const key of Object.keys(sheet)) {
+      if (key.startsWith('!')) continue;
+      const cell = XLSX.utils.decode_cell(key);
+      if (cell.r > maxR) maxR = cell.r;
+      if (cell.c > maxC) maxC = cell.c;
+    }
+    const trueRef = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: maxR, c: maxC } });
+    if (trueRef !== sheet['!ref']) {
+      console.log('[Import] Correcting sheet range from', sheet['!ref'], 'to', trueRef);
+      sheet['!ref'] = trueRef;
+    }
     
     // Get the sheet range to understand the actual dimensions
     const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
@@ -187,23 +332,7 @@ export function FileImportDialog({ companyId, onImportFinancials, onImportInside
       for (let j = 0; j < row.length; j++) {
         const cell = row[j];
         if (cell === null || cell === undefined) continue;
-        let yearVal: number | null = null;
-        if (typeof cell === 'number') {
-          if (cell >= 2000 && cell <= 2035) {
-            yearVal = cell;
-          } else if (cell > 30000 && cell < 60000) {
-            // Excel date serial - convert to year
-            const d = new Date((cell - 25569) * 86400 * 1000);
-            const y = d.getFullYear();
-            if (y >= 2000 && y <= 2035) yearVal = y;
-          }
-        } else if (typeof cell === 'string') {
-          const m = cell.match(/^(\d{4})/);
-          if (m) {
-            const y = parseInt(m[1]);
-            if (y >= 2000 && y <= 2035) yearVal = y;
-          }
-        }
+        const yearVal = extractYear(cell);
         if (yearVal !== null) {
           yearsFound.push({ year: yearVal, colIndex: j });
         }
@@ -254,6 +383,17 @@ export function FileImportDialog({ companyId, onImportFinancials, onImportInside
           console.log('[Import] Found years via raw cell scan in row', r);
           break;
         }
+      }
+    }
+
+    // Detect vertical / transposed format (few columns, years run down rows)
+    if (headerRowIndex === -1 && range.e.c + 1 <= 3) {
+      console.log('[Import] Detected vertical format (' + (range.e.c + 1) + ' columns), parsing transposed layout...');
+      const verticalResult = parseVerticalFormat(data);
+      if (verticalResult.length > 0) {
+        console.log('[Import] Parsed', verticalResult.length, 'years of data (vertical format)');
+        console.log('[Import] Sample (first year):', JSON.stringify(verticalResult[0]));
+        return verticalResult;
       }
     }
 
@@ -318,7 +458,13 @@ export function FileImportDialog({ companyId, onImportFinancials, onImportInside
     }
 
     return sorted;
-  }, []);
+}
+
+export function FileImportDialog({ companyId, onImportFinancials, onImportInsiders }: FileImportDialogProps) {
+  const { t } = useLanguage();
+  const [open, setOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const handleFinancialFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -332,13 +478,14 @@ export function FileImportDialog({ companyId, onImportFinancials, onImportInside
       const workbook = XLSX.read(arrayBuffer, { type: 'array' });
 
       const financialData = parseBoersdataExcel(workbook);
+      const companyInfo = parseBoersdataInfoSheet(workbook);
 
       if (financialData.length === 0) {
         setImportResult({ success: false, message: 'Could not parse financial data. Check browser console for debug info.' });
         return;
       }
 
-      await onImportFinancials(financialData);
+      await onImportFinancials(financialData, companyInfo);
       setImportResult({
         success: true,
         message: `Successfully imported ${financialData.length} years of financial data (${financialData[0].fiscal_year}–${financialData[financialData.length - 1].fiscal_year})`,
@@ -350,7 +497,7 @@ export function FileImportDialog({ companyId, onImportFinancials, onImportInside
       setImporting(false);
       e.target.value = '';
     }
-  }, [onImportFinancials, parseBoersdataExcel]);
+  }, [onImportFinancials]);
 
   const parseInsiderCSV = useCallback((text: string): ParsedInsiderTrade[] => {
     const trades: ParsedInsiderTrade[] = [];

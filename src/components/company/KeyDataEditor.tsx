@@ -7,8 +7,6 @@ import { useLanguage } from '@/i18n/LanguageContext';
 
 interface KeyData {
   ticker?: string;
-  currentPrice?: number;
-  sharesOutstanding?: number;
   reportingCurrency: string;
   tradingCurrency: string;
 }
@@ -29,7 +27,7 @@ export function KeyDataEditor({ data, onUpdate, readOnly = false }: KeyDataEdito
     setLocalData(data);
   }, [data]);
 
-  const handleChange = (field: keyof KeyData, value: string | number) => {
+  const handleChange = (field: keyof KeyData, value: string) => {
     const updated = { ...localData, [field]: value };
     setLocalData(updated);
   };
@@ -38,18 +36,6 @@ export function KeyDataEditor({ data, onUpdate, readOnly = false }: KeyDataEdito
     if (localData[field] !== data[field]) {
       onUpdate({ [field]: localData[field] });
     }
-  };
-
-  const formatMarketCap = () => {
-    if (!localData.currentPrice || !localData.sharesOutstanding) return '—';
-    const marketCap = localData.currentPrice * localData.sharesOutstanding;
-    if (marketCap >= 1e9) {
-      return `${(marketCap / 1e9).toFixed(1)}B ${localData.tradingCurrency}`;
-    }
-    if (marketCap >= 1e6) {
-      return `${(marketCap / 1e6).toFixed(1)}M ${localData.tradingCurrency}`;
-    }
-    return `${marketCap.toLocaleString()} ${localData.tradingCurrency}`;
   };
 
   return (
@@ -67,31 +53,6 @@ export function KeyDataEditor({ data, onUpdate, readOnly = false }: KeyDataEdito
               value={localData.ticker || ''}
               onChange={(e) => handleChange('ticker', e.target.value)}
               onBlur={() => handleBlur('ticker')}
-              disabled={readOnly}
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label>{t.company.currentPrice}</Label>
-            <Input
-              type="number"
-              step="0.01"
-              placeholder="0.00"
-              value={localData.currentPrice || ''}
-              onChange={(e) => handleChange('currentPrice', parseFloat(e.target.value) || 0)}
-              onBlur={() => handleBlur('currentPrice')}
-              disabled={readOnly}
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label>{t.company.sharesOutstanding}</Label>
-            <Input
-              type="number"
-              placeholder="e.g. 10000000"
-              value={localData.sharesOutstanding || ''}
-              onChange={(e) => handleChange('sharesOutstanding', parseInt(e.target.value) || 0)}
-              onBlur={() => handleBlur('sharesOutstanding')}
               disabled={readOnly}
             />
           </div>
@@ -136,13 +97,6 @@ export function KeyDataEditor({ data, onUpdate, readOnly = false }: KeyDataEdito
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <Label>Market Cap</Label>
-            <p className="h-10 flex items-center font-mono text-lg">
-              {formatMarketCap()}
-            </p>
           </div>
         </div>
       </CardContent>

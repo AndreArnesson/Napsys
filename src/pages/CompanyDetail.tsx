@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,18 +10,19 @@ import { RatingBadge } from '@/components/company/RatingBadge';
 import { CEOSection } from '@/components/company/CEOSection';
 import { KeyDataEditor } from '@/components/company/KeyDataEditor';
 import { InsiderTable, InsiderTrade } from '@/components/company/InsiderTable';
-import { FileImportDialog, ParsedFinancialData, ParsedInsiderTrade } from '@/components/company/FileImportDialog';
+import { InsiderOwnership, OwnershipEntry } from '@/components/company/InsiderOwnership';
+import { FileImportDialog, ParsedFinancialData, ParsedInsiderTrade, ParsedCompanyInfo } from '@/components/company/FileImportDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, Loader2, Clock, ChevronDown, PieChart } from 'lucide-react';
+import { ArrowLeft, Loader2, Clock, ChevronDown, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { sv, enUS } from 'date-fns/locale';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart as RechartsPie, Pie, Cell, BarChart, Bar } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar } from 'recharts';
 
 interface CEOData {
   name: string;
@@ -32,8 +33,6 @@ interface CEOData {
   notes?: string;
 }
 
-const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))'];
-
 export default function CompanyDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -41,10 +40,13 @@ export default function CompanyDetail() {
   const queryClient = useQueryClient();
   const locale = language === 'sv' ? sv : enUS;
 
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const defaultTab = searchParams.get('tab') || 'overview';
   const [insiderTrades, setInsiderTrades] = useState<InsiderTrade[]>([]);
   const [descriptionOpen, setDescriptionOpen] = useState(true);
   const [moatsOpen, setMoatsOpen] = useState(true);
-  const [managementOpen, setManagementOpen] = useState(true);
+  const [creatingAnalysis, setCreatingAnalysis] = useState(false);
 
   // Fetch company details
   const { data: company, isLoading } = useQuery({
@@ -57,16 +59,18 @@ export default function CompanyDetail() {
     enabled: !!id,
   });
 
-  // Fetch latest analysis
-  const { data: analysis } = useQuery({
-    queryKey: ['analysis', id],
+  // Fetch all analyses for this company
+  const { data: allAnalyses } = useQuery({
+    queryKey: ['all-analyses', id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('analyses').select('*').eq('company_id', id).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+      const { data, error } = await supabase.from('analyses').select('*').eq('company_id', id).order('updated_at', { ascending: false });
       if (error) throw error;
       return data;
     },
     enabled: !!id,
   });
+
+  const latestAnalysis = allAnalyses?.[0];
 
   // Fetch income statement data from DB
   const { data: incomeData } = useQuery({
@@ -115,7 +119,7 @@ export default function CompanyDetail() {
   });
 
   const ceoData: CEOData = company?.management
-    ? (typeof company.management === 'object' ? (company.management as unknown as CEOData) : { name: String(company.management) })
+    ? (typeof company.management === 'object' ? company.management as CEOData : { name: company.management })
     : { name: '' };
 
   const handleCEOUpdate = (newCeo: CEOData) => {
@@ -126,11 +130,38 @@ export default function CompanyDetail() {
     updateCompany.mutate(updates);
   };
 
-  const handleImportFinancials = async (data: ParsedFinancialData[]) => {
+  const handleOwnershipUpdate = (data: OwnershipEntry[]) => {
+    updateCompany.mutate({ insider_ownership: data });
+  };
+
+  const rawOwnership = (company as any)?.insider_ownership;
+  const ownershipData: OwnershipEntry[] = Array.isArray(rawOwnership)
+    ? rawOwnership.map((o: any) => ({
+        name: o.name || '',
+        role: o.role || '',
+        shares: o.shares || 0,
+        percentage: o.percentage || 0,
+      }))
+    : [];
+
+  const handleImportFinancials = async (data: ParsedFinancialData[], companyInfo?: ParsedCompanyInfo) => {
     if (!id || !user) return;
+
+    // Auto-fill company info from Info sheet
+    if (companyInfo) {
+      const updates: Record<string, any> = {};
+      if (companyInfo.ticker) updates.ticker = companyInfo.ticker;
+      if (companyInfo.reportingCurrency) updates.reporting_currency = companyInfo.reportingCurrency;
+      if (companyInfo.tradingCurrency) updates.trading_currency = companyInfo.tradingCurrency;
+      if (companyInfo.latestPrice) updates.current_price = companyInfo.latestPrice;
+      if (companyInfo.sharesOutstanding) updates.shares_outstanding = companyInfo.sharesOutstanding;
+      if (Object.keys(updates).length > 0) {
+        await supabase.from('companies').update(updates).eq('id', id);
+        queryClient.invalidateQueries({ queryKey: ['company', id] });
+      }
+    }
     console.log('[Import] Storing', data.length, 'years to DB for company', id);
 
-    // Upsert income_statement rows
     const incomeRows = data.map(d => ({
       company_id: id,
       fiscal_year: d.fiscal_year,
@@ -143,7 +174,6 @@ export default function CompanyDetail() {
       net_margin: d.net_margin ?? null,
     }));
 
-    // Delete existing income_statement for this company, then insert fresh
     const { error: delIncErr } = await supabase.from('income_statement').delete().eq('company_id', id);
     if (delIncErr) console.error('[Import] Delete income_statement error:', delIncErr);
 
@@ -154,7 +184,6 @@ export default function CompanyDetail() {
       return;
     }
 
-    // Upsert balance_sheet rows
     const balanceRows = data
       .filter(d => d.total_assets || d.total_equity || d.total_liabilities || d.cash_equivalents)
       .map(d => ({
@@ -178,7 +207,6 @@ export default function CompanyDetail() {
       if (insBsErr) console.error('[Import] Insert balance_sheet error:', insBsErr);
     }
 
-    // Refresh queries
     queryClient.invalidateQueries({ queryKey: ['income_statement', id] });
     queryClient.invalidateQueries({ queryKey: ['balance_sheet', id] });
     toast.success(`Imported ${data.length} years of financial data`);
@@ -235,13 +263,6 @@ export default function CompanyDetail() {
     return `${(value * 100).toFixed(1)}%`;
   };
 
-  const ownershipData = [
-    { name: 'Founder/CEO', value: 25 },
-    { name: 'Institutional', value: 40 },
-    { name: 'Retail', value: 20 },
-    { name: 'Other Insiders', value: 15 },
-  ];
-
   const hasIncomeData = incomeData && incomeData.length > 0;
   const hasBalanceData = balanceSheetData && balanceSheetData.length > 0;
 
@@ -260,25 +281,17 @@ export default function CompanyDetail() {
               {company.ticker && <span className="text-lg font-mono text-muted-foreground">{company.ticker}</span>}
             </div>
             <div className="flex items-center gap-4">
-              <RatingBadge rating={analysis?.rating as 'buy' | 'hold' | 'sell' | null} size="lg" />
-              <MOSBadge value={analysis?.margin_of_safety} size="lg" />
+              <RatingBadge rating={latestAnalysis?.rating as 'buy' | 'hold' | 'sell' | null} size="lg" />
+              <MOSBadge value={latestAnalysis?.margin_of_safety} size="lg" />
             </div>
           </div>
           <div className="flex items-center gap-3">
             <FileImportDialog companyId={id!} onImportFinancials={handleImportFinancials} onImportInsiders={handleImportInsiders} />
-            <div className="text-right">
-              <p className="text-3xl font-bold font-mono">
-                {company.current_price ? `${company.current_price.toFixed(2)} ${company.trading_currency}` : '—'}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {company.shares_outstanding ? `${company.shares_outstanding.toLocaleString()} ${t.company.sharesOutstanding.toLowerCase()}` : ''}
-              </p>
-            </div>
           </div>
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="overview" className="space-y-6">
+        <Tabs defaultValue={defaultTab} className="space-y-6">
           <TabsList className="flex-wrap h-auto gap-1">
             <TabsTrigger value="overview">{t.company.overview}</TabsTrigger>
             <TabsTrigger value="financials">{t.company.financials}</TabsTrigger>
@@ -293,8 +306,6 @@ export default function CompanyDetail() {
             <KeyDataEditor
               data={{
                 ticker: company.ticker || undefined,
-                currentPrice: company.current_price || undefined,
-                sharesOutstanding: company.shares_outstanding || undefined,
                 reportingCurrency: company.reporting_currency,
                 tradingCurrency: company.trading_currency,
               }}
@@ -344,24 +355,7 @@ export default function CompanyDetail() {
               </Collapsible>
             </div>
             <CEOSection ceo={ceoData} onUpdate={handleCEOUpdate} />
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><PieChart className="h-5 w-5" />Insider Ownership</CardTitle>
-                <CardDescription>Distribution of share ownership</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[250px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPie>
-                      <Pie data={ownershipData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value" label={({ name, value }) => `${name}: ${value}%`}>
-                        {ownershipData.map((_, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
-                      </Pie>
-                      <Tooltip />
-                    </RechartsPie>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+            <InsiderOwnership data={ownershipData} onUpdate={handleOwnershipUpdate} />
           </TabsContent>
 
           {/* Financials Tab */}
@@ -537,25 +531,74 @@ export default function CompanyDetail() {
             </Card>
           </TabsContent>
 
-          {/* Analysis Tab */}
+          {/* Analysis Tab - List all analyses */}
           <TabsContent value="analysis" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t.analysis.title}</CardTitle>
-                <CardDescription>
-                  {analysis
-                    ? `Last updated ${formatDistanceToNow(new Date(analysis.updated_at), { addSuffix: true, locale })}`
-                    : 'No analysis yet'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Link to={`/company/${id}/analysis`}>
-                  <Button className="gap-2">
-                    {analysis ? t.common.edit : t.common.add} {t.analysis.title}
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">{t.analysis.title}</h2>
+              <Button
+                className="gap-2"
+                disabled={creatingAnalysis}
+                onClick={async () => {
+                  if (!user) return;
+                  setCreatingAnalysis(true);
+                  const { data, error } = await supabase
+                    .from('analyses')
+                    .insert({
+                      company_id: id!,
+                      user_id: user.id,
+                      is_draft: true,
+                      current_price: company.current_price ?? null,
+                      shares_outstanding: company.shares_outstanding ?? null,
+                    } as any)
+                    .select()
+                    .single();
+                  setCreatingAnalysis(false);
+                  if (error) {
+                    toast.error('Failed to create analysis');
+                    return;
+                  }
+                  navigate(`/company/${id}/analysis/${data.id}`);
+                }}
+              >
+                {creatingAnalysis ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Ny analys
+              </Button>
+            </div>
+            {!allAnalyses?.length ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <p className="text-muted-foreground mb-4">Inga analyser ännu. Klicka på "Ny analys" ovan för att skapa din första.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {allAnalyses.map((analysis) => (
+                  <Link key={analysis.id} to={`/company/${id}/analysis/${analysis.id}`}>
+                    <Card className="hover:border-primary/20 transition-colors cursor-pointer">
+                      <CardContent className="py-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <RatingBadge rating={analysis.rating as 'buy' | 'hold' | 'sell' | null} />
+                            <MOSBadge value={analysis.margin_of_safety} size="sm" />
+                            <span className="text-sm text-muted-foreground">
+                              {formatDistanceToNow(new Date(analysis.updated_at), { addSuffix: true, locale })}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {analysis.is_draft && (
+                              <span className="text-xs bg-muted px-2 py-0.5 rounded">Draft</span>
+                            )}
+                          </div>
+                        </div>
+                        {analysis.summary_comment && (
+                          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{analysis.summary_comment}</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>

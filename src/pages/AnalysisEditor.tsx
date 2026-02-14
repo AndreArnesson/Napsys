@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -7,113 +7,108 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { MOSBadge } from '@/components/company/MOSBadge';
 import { RatingBadge } from '@/components/company/RatingBadge';
-import { PreviousAnalysesList } from '@/components/analysis/PreviousAnalysesList';
 import { HistoricalDataTable, HistoricalYear } from '@/components/analysis/HistoricalDataTable';
 import { SpreadsheetAnalysis, YearlyProjection } from '@/components/analysis/SpreadsheetAnalysis';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Loader2, Save, CheckCircle, TrendingUp, Settings2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Save, CheckCircle, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import debounce from 'lodash/debounce';
 
-// Mock historical data - this would come from database/imports
-const generateHistoricalData = (): HistoricalYear[] => {
-  const data: HistoricalYear[] = [];
-  const baseRevenue = 150;
-  const baseEbit = 20;
-  
-  for (let year = 2019; year <= 2025; year++) {
-    const growth = Math.random() * 0.2 - 0.05; // -5% to +15%
-    const prevRevenue = data.length > 0 ? data[data.length - 1].revenue! : baseRevenue;
-    const revenue = Math.round(prevRevenue * (1 + growth));
-    const margin = Math.random() * 0.08 + 0.06; // 6-14%
-    const ebit = Math.round(revenue * margin);
-    const netIncome = Math.round(ebit * 0.75); // After tax
-    const eps = netIncome / 50; // Assuming 50M shares
-    
-    data.push({
-      fiscal_year: year,
-      revenue,
-      revenue_growth: data.length > 0 ? ((revenue - prevRevenue) / prevRevenue) * 100 : undefined,
-      ebit,
-      ebitda: Math.round(ebit * 1.2),
-      net_income: netIncome,
-      earnings_per_share: eps,
-      operating_margin: margin * 100,
-      net_margin: (netIncome / revenue) * 100,
-    });
-  }
-  
-  return data;
-};
-
 export default function AnalysisEditor() {
-  const { id } = useParams<{ id: string }>();
+  const { id, analysisId } = useParams<{ id: string; analysisId: string }>();
   const { user } = useAuth();
   const { t } = useLanguage();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
-  // Current analysis state
-  const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>(null);
   const [rating, setRating] = useState<'buy' | 'hold' | 'sell' | undefined>();
   const [notes, setNotes] = useState('');
   const [projections, setProjections] = useState<YearlyProjection[]>([]);
-  
-  // Key data inputs
   const [currentPrice, setCurrentPrice] = useState<string>('');
   const [sharesOutstanding, setSharesOutstanding] = useState<string>('');
-  
-  // UI state
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-
-  const historicalData = useMemo(() => generateHistoricalData(), []);
 
   // Fetch company
   const { data: company } = useQuery({
     queryKey: ['company', id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('companies')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const { data, error } = await supabase.from('companies').select('*').eq('id', id).single();
       if (error) throw error;
       return data;
     },
     enabled: !!id,
   });
 
-  // Fetch ALL analyses for this company
-  const { data: allAnalyses, isLoading } = useQuery({
-    queryKey: ['all-analyses', id],
+  // Fetch real historical data from DB
+  const { data: incomeData } = useQuery({
+    queryKey: ['income_statement', id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('analyses')
-        .select('*')
-        .eq('company_id', id)
-        .order('updated_at', { ascending: false });
+      const { data, error } = await supabase.from('income_statement').select('*').eq('company_id', id).order('fiscal_year', { ascending: true });
       if (error) throw error;
-      return data;
+      return data || [];
     },
     enabled: !!id,
   });
 
-  // Get the currently selected analysis
-  const currentAnalysis = allAnalyses?.find(a => a.id === selectedAnalysisId) || allAnalyses?.[0];
+  const { data: balanceData } = useQuery({
+    queryKey: ['balance_sheet', id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('balance_sheet').select('*').eq('company_id', id).order('fiscal_year', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!id,
+  });
 
-  // Populate form with selected analysis data
+  // Transform DB data to HistoricalYear format
+  const historicalData: HistoricalYear[] = useMemo(() => {
+    if (!incomeData || incomeData.length === 0) return [];
+    return incomeData.map((row, index) => {
+      const prevRow = incomeData[index - 1];
+      const revenueGrowth = prevRow?.revenue && row.revenue
+        ? ((row.revenue - prevRow.revenue) / prevRow.revenue) * 100
+        : undefined;
+      const bs = balanceData?.find(b => b.fiscal_year === row.fiscal_year);
+      return {
+        fiscal_year: row.fiscal_year,
+        revenue: row.revenue ?? undefined,
+        revenue_growth: revenueGrowth,
+        ebit: row.ebit ?? undefined,
+        ebitda: row.ebitda ?? undefined,
+        net_income: row.net_income ?? undefined,
+        gross_margin: row.gross_margin ? row.gross_margin * 100 : undefined,
+        operating_margin: row.operating_margin ? row.operating_margin * 100 : undefined,
+        net_margin: row.net_margin ? row.net_margin * 100 : undefined,
+        total_debt: bs ? ((bs.long_term_debt ?? 0) + (bs.short_term_debt ?? 0)) || undefined : undefined,
+        cash: bs?.cash_equivalents ?? undefined,
+        shareholders_equity: bs?.shareholders_equity ?? undefined,
+      };
+    });
+  }, [incomeData, balanceData]);
+
+  // Fetch the analysis record
+  const { data: currentAnalysis, isLoading } = useQuery({
+    queryKey: ['analysis', analysisId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('analyses').select('*').eq('id', analysisId!).single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!analysisId,
+  });
+
+  // Populate form with analysis data
   useEffect(() => {
     if (currentAnalysis) {
-      setSelectedAnalysisId(currentAnalysis.id);
       setRating(currentAnalysis.rating as 'buy' | 'hold' | 'sell' | undefined);
       setNotes(currentAnalysis.summary_comment || '');
-    }
-    if (company) {
-      setCurrentPrice(company.current_price?.toString() || '');
-      setSharesOutstanding(company.shares_outstanding?.toString() || '');
+      // Use analysis-level price/shares, fall back to company-level
+      setCurrentPrice((currentAnalysis as any).current_price?.toString() || company?.current_price?.toString() || '');
+      setSharesOutstanding((currentAnalysis as any).shares_outstanding?.toString() || company?.shares_outstanding?.toString() || '');
     }
   }, [currentAnalysis, company]);
 
@@ -123,85 +118,26 @@ export default function AnalysisEditor() {
     return year3Proj?.mos;
   }, [projections]);
 
-  // Create new analysis
-  const createAnalysis = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase
-        .from('analyses')
-        .insert({
-          company_id: id,
-          user_id: user!.id,
-          is_draft: true,
-        })
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['all-analyses', id] });
-      setSelectedAnalysisId(data.id);
-      setRating(undefined);
-      setNotes('');
-      setProjections([]);
-      toast.success('New analysis created');
-    },
-    onError: () => {
-      toast.error(t.common.error);
-    },
-  });
-
-  // Save mutation
+  // Save mutation - now saves price/shares to the analysis record
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const mosValue = currentMOS;
-      
-      if (!selectedAnalysisId) {
-        // Create new analysis first
-        const { data: newAnalysis, error: createError } = await supabase
-          .from('analyses')
-          .insert({
-            company_id: id,
-            user_id: user!.id,
-            rating: rating || null,
-            summary_comment: notes,
-            margin_of_safety: mosValue,
-            is_draft: true,
-          })
-          .select()
-          .single();
-        
-        if (createError) throw createError;
-        setSelectedAnalysisId(newAnalysis.id);
-        return;
-      }
-
+      if (!analysisId) return;
       const { error } = await supabase
         .from('analyses')
         .update({
           rating: rating || null,
           summary_comment: notes,
-          margin_of_safety: mosValue,
+          margin_of_safety: currentMOS ?? null,
           is_draft: true,
-        })
-        .eq('id', selectedAnalysisId);
-      
+          current_price: currentPrice ? parseFloat(currentPrice) : null,
+          shares_outstanding: sharesOutstanding ? parseInt(sharesOutstanding) : null,
+        } as any)
+        .eq('id', analysisId);
       if (error) throw error;
-
-      // Update company price/shares
-      if (company) {
-        await supabase
-          .from('companies')
-          .update({
-            current_price: currentPrice ? parseFloat(currentPrice) : null,
-            shares_outstanding: sharesOutstanding ? parseInt(sharesOutstanding) : null,
-          })
-          .eq('id', id);
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-analyses', id] });
-      queryClient.invalidateQueries({ queryKey: ['company', id] });
+      queryClient.invalidateQueries({ queryKey: ['analysis', analysisId] });
       setLastSaved(new Date());
       setIsSaving(false);
     },
@@ -211,37 +147,38 @@ export default function AnalysisEditor() {
     },
   });
 
-  // Debounced auto-save
   const debouncedSave = useCallback(
     debounce(() => {
-      if (!user) return;
+      if (!user || !analysisId) return;
       setIsSaving(true);
       saveMutation.mutate();
     }, 3000),
-    [user, id, selectedAnalysisId, rating, notes, currentPrice, sharesOutstanding, projections]
+    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections]
   );
 
-  // Trigger auto-save on changes
   useEffect(() => {
-    if (user && id && (selectedAnalysisId || notes || rating)) {
+    if (user && analysisId && (notes || rating)) {
       debouncedSave();
     }
     return () => debouncedSave.cancel();
   }, [rating, notes, currentPrice, sharesOutstanding, projections, debouncedSave]);
-
-  const handleSelectAnalysis = (analysis: any) => {
-    setSelectedAnalysisId(analysis.id);
-  };
-
-  const handleCreateNew = () => {
-    createAnalysis.mutate();
-  };
 
   if (isLoading) {
     return (
       <MainLayout>
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!analysisId || !currentAnalysis) {
+    return (
+      <MainLayout>
+        <div className="text-center py-20">
+          <p className="text-muted-foreground">Analysis not found</p>
+          <Link to={`/company/${id}`} className="text-primary hover:underline">{t.common.back}</Link>
         </div>
       </MainLayout>
     );
@@ -257,7 +194,7 @@ export default function AnalysisEditor() {
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div className="space-y-2">
             <Link
-              to={`/company/${id}`}
+              to={`/company/${id}?tab=analysis`}
               className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -283,26 +220,21 @@ export default function AnalysisEditor() {
                 <span>{t.analysis.autosaved}</span>
               </div>
             ) : null}
-            <Button 
-              onClick={() => saveMutation.mutate()} 
+            <Button
+              onClick={() => saveMutation.mutate()}
               disabled={saveMutation.isPending}
               className="gap-2"
             >
-              {saveMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
+              {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {t.analysis.saveAnalysis}
             </Button>
           </div>
         </div>
 
-        {/* Main Layout - 3 Column */}
+        {/* Main Layout */}
         <div className="grid gap-6 xl:grid-cols-4">
-          {/* Left Sidebar - Previous Analyses & Key Data */}
+          {/* Left Sidebar */}
           <div className="xl:col-span-1 space-y-6">
-            {/* Key Data */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -313,57 +245,68 @@ export default function AnalysisEditor() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Kurs ({company?.trading_currency})</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={currentPrice}
-                    onChange={(e) => setCurrentPrice(e.target.value)}
-                    className="font-mono"
-                  />
+                  <Input type="number" step="0.01" placeholder="0.00" value={currentPrice} onChange={(e) => setCurrentPrice(e.target.value)} className="font-mono" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Antal aktier</Label>
-                  <Input
-                    type="number"
-                    placeholder="1000000"
-                    value={sharesOutstanding}
-                    onChange={(e) => setSharesOutstanding(e.target.value)}
-                    className="font-mono"
-                  />
+                  <Input type="number" placeholder="1000000" value={sharesOutstanding} onChange={(e) => setSharesOutstanding(e.target.value)} className="font-mono" />
                 </div>
                 {priceNum > 0 && sharesNum > 0 && (
-                  <div className="pt-2 border-t">
+                  <div className="pt-2 border-t space-y-1">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Börsvärde</span>
-                      <span className="font-mono font-medium">
-                        {((priceNum * sharesNum) / 1e9).toFixed(2)} Mdr
-                      </span>
+                      <span className="font-mono font-medium">{((priceNum * sharesNum) / 1e9).toFixed(2)} Mdr</span>
                     </div>
+                    {(() => {
+                      const latestIncome = incomeData?.[incomeData.length - 1];
+                      const latestBalance = balanceData?.[balanceData.length - 1];
+                      const marketCap = priceNum * sharesNum;
+                      const ebit = latestIncome?.ebit;
+                      const ebitda = latestIncome?.ebitda;
+                      const netDebt = latestBalance ? ((latestBalance.long_term_debt ?? 0) + (latestBalance.short_term_debt ?? 0) - (latestBalance.cash_equivalents ?? 0)) : null;
+                      const ev = netDebt !== null ? marketCap + netDebt : null;
+                      return (
+                        <>
+                          {ev !== null && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">EV</span>
+                              <span className="font-mono font-medium">{(ev / 1e9).toFixed(2)} Mdr</span>
+                            </div>
+                          )}
+                          {ev !== null && ebit && ebit > 0 && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">EV/EBIT</span>
+                              <span className="font-mono font-medium">{(ev / ebit).toFixed(1)}x</span>
+                            </div>
+                          )}
+                          {ev !== null && ebitda && ebitda > 0 && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">EV/EBITDA</span>
+                              <span className="font-mono font-medium">{(ev / ebitda).toFixed(1)}x</span>
+                            </div>
+                          )}
+                          {netDebt !== null && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Nettoskuld</span>
+                              <span className="font-mono font-medium">{(netDebt / 1e6).toFixed(0)} M</span>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
               </CardContent>
             </Card>
-
-            {/* Previous Analyses */}
-            <PreviousAnalysesList
-              analyses={allAnalyses || []}
-              currentAnalysisId={selectedAnalysisId || undefined}
-              onSelect={handleSelectAnalysis}
-              onCreateNew={handleCreateNew}
-            />
           </div>
 
-          {/* Main Content - Historical Data + Spreadsheet Analysis */}
+          {/* Main Content */}
           <div className="xl:col-span-3 space-y-6">
-            {/* Historical Data Reference */}
             <HistoricalDataTable
               data={historicalData}
               currency={company?.reporting_currency}
               sharesOutstanding={sharesNum}
             />
-
-            {/* Spreadsheet-style Analysis */}
             <SpreadsheetAnalysis
               analysisDate={currentAnalysis?.created_at?.split('T')[0]}
               currentPrice={priceNum}

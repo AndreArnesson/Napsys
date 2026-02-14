@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { CompanyCard } from '@/components/company/CompanyCard';
+import { WatchlistSection } from '@/components/watchlist/WatchlistSection';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -219,12 +220,15 @@ export default function Dashboard() {
                     margin_of_safety: latestAnalysis.margin_of_safety,
                     updated_at: latestAnalysis.updated_at,
                   } : null}
-                  priceChange={Math.random() * 10 - 5} // Mock price change for now
+                  
                 />
               )})}
             </div>
           )}
         </section>
+
+        {/* Watchlist */}
+        <WatchlistSection />
 
         {/* Shared With Me */}
         <section className="space-y-4">
@@ -257,7 +261,7 @@ export default function Dashboard() {
                     margin_of_safety: latestAnalysis.margin_of_safety,
                     updated_at: latestAnalysis.updated_at,
                   } : null}
-                  priceChange={Math.random() * 10 - 5}
+                  
                   isShared
                 />
               )})}

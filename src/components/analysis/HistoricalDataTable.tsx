@@ -1,7 +1,11 @@
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, Minus, BarChart3 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
+import { TrendingUp, TrendingDown, Minus, BarChart3, Settings2 } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { cn } from '@/lib/utils';
 
@@ -13,10 +17,32 @@ export interface HistoricalYear {
   ebitda?: number;
   net_income?: number;
   earnings_per_share?: number;
+  gross_margin?: number;
   operating_margin?: number;
   net_margin?: number;
   roe?: number;
+  total_debt?: number;
+  cash?: number;
+  shareholders_equity?: number;
 }
+
+type ColumnKey = 'revenue' | 'growth' | 'ebit' | 'ebitda' | 'net_income' | 'gross_margin' | 'operating_margin' | 'net_margin' | 'ev' | 'ev_ebit' | 'ev_ebitda';
+
+const ALL_COLUMNS: { key: ColumnKey; label: string; group: string }[] = [
+  { key: 'revenue', label: 'Omsättning', group: 'Resultat' },
+  { key: 'growth', label: 'Tillväxt', group: 'Resultat' },
+  { key: 'ebit', label: 'EBIT', group: 'Resultat' },
+  { key: 'ebitda', label: 'EBITDA', group: 'Resultat' },
+  { key: 'net_income', label: 'Nettores.', group: 'Resultat' },
+  { key: 'gross_margin', label: 'Bruttomarginal', group: 'Marginaler' },
+  { key: 'operating_margin', label: 'Rörelsemarginal', group: 'Marginaler' },
+  { key: 'net_margin', label: 'Nettomarginal', group: 'Marginaler' },
+  { key: 'ev', label: 'EV', group: 'Värdering' },
+  { key: 'ev_ebit', label: 'EV/EBIT', group: 'Värdering' },
+  { key: 'ev_ebitda', label: 'EV/EBITDA', group: 'Värdering' },
+];
+
+const DEFAULT_COLUMNS: ColumnKey[] = ['revenue', 'growth', 'ebit', 'net_income', 'operating_margin', 'net_margin'];
 
 interface HistoricalDataTableProps {
   data: HistoricalYear[];
@@ -32,13 +58,19 @@ export function HistoricalDataTable({
   onRowClick,
 }: HistoricalDataTableProps) {
   const { language } = useLanguage();
+  const [perShare, setPerShare] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(DEFAULT_COLUMNS);
+
+  const canToggle = !!sharesOutstanding && sharesOutstanding > 0;
 
   const formatNumber = (value: number | undefined, decimals = 0) => {
     if (value === undefined || value === null) return '—';
+    const displayValue = perShare && canToggle ? value / sharesOutstanding! : value;
+    const dec = perShare ? 2 : decimals;
     return new Intl.NumberFormat(language === 'sv' ? 'sv-SE' : 'en-US', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    }).format(value);
+      minimumFractionDigits: dec,
+      maximumFractionDigits: dec,
+    }).format(displayValue);
   };
 
   const formatPercent = (value: number | undefined) => {
@@ -48,7 +80,6 @@ export function HistoricalDataTable({
 
   const getGrowthBadge = (growth: number | undefined) => {
     if (growth === undefined || growth === null) return null;
-    
     if (growth > 10) {
       return (
         <Badge variant="outline" className="text-success border-success/50 gap-1">
@@ -63,33 +94,42 @@ export function HistoricalDataTable({
           {growth.toFixed(0)}%
         </Badge>
       );
-    } else {
-      return (
-        <Badge variant="outline" className="text-muted-foreground gap-1">
-          <Minus className="h-3 w-3" />
-          {growth.toFixed(0)}%
-        </Badge>
-      );
     }
+    return (
+      <Badge variant="outline" className="text-muted-foreground gap-1">
+        <Minus className="h-3 w-3" />
+        {growth.toFixed(0)}%
+      </Badge>
+    );
   };
 
-  // Calculate growth rates
   const dataWithGrowth = data.map((row, index) => {
     const prevYear = data[index - 1];
     let revenueGrowth: number | undefined;
-    
     if (prevYear && prevYear.revenue && row.revenue) {
       revenueGrowth = ((row.revenue - prevYear.revenue) / prevYear.revenue) * 100;
     }
-    
-    return {
-      ...row,
-      revenue_growth: row.revenue_growth ?? revenueGrowth,
-    };
+    return { ...row, revenue_growth: row.revenue_growth ?? revenueGrowth };
   });
 
-  // Sort by year descending for display
   const sortedData = [...dataWithGrowth].sort((a, b) => b.fiscal_year - a.fiscal_year);
+
+  const toggleColumn = (key: ColumnKey) => {
+    setVisibleColumns(prev =>
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    );
+  };
+
+  const isVisible = (key: ColumnKey) => visibleColumns.includes(key);
+
+  // Compute EV per year (needs sharesOutstanding & price — we approximate with last year's data)
+  const computeEV = (row: HistoricalYear) => {
+    const debt = row.total_debt ?? 0;
+    const cash = row.cash ?? 0;
+    const netDebt = debt - cash;
+    // We don't have market cap per year in historical, so just show net debt component
+    return undefined; // EV requires current market cap which is per-analysis
+  };
 
   if (data.length === 0) {
     return (
@@ -97,13 +137,13 @@ export function HistoricalDataTable({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5" />
-            Historical Data
+            Historisk Data
           </CardTitle>
-          <CardDescription>Import financial data to see historical trends</CardDescription>
+          <CardDescription>Importera finansiell data för att se historiska trender</CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground text-center py-8">
-            No historical data available. Import from Börsdata to get started.
+            Ingen historisk data tillgänglig. Importera från Börsdata för att komma igång.
           </p>
         </CardContent>
       </Card>
@@ -113,13 +153,54 @@ export function HistoricalDataTable({
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <BarChart3 className="h-5 w-5" />
-          Historisk Data
-        </CardTitle>
-        <CardDescription>
-          {sortedData.length} år • {sortedData[sortedData.length - 1]?.fiscal_year} - {sortedData[0]?.fiscal_year}
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <BarChart3 className="h-5 w-5" />
+              Historisk Data
+            </CardTitle>
+            <CardDescription>
+              {sortedData.length} år • {sortedData[sortedData.length - 1]?.fiscal_year} - {sortedData[0]?.fiscal_year}
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1">
+                  <Settings2 className="h-3.5 w-3.5" />
+                  Kolumner
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56" align="end">
+                <div className="space-y-3">
+                  {['Resultat', 'Marginaler', 'Värdering'].map(group => (
+                    <div key={group}>
+                      <p className="text-xs font-medium text-muted-foreground mb-1.5">{group}</p>
+                      {ALL_COLUMNS.filter(c => c.group === group).map(col => (
+                        <label key={col.key} className="flex items-center gap-2 py-1 cursor-pointer">
+                          <Checkbox
+                            checked={isVisible(col.key)}
+                            onCheckedChange={() => toggleColumn(col.key)}
+                          />
+                          <span className="text-sm">{col.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+            {canToggle && (
+              <Button
+                variant={perShare ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPerShare(!perShare)}
+              >
+                {perShare ? 'Per aktie' : 'Totalt'}
+              </Button>
+            )}
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -127,42 +208,32 @@ export function HistoricalDataTable({
             <TableHeader>
               <TableRow>
                 <TableHead className="w-16">År</TableHead>
-                <TableHead className="text-right">Omsättning</TableHead>
-                <TableHead className="text-center">Tillväxt</TableHead>
-                <TableHead className="text-right">EBIT</TableHead>
-                <TableHead className="text-right">Nettores.</TableHead>
-                <TableHead className="text-right">Vinst/aktie</TableHead>
-                <TableHead className="text-right">Marginal</TableHead>
+                {isVisible('revenue') && <TableHead className="text-right">{perShare ? 'Oms./aktie' : 'Omsättning'}</TableHead>}
+                {isVisible('growth') && <TableHead className="text-center">Tillväxt</TableHead>}
+                {isVisible('ebit') && <TableHead className="text-right">{perShare ? 'EBIT/aktie' : 'EBIT'}</TableHead>}
+                {isVisible('ebitda') && <TableHead className="text-right">{perShare ? 'EBITDA/aktie' : 'EBITDA'}</TableHead>}
+                {isVisible('net_income') && <TableHead className="text-right">{perShare ? 'Vinst/aktie' : 'Nettores.'}</TableHead>}
+                {isVisible('gross_margin') && <TableHead className="text-right">Brutto %</TableHead>}
+                {isVisible('operating_margin') && <TableHead className="text-right">EBIT %</TableHead>}
+                {isVisible('net_margin') && <TableHead className="text-right">Netto %</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {sortedData.map((row) => (
-                <TableRow 
+                <TableRow
                   key={row.fiscal_year}
-                  className={cn(
-                    onRowClick && 'cursor-pointer hover:bg-muted/50'
-                  )}
+                  className={cn(onRowClick && 'cursor-pointer hover:bg-muted/50')}
                   onClick={() => onRowClick?.(row.fiscal_year)}
                 >
                   <TableCell className="font-medium">{row.fiscal_year}</TableCell>
-                  <TableCell className="text-right font-mono text-sm">
-                    {formatNumber(row.revenue)}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {getGrowthBadge(row.revenue_growth)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-sm">
-                    {formatNumber(row.ebit)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-sm">
-                    {formatNumber(row.net_income)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-sm">
-                    {formatNumber(row.earnings_per_share, 2)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-sm">
-                    {formatPercent(row.operating_margin || row.net_margin)}
-                  </TableCell>
+                  {isVisible('revenue') && <TableCell className="text-right font-mono text-sm">{formatNumber(row.revenue)}</TableCell>}
+                  {isVisible('growth') && <TableCell className="text-center">{getGrowthBadge(row.revenue_growth)}</TableCell>}
+                  {isVisible('ebit') && <TableCell className="text-right font-mono text-sm">{formatNumber(row.ebit)}</TableCell>}
+                  {isVisible('ebitda') && <TableCell className="text-right font-mono text-sm">{formatNumber(row.ebitda)}</TableCell>}
+                  {isVisible('net_income') && <TableCell className="text-right font-mono text-sm">{formatNumber(row.net_income)}</TableCell>}
+                  {isVisible('gross_margin') && <TableCell className="text-right font-mono text-sm">{formatPercent(row.gross_margin)}</TableCell>}
+                  {isVisible('operating_margin') && <TableCell className="text-right font-mono text-sm">{formatPercent(row.operating_margin)}</TableCell>}
+                  {isVisible('net_margin') && <TableCell className="text-right font-mono text-sm">{formatPercent(row.net_margin)}</TableCell>}
                 </TableRow>
               ))}
             </TableBody>
