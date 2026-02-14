@@ -115,7 +115,7 @@ export default function CompanyDetail() {
   });
 
   const ceoData: CEOData = company?.management
-    ? (typeof company.management === 'object' ? company.management as CEOData : { name: company.management })
+    ? (typeof company.management === 'object' ? (company.management as unknown as CEOData) : { name: String(company.management) })
     : { name: '' };
 
   const handleCEOUpdate = (newCeo: CEOData) => {
