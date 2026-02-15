@@ -20,7 +20,11 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, Loader2, Clock, ChevronDown, Plus, Trash2, FileText } from 'lucide-react';
+import { ArrowLeft, Loader2, Clock, ChevronDown, Plus, Trash2, FileText, Settings2, Eye, EyeOff } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -333,52 +337,133 @@ export default function CompanyDetail() {
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
-            <KeyDataEditor data={{ ticker: company.ticker || undefined, reportingCurrency: company.reporting_currency, tradingCurrency: company.trading_currency }} onUpdate={handleKeyDataUpdate} />
-            <div className="grid gap-6 lg:grid-cols-2">
-              <Collapsible open={descriptionOpen} onOpenChange={setDescriptionOpen}>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CollapsibleTrigger className="flex items-center justify-between w-full">
-                      <CardTitle>{t.company.description}</CardTitle>
-                      <ChevronDown className={`h-4 w-4 transition-transform ${descriptionOpen ? 'rotate-180' : ''}`} />
-                    </CollapsibleTrigger>
-                  </CardHeader>
-                  <CollapsibleContent>
-                    <CardContent>
-                      <Textarea placeholder="Add a detailed description..." defaultValue={company.description || ''} onBlur={(e) => { if (e.target.value !== company.description) updateCompany.mutate({ description: e.target.value }); }} className="min-h-[200px]" />
-                    </CardContent>
-                  </CollapsibleContent>
-                </Card>
-              </Collapsible>
-              <Collapsible open={moatsOpen} onOpenChange={setMoatsOpen}>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CollapsibleTrigger className="flex items-center justify-between w-full">
-                      <CardTitle>{t.company.moats}</CardTitle>
-                      <ChevronDown className={`h-4 w-4 transition-transform ${moatsOpen ? 'rotate-180' : ''}`} />
-                    </CollapsibleTrigger>
-                    <CardDescription>Competitive advantages</CardDescription>
-                  </CardHeader>
-                  <CollapsibleContent>
-                    <CardContent>
-                      <Textarea placeholder="Describe the company's moats..." defaultValue={company.moats || ''} onBlur={(e) => { if (e.target.value !== company.moats) updateCompany.mutate({ moats: e.target.value }); }} className="min-h-[200px]" />
-                    </CardContent>
-                  </CollapsibleContent>
-                </Card>
-              </Collapsible>
-            </div>
-            <CEOSection ceo={ceoData} onUpdate={handleCEOUpdate} />
-            <PilotskolanSection
-              value={(company as any)?.pilotskolan || ''}
-              onUpdate={(val) => updateCompany.mutate({ pilotskolan: val } as any)}
-            />
-            <InsiderOwnership data={ownershipData} onUpdate={handleOwnershipUpdate} />
-            <ImageUpload
-              images={companyImages}
-              onImagesChange={(imgs) => updateCompany.mutate({ images: imgs })}
-              title="Bilder"
-              folder={`company/${id}`}
-            />
+            {/* Section visibility settings */}
+            {(() => {
+              const defaultSections = { description: true, moats: true, ceo: true, pilotskolan: true, insiderOwnership: true, images: true, foundedYear: false, businessModel: false };
+              const sections = { ...defaultSections, ...((company as any)?.visible_sections || {}) };
+              const toggleSection = (key: string) => {
+                const updated = { ...sections, [key]: !sections[key as keyof typeof sections] };
+                updateCompany.mutate({ visible_sections: updated } as any);
+              };
+              const sectionLabels: Record<string, string> = {
+                description: 'Beskrivning', moats: 'Vallgravar', ceo: 'VD/Ledning', pilotskolan: 'Pilotskolan',
+                insiderOwnership: 'Insynsägande', images: 'Bilder', foundedYear: 'Grundat', businessModel: 'Affärsmodell',
+              };
+              return (
+                <>
+                  <div className="flex justify-end">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="gap-2">
+                          <Settings2 className="h-4 w-4" />Sektioner
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64" align="end">
+                        <div className="space-y-3">
+                          <p className="text-sm font-medium">Visa/dölj sektioner</p>
+                          {Object.entries(sectionLabels).map(([key, label]) => (
+                            <div key={key} className="flex items-center justify-between">
+                              <Label className="text-sm">{label}</Label>
+                              <Switch checked={sections[key as keyof typeof sections] as boolean} onCheckedChange={() => toggleSection(key)} />
+                            </div>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <KeyDataEditor data={{ ticker: company.ticker || undefined, reportingCurrency: company.reporting_currency, tradingCurrency: company.trading_currency }} onUpdate={handleKeyDataUpdate} />
+
+                  {sections.foundedYear && (
+                    <Card>
+                      <CardHeader className="pb-2"><CardTitle>Grundat</CardTitle></CardHeader>
+                      <CardContent>
+                        <Input
+                          type="number"
+                          placeholder="t.ex. 1999"
+                          defaultValue={(company as any)?.founded_year || ''}
+                          onBlur={(e) => {
+                            const val = e.target.value ? parseInt(e.target.value) : null;
+                            if (val !== ((company as any)?.founded_year || null)) updateCompany.mutate({ founded_year: val } as any);
+                          }}
+                          className="max-w-[200px] font-mono"
+                        />
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {sections.businessModel && (
+                    <Card>
+                      <CardHeader className="pb-2"><CardTitle>Affärsmodell</CardTitle></CardHeader>
+                      <CardContent>
+                        <Textarea
+                          placeholder="Beskriv bolagets affärsmodell..."
+                          defaultValue={(company as any)?.business_model || ''}
+                          onBlur={(e) => {
+                            if (e.target.value !== ((company as any)?.business_model || '')) updateCompany.mutate({ business_model: e.target.value } as any);
+                          }}
+                          className="min-h-[150px]"
+                        />
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    {sections.description && (
+                      <Collapsible open={descriptionOpen} onOpenChange={setDescriptionOpen}>
+                        <Card>
+                          <CardHeader className="pb-2">
+                            <CollapsibleTrigger className="flex items-center justify-between w-full">
+                              <CardTitle>{t.company.description}</CardTitle>
+                              <ChevronDown className={`h-4 w-4 transition-transform ${descriptionOpen ? 'rotate-180' : ''}`} />
+                            </CollapsibleTrigger>
+                          </CardHeader>
+                          <CollapsibleContent>
+                            <CardContent>
+                              <Textarea placeholder="Add a detailed description..." defaultValue={company.description || ''} onBlur={(e) => { if (e.target.value !== company.description) updateCompany.mutate({ description: e.target.value }); }} className="min-h-[200px]" />
+                            </CardContent>
+                          </CollapsibleContent>
+                        </Card>
+                      </Collapsible>
+                    )}
+                    {sections.moats && (
+                      <Collapsible open={moatsOpen} onOpenChange={setMoatsOpen}>
+                        <Card>
+                          <CardHeader className="pb-2">
+                            <CollapsibleTrigger className="flex items-center justify-between w-full">
+                              <CardTitle>{t.company.moats}</CardTitle>
+                              <ChevronDown className={`h-4 w-4 transition-transform ${moatsOpen ? 'rotate-180' : ''}`} />
+                            </CollapsibleTrigger>
+                            <CardDescription>Competitive advantages</CardDescription>
+                          </CardHeader>
+                          <CollapsibleContent>
+                            <CardContent>
+                              <Textarea placeholder="Describe the company's moats..." defaultValue={company.moats || ''} onBlur={(e) => { if (e.target.value !== company.moats) updateCompany.mutate({ moats: e.target.value }); }} className="min-h-[200px]" />
+                            </CardContent>
+                          </CollapsibleContent>
+                        </Card>
+                      </Collapsible>
+                    )}
+                  </div>
+                  {sections.ceo && <CEOSection ceo={ceoData} onUpdate={handleCEOUpdate} />}
+                  {sections.pilotskolan && (
+                    <PilotskolanSection
+                      value={(company as any)?.pilotskolan || ''}
+                      onUpdate={(val) => updateCompany.mutate({ pilotskolan: val } as any)}
+                    />
+                  )}
+                  {sections.insiderOwnership && <InsiderOwnership data={ownershipData} onUpdate={handleOwnershipUpdate} />}
+                  {sections.images && (
+                    <ImageUpload
+                      images={companyImages}
+                      onImagesChange={(imgs) => updateCompany.mutate({ images: imgs })}
+                      title="Bilder"
+                      folder={`company/${id}`}
+                    />
+                  )}
+                </>
+              );
+            })()}
           </TabsContent>
 
           {/* Financials Tab */}
