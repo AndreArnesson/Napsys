@@ -17,7 +17,9 @@ serve(async (req) => {
     let userPrompt = "";
 
     if (type === "financial") {
-      systemPrompt = `Du är en erfaren aktieanalytiker. Analysera den finansiella datan och ge en koncis sammanfattning på svenska. Fokusera på:
+      systemPrompt = `Du är en erfaren aktieanalytiker. Analysera den finansiella datan och ge en koncis sammanfattning på svenska. Formatera svaret som HTML (INTE markdown). Använd <h3>, <ul>, <li>, <strong>, <p> taggar.
+
+Fokusera på:
 1. Omsättningstrender (tillväxt/avmattning)
 2. Vinstutveckling och marginaler
 3. Värdering (P/E, EV/EBIT om tillgängligt)
@@ -25,17 +27,29 @@ serve(async (req) => {
 5. Risker: hög skuldsättning, svagt kassaflöde, svag balansräkning
 6. Sammanfattande bedömning
 
-Var konkret med siffror. Håll dig under 300 ord. Använd markdown-formatering med rubriker.`;
+Var konkret med siffror. Håll dig under 300 ord. Returnera BARA HTML-innehåll, ingen markdown, inga kodblock.
+
+Exempel på format:
+<h3>📈 Omsättning & Tillväxt</h3>
+<p>Omsättningen har vuxit med <strong>X%</strong> per år...</p>
+<h3>💰 Vinst & Marginaler</h3>
+<ul><li>Rörelsemarginal: <strong>X%</strong></li></ul>
+<h3>⚠️ Risker</h3>
+<ul><li>Hög skuldsättning...</li></ul>
+<h3>🎯 Sammanfattning</h3>
+<p>Sammantaget...</p>`;
       userPrompt = `Analysera finansiell data för ${companyName || 'bolaget'}:\n\n${JSON.stringify(data, null, 2)}`;
     } else if (type === "insider") {
-      systemPrompt = `Du är en erfaren aktieanalytiker. Analysera insynshandeln och ge en koncis sammanfattning på svenska. Fokusera på:
+      systemPrompt = `Du är en erfaren aktieanalytiker. Analysera insynshandeln och ge en koncis sammanfattning på svenska. Formatera svaret som HTML (INTE markdown). Använd <h3>, <ul>, <li>, <strong>, <p> taggar.
+
+Fokusera på:
 1. Finns det ett tydligt mönster? Köper eller säljer insiders på sistone?
 2. Vilka nyckelpersoner har handlat och hur mycket?
 3. Har flera börjat köpa/sälja samtidigt?
 4. Finns det några anmärkningsvärda transaktioner (stora belopp)?
 5. Vad signalerar detta sammantaget?
 
-Var konkret. Håll dig under 200 ord. Använd markdown-formatering.`;
+Var konkret. Håll dig under 200 ord. Returnera BARA HTML-innehåll, ingen markdown, inga kodblock.`;
       userPrompt = `Analysera insynshandel för ${companyName || 'bolaget'}:\n\n${JSON.stringify(data, null, 2)}`;
     } else {
       return new Response(JSON.stringify({ error: "Invalid type" }), {
@@ -81,7 +95,10 @@ Var konkret. Håll dig under 200 ord. Använd markdown-formatering.`;
     }
 
     const result = await response.json();
-    const content = result.choices?.[0]?.message?.content || "";
+    let content = result.choices?.[0]?.message?.content || "";
+    
+    // Strip markdown code block wrappers if present
+    content = content.replace(/^```html\s*/i, '').replace(/```\s*$/, '').trim();
 
     return new Response(JSON.stringify({ summary: content }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
