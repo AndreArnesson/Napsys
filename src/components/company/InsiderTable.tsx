@@ -44,7 +44,7 @@ export function InsiderTable({ trades }: InsiderTableProps) {
   };
 
   const isAcquisition = (type: string) => type === 'Förvärv' || type === 'acquisition';
-  const isNeutral = (type: string) => ['Tilldelning', 'Pantsättning', 'Pantsättning åter', 'Koncernintern överföring minskning'].includes(type);
+  const isNeutral = (type: string) => ['Tilldelning', 'Pantsättning', 'Pantsättning åter', 'Koncernintern överföring minskning', 'Koncernintern överföring ökning'].includes(type);
 
   return (
     <Card>
