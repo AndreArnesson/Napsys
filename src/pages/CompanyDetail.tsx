@@ -20,7 +20,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, Loader2, Clock, ChevronDown, Plus } from 'lucide-react';
+import { ArrowLeft, Loader2, Clock, ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { sv, enUS } from 'date-fns/locale';
@@ -526,30 +527,49 @@ export default function CompanyDetail() {
             ) : (
               <div className="space-y-3">
                 {allAnalyses.map((analysis) => (
-                  <Link key={analysis.id} to={`/company/${id}/analysis/${analysis.id}`}>
-                    <Card className="hover:border-primary/20 transition-colors cursor-pointer">
-                      <CardContent className="py-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <RatingBadge rating={analysis.rating as 'buy' | 'hold' | 'sell' | null} />
-                            {(analysis as any).name && (
-                              <span className="font-medium">{(analysis as any).name}</span>
-                            )}
-                            <MOSBadge value={analysis.margin_of_safety} size="sm" />
-                            <span className="text-sm text-muted-foreground">
-                              {formatDistanceToNow(new Date(analysis.updated_at), { addSuffix: true, locale })}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {analysis.is_draft && <span className="text-xs bg-muted px-2 py-0.5 rounded">Draft</span>}
-                          </div>
-                        </div>
-                        {analysis.summary_comment && (
-                          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{analysis.summary_comment}</p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </Link>
+                  <Card key={analysis.id} className="hover:border-primary/20 transition-colors">
+                    <CardContent className="py-4">
+                      <div className="flex items-center justify-between">
+                        <Link to={`/company/${id}/analysis/${analysis.id}`} className="flex items-center gap-3 flex-1 cursor-pointer">
+                          <RatingBadge rating={analysis.rating as 'buy' | 'hold' | 'sell' | null} />
+                          {(analysis as any).name && (
+                            <span className="font-medium">{(analysis as any).name}</span>
+                          )}
+                          <MOSBadge value={analysis.margin_of_safety} size="sm" />
+                          <span className="text-sm text-muted-foreground">
+                            {formatDistanceToNow(new Date(analysis.updated_at), { addSuffix: true, locale })}
+                          </span>
+                          {analysis.is_draft && <span className="text-xs bg-muted px-2 py-0.5 rounded">Draft</span>}
+                        </Link>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={(e) => e.stopPropagation()}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Ta bort analys?</AlertDialogTitle>
+                              <AlertDialogDescription>Analysen och all kopplad data tas bort permanent.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => {
+                                await supabase.from('income_statement').delete().eq('analysis_id', analysis.id);
+                                await supabase.from('balance_sheet').delete().eq('analysis_id', analysis.id);
+                                await supabase.from('analyses').delete().eq('id', analysis.id);
+                                queryClient.invalidateQueries({ queryKey: ['all-analyses', id] });
+                                toast.success('Analys borttagen');
+                              }}>Ta bort</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                      {analysis.summary_comment && (
+                        <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{analysis.summary_comment}</p>
+                      )}
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             )}

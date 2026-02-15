@@ -27,6 +27,8 @@ export interface YearlyProjection {
   targetPE?: number;
   estimatedPrice?: number;
   mos?: number;
+  dividend?: number;
+  dividendYield?: number;
 }
 
 interface SpreadsheetAnalysisProps {
@@ -222,6 +224,10 @@ export function SpreadsheetAnalysis({
         }
       }
 
+      // Dividend yield
+      const dividend = proj.dividend;
+      const dividendYield = (dividend && price && price > 0) ? (dividend / price) * 100 : undefined;
+
       results.push({
         ...proj,
         ...col,
@@ -236,6 +242,8 @@ export function SpreadsheetAnalysis({
         targetPE: peToUse,
         estimatedPrice,
         mos,
+        dividend,
+        dividendYield,
       });
     }
     return results;
@@ -277,6 +285,8 @@ export function SpreadsheetAnalysis({
 
     base.push(
       { label: `Vinst/aktie (${currency})`, key: 'earningsPerShare', editable: false, bg: true },
+      { label: `Utdelning (${currency})`, key: 'dividend', editable: true },
+      { label: 'Direktavkastning (%)', key: 'dividendYield', editable: false },
       { label: 'P/E', key: 'pe', editable: false },
       { label: 'Rimlig P/E', key: 'targetPE', editable: true, bg: true },
       { label: `Estimerad kurs (${currency})`, key: 'estimatedPrice', editable: false },

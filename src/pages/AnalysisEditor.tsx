@@ -17,7 +17,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Loader2, Save, CheckCircle, Settings2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Save, CheckCircle, Settings2, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import debounce from 'lodash/debounce';
 
@@ -376,6 +377,28 @@ export default function AnalysisEditor() {
               {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {t.analysis.saveAnalysis}
             </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Ta bort analys?</AlertDialogTitle>
+                  <AlertDialogDescription>Analysen och all kopplad data tas bort permanent.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                  <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => {
+                    await supabase.from('income_statement').delete().eq('analysis_id', analysisId!);
+                    await supabase.from('balance_sheet').delete().eq('analysis_id', analysisId!);
+                    await supabase.from('analyses').delete().eq('id', analysisId!);
+                    queryClient.invalidateQueries({ queryKey: ['all-analyses', id] });
+                    toast.success('Analys borttagen');
+                    navigate(`/company/${id}?tab=analysis`);
+                  }}>Ta bort</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
 
