@@ -76,7 +76,8 @@ export function HistoricalDataTable({
 
   const formatNumber = (value: number | undefined, decimals = 0) => {
     if (value === undefined || value === null) return '—';
-    const displayValue = perShare && canToggle ? value / sharesOutstanding! : value;
+    // Values are in MSEK; convert to SEK before dividing by shares
+    const displayValue = perShare && canToggle ? (value * 1_000_000) / sharesOutstanding! : value;
     const dec = perShare ? 2 : decimals;
     return new Intl.NumberFormat(language === 'sv' ? 'sv-SE' : 'en-US', {
       minimumFractionDigits: dec, maximumFractionDigits: dec,
@@ -240,23 +241,23 @@ export function HistoricalDataTable({
             <TableHeader>
               <TableRow>
                 <TableHead className="w-20 whitespace-nowrap">{isQuarterly ? 'Period' : 'År'}</TableHead>
-                {isVisible('revenue') && <TableHead className="text-right whitespace-nowrap">{perShare ? 'Oms./aktie' : 'Omsättning'}</TableHead>}
+                {isVisible('revenue') && <TableHead className="text-right whitespace-nowrap">{perShare ? `Oms./aktie (${currency})` : `Omsättning (M${currency})`}</TableHead>}
                 {isVisible('growth') && <TableHead className="text-center whitespace-nowrap">Tillväxt</TableHead>}
-                {isVisible('ebit') && <TableHead className="text-right whitespace-nowrap">{perShare ? 'EBIT/aktie' : 'EBIT'}</TableHead>}
-                {isVisible('ebitda') && <TableHead className="text-right whitespace-nowrap">{perShare ? 'EBITDA/aktie' : 'EBITDA'}</TableHead>}
-                {isVisible('net_income') && <TableHead className="text-right whitespace-nowrap">{perShare ? 'Vinst/aktie' : 'Nettores.'}</TableHead>}
-                {isVisible('dividend') && <TableHead className="text-right whitespace-nowrap">Utdelning</TableHead>}
-                {isVisible('eps') && <TableHead className="text-right whitespace-nowrap">VPA</TableHead>}
+                {isVisible('ebit') && <TableHead className="text-right whitespace-nowrap">{perShare ? `EBIT/aktie (${currency})` : `EBIT (M${currency})`}</TableHead>}
+                {isVisible('ebitda') && <TableHead className="text-right whitespace-nowrap">{perShare ? `EBITDA/aktie (${currency})` : `EBITDA (M${currency})`}</TableHead>}
+                {isVisible('net_income') && <TableHead className="text-right whitespace-nowrap">{perShare ? `Vinst/aktie (${currency})` : `Nettores. (M${currency})`}</TableHead>}
+                {isVisible('dividend') && <TableHead className="text-right whitespace-nowrap">{perShare ? `Utd./aktie (${currency})` : `Utdelning (M${currency})`}</TableHead>}
+                {isVisible('eps') && <TableHead className="text-right whitespace-nowrap">VPA ({currency})</TableHead>}
                 {isVisible('gross_margin') && <TableHead className="text-right whitespace-nowrap">Brutto %</TableHead>}
                 {isVisible('operating_margin') && <TableHead className="text-right whitespace-nowrap">EBIT %</TableHead>}
                 {isVisible('net_margin') && <TableHead className="text-right whitespace-nowrap">Netto %</TableHead>}
                 {isVisible('pe') && <TableHead className="text-right whitespace-nowrap">P/E</TableHead>}
-                {isVisible('ev') && <TableHead className="text-right whitespace-nowrap">EV</TableHead>}
+                {isVisible('ev') && <TableHead className="text-right whitespace-nowrap">EV (M{currency})</TableHead>}
                 {isVisible('ev_ebit') && <TableHead className="text-right whitespace-nowrap">EV/EBIT</TableHead>}
                 {isVisible('ev_ebitda') && <TableHead className="text-right whitespace-nowrap">EV/EBITDA</TableHead>}
                 {isVisible('cagr_revenue') && <TableHead className="text-right whitespace-nowrap">CAGR Oms. (3å)</TableHead>}
                 {isVisible('cagr_profit') && <TableHead className="text-right whitespace-nowrap">CAGR Vinst (3å)</TableHead>}
-                {isVisible('debt') && <TableHead className="text-right whitespace-nowrap">Nettoskuld</TableHead>}
+                {isVisible('debt') && <TableHead className="text-right whitespace-nowrap">Nettoskuld (M{currency})</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
