@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Loader2, Save, CheckCircle, Settings2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Save, CheckCircle, Settings2, Trash2, LayoutDashboard, BarChart3, FileText } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import debounce from 'lodash/debounce';
@@ -345,9 +345,24 @@ export default function AnalysisEditor() {
         {/* Header */}
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div className="space-y-2">
-            <Link to={`/company/${id}?tab=analysis`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="h-4 w-4" />{t.common.back}
-            </Link>
+            {/* Quick navigation bar */}
+            <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+              <Link
+                to={`/company/${id}?tab=overview`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
+              >
+                <LayoutDashboard className="h-3.5 w-3.5" />Översikt
+              </Link>
+              <Link
+                to={`/company/${id}?tab=financials`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
+              >
+                <BarChart3 className="h-3.5 w-3.5" />Finansiell data
+              </Link>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-background text-foreground font-medium shadow-sm">
+                <FileText className="h-3.5 w-3.5" />Analys
+              </span>
+            </div>
             <div className="flex items-center gap-3">
               <Input
                 placeholder="Namnge din analys..."

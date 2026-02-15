@@ -259,6 +259,62 @@ export type Database = {
           },
         ]
       }
+      insider_trades: {
+        Row: {
+          company_id: string
+          created_at: string
+          currency: string
+          date: string
+          id: string
+          instrument: string | null
+          isin: string | null
+          nature: string | null
+          person: string
+          position: string
+          price: number
+          type: string
+          volume: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          currency?: string
+          date: string
+          id?: string
+          instrument?: string | null
+          isin?: string | null
+          nature?: string | null
+          person: string
+          position?: string
+          price?: number
+          type: string
+          volume?: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          currency?: string
+          date?: string
+          id?: string
+          instrument?: string | null
+          isin?: string | null
+          nature?: string | null
+          person?: string
+          position?: string
+          price?: number
+          type?: string
+          volume?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insider_trades_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string

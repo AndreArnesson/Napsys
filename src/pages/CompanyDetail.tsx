@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, Loader2, Clock, ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Clock, ChevronDown, Plus, Trash2, FileText } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -46,7 +46,28 @@ export default function CompanyDetail() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const defaultTab = searchParams.get('tab') || 'overview';
-  const [insiderTrades, setInsiderTrades] = useState<InsiderTrade[]>([]);
+  // Insider trades from DB
+  const { data: insiderTrades = [] } = useQuery({
+    queryKey: ['insider_trades', id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('insider_trades' as any).select('*').eq('company_id', id!).order('date', { ascending: false });
+      if (error) throw error;
+      return (data || []).map((d: any) => ({
+        id: d.id,
+        date: d.date,
+        person: d.person,
+        position: d.position,
+        type: d.type,
+        volume: Number(d.volume),
+        price: Number(d.price),
+        currency: d.currency,
+        instrument: d.instrument,
+        isin: d.isin,
+        nature: d.nature,
+      })) as InsiderTrade[];
+    },
+    enabled: !!id,
+  });
   const [descriptionOpen, setDescriptionOpen] = useState(true);
   const [moatsOpen, setMoatsOpen] = useState(true);
   const [creatingAnalysis, setCreatingAnalysis] = useState(false);
@@ -225,12 +246,25 @@ export default function CompanyDetail() {
   };
 
   const handleImportInsiders = async (data: ParsedInsiderTrade[]) => {
-    const mappedTrades: InsiderTrade[] = data.map(d => ({
-      id: d.id, date: d.date, person: d.person, position: d.position,
-      type: d.type, volume: d.volume, price: d.price, currency: d.currency,
-      instrument: d.instrument, isin: d.isin, nature: d.nature,
+    if (!id) return;
+    // Delete existing trades for this company, then insert new ones
+    await supabase.from('insider_trades' as any).delete().eq('company_id', id);
+    const rows = data.map(d => ({
+      company_id: id,
+      date: d.date,
+      person: d.person,
+      position: d.position || '',
+      type: d.type,
+      volume: d.volume,
+      price: d.price,
+      currency: d.currency || 'SEK',
+      instrument: d.instrument || null,
+      isin: d.isin || null,
+      nature: d.nature || null,
     }));
-    setInsiderTrades(mappedTrades);
+    const { error } = await supabase.from('insider_trades' as any).insert(rows);
+    if (error) { console.error('[Import] Insider insert error:', error); toast.error('Failed to save insider trades'); return; }
+    queryClient.invalidateQueries({ queryKey: ['insider_trades', id] });
     toast.success(`Imported ${data.length} insider transactions`);
   };
 
@@ -267,6 +301,15 @@ export default function CompanyDetail() {
             <div className="flex items-center gap-4">
               <h1 className="text-3xl font-bold">{company.name}</h1>
               {company.ticker && <span className="text-lg font-mono text-muted-foreground">{company.ticker}</span>}
+              {latestAnalysis && (
+                <Link
+                  to={`/company/${id}/analysis/${latestAnalysis.id}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 text-sm rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  {(latestAnalysis as any).name || 'Senaste analys'}
+                </Link>
+              )}
             </div>
             <div className="flex items-center gap-4">
               <RatingBadge rating={latestAnalysis?.rating as 'buy' | 'hold' | 'sell' | null} size="lg" />
@@ -513,8 +556,28 @@ export default function CompanyDetail() {
                     } as any)
                     .select()
                     .single();
+                  if (error) { setCreatingAnalysis(false); toast.error('Failed to create analysis'); return; }
+
+                  // Snapshot company-level financial data into this analysis
+                  const newAnalysisId = data.id;
+                  const { data: companyIncome } = await supabase.from('income_statement').select('*').eq('company_id', id!).is('analysis_id', null);
+                  if (companyIncome && companyIncome.length > 0) {
+                    const snapshotIncome = companyIncome.map((row: any) => {
+                      const { id: _id, created_at: _ca, ...rest } = row;
+                      return { ...rest, analysis_id: newAnalysisId };
+                    });
+                    await supabase.from('income_statement').insert(snapshotIncome as any);
+                  }
+                  const { data: companyBalance } = await supabase.from('balance_sheet').select('*').eq('company_id', id!).is('analysis_id', null);
+                  if (companyBalance && companyBalance.length > 0) {
+                    const snapshotBalance = companyBalance.map((row: any) => {
+                      const { id: _id, created_at: _ca, ...rest } = row;
+                      return { ...rest, analysis_id: newAnalysisId };
+                    });
+                    await supabase.from('balance_sheet').insert(snapshotBalance as any);
+                  }
+
                   setCreatingAnalysis(false);
-                  if (error) { toast.error('Failed to create analysis'); return; }
                   navigate(`/company/${id}/analysis/${data.id}`);
                 }}
               >
