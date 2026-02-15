@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TrendingUp, TrendingDown, Minus, BarChart3, Settings2 } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { cn } from '@/lib/utils';
@@ -29,16 +30,16 @@ export interface HistoricalYear {
   shares_outstanding?: number;
 }
 
-type ColumnKey = 'revenue' | 'growth' | 'ebit' | 'ebitda' | 'net_income' | 'dividend' | 'eps' | 'gross_margin' | 'operating_margin' | 'net_margin' | 'pe' | 'ev' | 'ev_ebit' | 'ev_ebitda' | 'cagr_revenue' | 'cagr_profit' | 'debt';
+type ColumnKey = 'revenue' | 'growth' | 'ebit' | 'ebitda' | 'net_income' | 'dividend' | 'eps' | 'eps_growth' | 'gross_margin' | 'operating_margin' | 'net_margin' | 'pe' | 'ev' | 'ev_ebit' | 'ev_ebitda' | 'cagr_revenue' | 'cagr_profit' | 'debt';
 
 const ALL_COLUMNS: { key: ColumnKey; label: string; group: string }[] = [
   { key: 'revenue', label: 'Omsättning', group: 'Resultat' },
-  { key: 'growth', label: 'Tillväxt', group: 'Resultat' },
+  { key: 'growth', label: 'Oms. tillväxt', group: 'Resultat' },
   { key: 'ebit', label: 'EBIT', group: 'Resultat' },
   { key: 'ebitda', label: 'EBITDA', group: 'Resultat' },
-  
   { key: 'dividend', label: 'Utdelning', group: 'Resultat' },
   { key: 'eps', label: 'Vinst/aktie', group: 'Resultat' },
+  { key: 'eps_growth', label: 'VPA-tillväxt', group: 'Resultat' },
   { key: 'gross_margin', label: 'Bruttomarginal', group: 'Marginaler' },
   { key: 'operating_margin', label: 'Rörelsemarginal', group: 'Marginaler' },
   { key: 'net_margin', label: 'Nettomarginal', group: 'Marginaler' },
@@ -51,7 +52,7 @@ const ALL_COLUMNS: { key: ColumnKey; label: string; group: string }[] = [
   { key: 'debt', label: 'Nettoskuld', group: 'Skuld' },
 ];
 
-const DEFAULT_COLUMNS: ColumnKey[] = ['revenue', 'growth', 'ebit', 'operating_margin', 'net_margin'];
+const DEFAULT_COLUMNS: ColumnKey[] = ['revenue', 'growth', 'ebit', 'eps', 'eps_growth', 'operating_margin', 'net_margin'];
 
 interface HistoricalDataTableProps {
   data: HistoricalYear[];
@@ -71,6 +72,7 @@ export function HistoricalDataTable({
   const { language } = useLanguage();
   const [perShare, setPerShare] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(DEFAULT_COLUMNS);
+  const [growthMode, setGrowthMode] = useState<'yoy' | 'sequential'>('yoy');
 
   const canToggle = !!sharesOutstanding && sharesOutstanding > 0;
 
@@ -104,31 +106,42 @@ export function HistoricalDataTable({
     return <Badge variant="outline" className="text-muted-foreground gap-1"><Minus className="h-3 w-3" />{growth.toFixed(0)}%</Badge>;
   };
 
-  // Deduplicate and sort data
+  const isQuarterly = data.some(d => d.quarter);
+
+  // Deduplicate and sort data with growth calculations
   const sortedData = useMemo(() => {
-    // Deduplicate by fiscal_year + quarter
     const seen = new Map<string, HistoricalYear>();
     for (const row of data) {
       const key = row.quarter ? `${row.fiscal_year}-Q${row.quarter}` : String(row.fiscal_year);
       if (!seen.has(key)) seen.set(key, row);
     }
     const unique = Array.from(seen.values());
+    // Sort ascending for growth calc
+    unique.sort((a, b) => {
+      if (a.fiscal_year !== b.fiscal_year) return a.fiscal_year - b.fiscal_year;
+      return (a.quarter ?? 0) - (b.quarter ?? 0);
+    });
 
-    // Calculate growth
     const withGrowth = unique.map((row, index) => {
-      const prevYear = unique[index - 1];
-      let revenueGrowth: number | undefined;
-      if (prevYear && prevYear.revenue && row.revenue) {
-        revenueGrowth = ((row.revenue - prevYear.revenue) / prevYear.revenue) * 100;
+      let prev: HistoricalYear | undefined;
+      if (isQuarterly && growthMode === 'yoy') {
+        // Find same quarter previous year
+        prev = unique.find(r => r.fiscal_year === row.fiscal_year - 1 && r.quarter === row.quarter);
+      } else {
+        prev = unique[index - 1];
       }
-      return { ...row, revenue_growth: row.revenue_growth ?? revenueGrowth };
+      const revenueGrowth = prev?.revenue && row.revenue
+        ? ((row.revenue - prev.revenue) / Math.abs(prev.revenue)) * 100 : undefined;
+      const epsGrowth = prev?.earnings_per_share && row.earnings_per_share
+        ? ((row.earnings_per_share - prev.earnings_per_share) / Math.abs(prev.earnings_per_share)) * 100 : undefined;
+      return { ...row, revenue_growth: revenueGrowth, _epsGrowth: epsGrowth };
     });
 
     return [...withGrowth].sort((a, b) => {
       if (a.fiscal_year !== b.fiscal_year) return b.fiscal_year - a.fiscal_year;
       return (b.quarter ?? 0) - (a.quarter ?? 0);
     });
-  }, [data]);
+  }, [data, growthMode, isQuarterly]);
 
   // Compute CAGR values
   const cagrData = useMemo(() => {
@@ -180,7 +193,7 @@ export function HistoricalDataTable({
     return debt - cash;
   };
 
-  const isQuarterly = data.some(d => d.quarter);
+  // isQuarterly moved above sortedData
 
   if (data.length === 0) {
     return (
@@ -227,6 +240,12 @@ export function HistoricalDataTable({
                 </div>
               </PopoverContent>
             </Popover>
+            <Tabs value={growthMode} onValueChange={(v) => setGrowthMode(v as 'yoy' | 'sequential')}>
+              <TabsList className="h-8">
+                <TabsTrigger value="yoy" className="text-xs px-2 h-6">YoY</TabsTrigger>
+                <TabsTrigger value="sequential" className="text-xs px-2 h-6">Sekv.</TabsTrigger>
+              </TabsList>
+            </Tabs>
             {canToggle && (
               <Button variant={perShare ? 'default' : 'outline'} size="sm" onClick={() => setPerShare(!perShare)}>
                 {perShare ? 'Per aktie' : 'Totalt'}
@@ -242,12 +261,12 @@ export function HistoricalDataTable({
               <TableRow>
                 <TableHead className="w-20 whitespace-nowrap">{isQuarterly ? 'Period' : 'År'}</TableHead>
                 {isVisible('revenue') && <TableHead className="text-right whitespace-nowrap">{perShare ? `Oms./aktie (${currency})` : `Omsättning (M${currency})`}</TableHead>}
-                {isVisible('growth') && <TableHead className="text-center whitespace-nowrap">Tillväxt</TableHead>}
+                {isVisible('growth') && <TableHead className="text-center whitespace-nowrap">Oms. tillväxt</TableHead>}
                 {isVisible('ebit') && <TableHead className="text-right whitespace-nowrap">{perShare ? `EBIT/aktie (${currency})` : `EBIT (M${currency})`}</TableHead>}
                 {isVisible('ebitda') && <TableHead className="text-right whitespace-nowrap">{perShare ? `EBITDA/aktie (${currency})` : `EBITDA (M${currency})`}</TableHead>}
-                {isVisible('net_income') && <TableHead className="text-right whitespace-nowrap">{perShare ? `Vinst/aktie (${currency})` : `Nettores. (M${currency})`}</TableHead>}
                 {isVisible('dividend') && <TableHead className="text-right whitespace-nowrap">{perShare ? `Utd./aktie (${currency})` : `Utdelning (M${currency})`}</TableHead>}
                 {isVisible('eps') && <TableHead className="text-right whitespace-nowrap">VPA ({currency})</TableHead>}
+                {isVisible('eps_growth') && <TableHead className="text-center whitespace-nowrap">VPA tillväxt</TableHead>}
                 {isVisible('gross_margin') && <TableHead className="text-right whitespace-nowrap">Brutto %</TableHead>}
                 {isVisible('operating_margin') && <TableHead className="text-right whitespace-nowrap">EBIT %</TableHead>}
                 {isVisible('net_margin') && <TableHead className="text-right whitespace-nowrap">Netto %</TableHead>}
@@ -276,9 +295,9 @@ export function HistoricalDataTable({
                     {isVisible('growth') && <TableCell className="text-center">{getGrowthBadge(row.revenue_growth)}</TableCell>}
                     {isVisible('ebit') && <TableCell className="text-right font-mono text-sm">{formatNumber(row.ebit)}</TableCell>}
                     {isVisible('ebitda') && <TableCell className="text-right font-mono text-sm">{formatNumber(row.ebitda)}</TableCell>}
-                    {isVisible('net_income') && <TableCell className="text-right font-mono text-sm">{formatNumber(row.net_income)}</TableCell>}
                     {isVisible('dividend') && <TableCell className="text-right font-mono text-sm">{row.dividend !== undefined ? formatNumber(row.dividend, 2) : '—'}</TableCell>}
                     {isVisible('eps') && <TableCell className="text-right font-mono text-sm">{row.earnings_per_share !== undefined ? row.earnings_per_share.toFixed(2) : '—'}</TableCell>}
+                    {isVisible('eps_growth') && <TableCell className="text-center">{getGrowthBadge((row as any)._epsGrowth)}</TableCell>}
                     {isVisible('gross_margin') && <TableCell className="text-right font-mono text-sm">{formatPercent(row.gross_margin)}</TableCell>}
                     {isVisible('operating_margin') && <TableCell className="text-right font-mono text-sm">{formatPercent(row.operating_margin)}</TableCell>}
                     {isVisible('net_margin') && <TableCell className="text-right font-mono text-sm">{formatPercent(row.net_margin)}</TableCell>}
