@@ -11,7 +11,7 @@ export interface InsiderTrade {
   date: string;
   person: string;
   position: string;
-  type: 'Förvärv' | 'Avyttring' | 'acquisition' | 'disposal';
+  type: 'Förvärv' | 'Avyttring' | 'Tilldelning' | 'acquisition' | 'disposal';
   volume: number;
   price: number;
   currency: string;
@@ -44,6 +44,7 @@ export function InsiderTable({ trades }: InsiderTableProps) {
   };
 
   const isAcquisition = (type: string) => type === 'Förvärv' || type === 'acquisition';
+  const isAllocation = (type: string) => type === 'Tilldelning';
 
   return (
     <Card>
@@ -83,9 +84,12 @@ export function InsiderTable({ trades }: InsiderTableProps) {
                   <TableCell className="font-medium">{trade.person}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">{trade.position}</TableCell>
                   <TableCell>
-                    <Badge variant={isAcquisition(trade.type) ? 'default' : 'destructive'} className="gap-1">
+                    <Badge 
+                      variant={isAcquisition(trade.type) ? 'default' : isAllocation(trade.type) ? 'secondary' : 'destructive'} 
+                      className="gap-1"
+                    >
                       {isAcquisition(trade.type) ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                      {isAcquisition(trade.type) ? 'Buy' : 'Sell'}
+                      {isAcquisition(trade.type) ? 'Buy' : isAllocation(trade.type) ? 'Grant' : 'Sell'}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{trade.nature || '—'}</TableCell>

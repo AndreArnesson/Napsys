@@ -587,8 +587,13 @@ export function FileImportDialog({ companyId, onImportFinancials, onImportInside
       const price = parseFloat(priceStr) || 0;
       if (volume === 0) continue;
 
-      // Extract "Karaktär" - typically column 12
-      const nature = cols[12]?.trim() || undefined;
+      // Column indices (0-based): 0=Publiceringsdatum, 1=Emittent, 2=LEI, 3=Anmälningsskyldig,
+      // 4=Person, 5=Befattning, 6=Närstående, 7=Korrigering, 8=Beskrivning, 
+      // 9=Är förstagångsrapportering, 10=Är kopplad till aktieprogram, 11=Karaktär,
+      // 12=Instrumenttyp, 13=Instrumentnamn, 14=ISIN, 15=Transaktionsdatum,
+      // 16=Volym, 17=Volymsenhet, 18=Pris, 19=Valuta, 20=Handelsplats, 21=Status
+      const nature = type; // Karaktär = cols[11], same as type variable
+      const instrumentType = cols[12]?.trim() || undefined;
 
       trades.push({
         id: `${dateParts}-${cols[4]}-${i}`,
@@ -601,7 +606,7 @@ export function FileImportDialog({ companyId, onImportFinancials, onImportInside
         currency: cols[19]?.trim() || 'SEK',
         instrument: cols[13]?.trim(),
         isin: cols[14]?.trim(),
-        nature,
+        nature: instrumentType,
       });
     }
     return trades.sort((a, b) => b.date.localeCompare(a.date));
