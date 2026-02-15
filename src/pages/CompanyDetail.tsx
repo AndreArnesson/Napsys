@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { MOSBadge } from '@/components/company/MOSBadge';
-import { Sparkles } from 'lucide-react';
+import { AISummaryCard } from '@/components/company/AISummaryCard';
 import { RatingBadge } from '@/components/company/RatingBadge';
 import { CEOSection } from '@/components/company/CEOSection';
 import { PilotskolanSection } from '@/components/company/PilotskolanSection';
@@ -461,7 +461,7 @@ export default function CompanyDetail() {
                     </Popover>
                   </div>
 
-                  <KeyDataEditor data={{ ticker: company.ticker || undefined, reportingCurrency: company.reporting_currency, tradingCurrency: company.trading_currency }} onUpdate={handleKeyDataUpdate} />
+                  <KeyDataEditor data={{ ticker: company.ticker || undefined, reportingCurrency: company.reporting_currency, tradingCurrency: company.trading_currency, currentPrice: company.current_price }} onUpdate={handleKeyDataUpdate} companyId={id} />
 
                   {sections.foundedYear && (
                     <div className="flex items-center gap-3">
@@ -636,29 +636,15 @@ export default function CompanyDetail() {
 
             {/* AI Financial Summary */}
             {hasIncomeData && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5" />AI-sammanfattning</CardTitle>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={generateFinancialSummary} disabled={generatingFinSummary} className="gap-1">
-                        {generatingFinSummary ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                        {localFinSummary ? 'Generera ny' : 'Generera'}
-                      </Button>
-                      {localFinSummary && localFinSummary !== ((company as any)?.financial_summary || '') && (
-                        <Button size="sm" onClick={saveFinancialSummary}>Spara till bolaget</Button>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {localFinSummary ? (
-                    <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: localFinSummary.replace(/\n/g, '<br/>') }} />
-                  ) : (
-                    <p className="text-sm text-muted-foreground text-center py-4">Klicka "Generera" för att få en AI-sammanfattning av den finansiella datan.</p>
-                  )}
-                </CardContent>
-              </Card>
+              <AISummaryCard
+                title="AI-sammanfattning"
+                summary={localFinSummary}
+                onGenerate={generateFinancialSummary}
+                onSave={saveFinancialSummary}
+                generating={generatingFinSummary}
+                hasUnsavedChanges={!!localFinSummary && localFinSummary !== ((company as any)?.financial_summary || '')}
+                emptyText="Klicka &quot;Generera&quot; för att få en AI-sammanfattning av den finansiella datan."
+              />
             )}
           </TabsContent>
 
@@ -725,29 +711,15 @@ export default function CompanyDetail() {
             ) : (
               <>
                 <InsiderTable trades={insiderTrades} />
-                <Card>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5" />AI-sammanfattning</CardTitle>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={generateInsiderSummary} disabled={generatingInsiderSummary} className="gap-1">
-                          {generatingInsiderSummary ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                          {localInsiderSummary ? 'Generera ny' : 'Generera'}
-                        </Button>
-                        {localInsiderSummary && localInsiderSummary !== ((company as any)?.insider_summary || '') && (
-                          <Button size="sm" onClick={saveInsiderSummary}>Spara till bolaget</Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {localInsiderSummary ? (
-                      <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: localInsiderSummary.replace(/\n/g, '<br/>') }} />
-                    ) : (
-                      <p className="text-sm text-muted-foreground text-center py-4">Klicka "Generera" för att få en AI-sammanfattning av insynshandeln.</p>
-                    )}
-                  </CardContent>
-                </Card>
+                <AISummaryCard
+                  title="AI-sammanfattning"
+                  summary={localInsiderSummary}
+                  onGenerate={generateInsiderSummary}
+                  onSave={saveInsiderSummary}
+                  generating={generatingInsiderSummary}
+                  hasUnsavedChanges={!!localInsiderSummary && localInsiderSummary !== ((company as any)?.insider_summary || '')}
+                  emptyText="Klicka &quot;Generera&quot; för att få en AI-sammanfattning av insynshandeln."
+                />
               </>
             )}
           </TabsContent>
