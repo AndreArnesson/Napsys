@@ -765,13 +765,30 @@ export default function CompanyDetail() {
                 onClick={async () => {
                   if (!user) return;
                   setCreatingAnalysis(true);
+
+                  // Fetch fresh stock price before creating analysis
+                  let freshPrice = company.current_price ?? null;
+                  if (company.ticker) {
+                    try {
+                      const { data: priceData } = await supabase.functions.invoke('fetch-stock-price', {
+                        body: { ticker: company.ticker, exchange: 'stockholm' },
+                      });
+                      if (priceData?.price) {
+                        freshPrice = priceData.price;
+                        // Update company price too
+                        await supabase.from('companies').update({ current_price: priceData.price }).eq('id', id);
+                        queryClient.invalidateQueries({ queryKey: ['company', id] });
+                      }
+                    } catch { /* use existing price */ }
+                  }
+
                   const { data, error } = await supabase
                     .from('analyses')
                     .insert({
                       company_id: id!,
                       user_id: user.id,
                       is_draft: true,
-                      current_price: company.current_price ?? null,
+                      current_price: freshPrice,
                       shares_outstanding: company.shares_outstanding ?? null,
                     } as any)
                     .select()
