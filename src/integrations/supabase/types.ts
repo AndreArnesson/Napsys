@@ -149,9 +149,11 @@ export type Database = {
           created_at: string
           current_price: number | null
           description: string | null
+          financial_summary: string | null
           founded_year: number | null
           id: string
           images: Json | null
+          insider_summary: string | null
           management: Json | null
           moats: string | null
           name: string
@@ -170,9 +172,11 @@ export type Database = {
           created_at?: string
           current_price?: number | null
           description?: string | null
+          financial_summary?: string | null
           founded_year?: number | null
           id?: string
           images?: Json | null
+          insider_summary?: string | null
           management?: Json | null
           moats?: string | null
           name: string
@@ -191,9 +195,11 @@ export type Database = {
           created_at?: string
           current_price?: number | null
           description?: string | null
+          financial_summary?: string | null
           founded_year?: number | null
           id?: string
           images?: Json | null
+          insider_summary?: string | null
           management?: Json | null
           moats?: string | null
           name?: string

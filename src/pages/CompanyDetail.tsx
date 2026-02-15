@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { MOSBadge } from '@/components/company/MOSBadge';
+import { Sparkles } from 'lucide-react';
 import { RatingBadge } from '@/components/company/RatingBadge';
 import { CEOSection } from '@/components/company/CEOSection';
 import { PilotskolanSection } from '@/components/company/PilotskolanSection';
@@ -81,6 +82,11 @@ export default function CompanyDetail() {
   const [localBusinessModel, setLocalBusinessModel] = useState('');
   const [localCompetition, setLocalCompetition] = useState('');
   const [richTextInited, setRichTextInited] = useState(false);
+  const [generatingFinSummary, setGeneratingFinSummary] = useState(false);
+  const [generatingInsiderSummary, setGeneratingInsiderSummary] = useState(false);
+  const [localFinSummary, setLocalFinSummary] = useState('');
+  const [localInsiderSummary, setLocalInsiderSummary] = useState('');
+  const [finSummaryInited, setFinSummaryInited] = useState(false);
 
   const { data: company, isLoading } = useQuery({
     queryKey: ['company', id],
@@ -99,6 +105,11 @@ export default function CompanyDetail() {
     setLocalBusinessModel((company as any)?.business_model || '');
     setLocalCompetition((company as any)?.competition || '');
     setRichTextInited(true);
+  }
+  if (company && !finSummaryInited) {
+    setLocalFinSummary((company as any)?.financial_summary || '');
+    setLocalInsiderSummary((company as any)?.insider_summary || '');
+    setFinSummaryInited(true);
   }
 
   const { data: allAnalyses } = useQuery({
@@ -169,6 +180,69 @@ export default function CompanyDetail() {
     : [];
 
   const companyImages: string[] = ((company as any)?.images as string[]) || [];
+
+  const generateFinancialSummary = async () => {
+    if (!incomeData || incomeData.length === 0) return;
+    setGeneratingFinSummary(true);
+    try {
+      const payload = {
+        type: 'financial',
+        companyName: company?.name,
+        data: {
+          income: incomeData,
+          balance: balanceSheetData || [],
+          currentPrice: company?.current_price,
+          sharesOutstanding: company?.shares_outstanding,
+        },
+      };
+      const { data: result, error } = await supabase.functions.invoke('ai-summary', { body: payload });
+      if (error) throw error;
+      if (result?.summary) {
+        setLocalFinSummary(result.summary);
+        toast.success('AI-sammanfattning genererad');
+      }
+    } catch (e: any) {
+      console.error('Financial summary error:', e);
+      toast.error(e?.message || 'Kunde inte generera sammanfattning');
+    } finally {
+      setGeneratingFinSummary(false);
+    }
+  };
+
+  const saveFinancialSummary = async () => {
+    await supabase.from('companies').update({ financial_summary: localFinSummary } as any).eq('id', id);
+    queryClient.invalidateQueries({ queryKey: ['company', id] });
+    toast.success('Sammanfattning sparad');
+  };
+
+  const generateInsiderSummary = async () => {
+    if (!insiderTrades || insiderTrades.length === 0) return;
+    setGeneratingInsiderSummary(true);
+    try {
+      const payload = {
+        type: 'insider',
+        companyName: company?.name,
+        data: insiderTrades.slice(0, 100),
+      };
+      const { data: result, error } = await supabase.functions.invoke('ai-summary', { body: payload });
+      if (error) throw error;
+      if (result?.summary) {
+        setLocalInsiderSummary(result.summary);
+        toast.success('AI-sammanfattning genererad');
+      }
+    } catch (e: any) {
+      console.error('Insider summary error:', e);
+      toast.error(e?.message || 'Kunde inte generera sammanfattning');
+    } finally {
+      setGeneratingInsiderSummary(false);
+    }
+  };
+
+  const saveInsiderSummary = async () => {
+    await supabase.from('companies').update({ insider_summary: localInsiderSummary } as any).eq('id', id);
+    queryClient.invalidateQueries({ queryKey: ['company', id] });
+    toast.success('Sammanfattning sparad');
+  };
 
   const handleImportFinancials = async (data: ParsedFinancialData[], companyInfo?: ParsedCompanyInfo) => {
     if (!id || !user) return;
@@ -559,6 +633,33 @@ export default function CompanyDetail() {
                 </CardContent>
               </Card>
             )}
+
+            {/* AI Financial Summary */}
+            {hasIncomeData && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5" />AI-sammanfattning</CardTitle>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={generateFinancialSummary} disabled={generatingFinSummary} className="gap-1">
+                        {generatingFinSummary ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                        {localFinSummary ? 'Generera ny' : 'Generera'}
+                      </Button>
+                      {localFinSummary && localFinSummary !== ((company as any)?.financial_summary || '') && (
+                        <Button size="sm" onClick={saveFinancialSummary}>Spara till bolaget</Button>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {localFinSummary ? (
+                    <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: localFinSummary.replace(/\n/g, '<br/>') }} />
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">Klicka "Generera" för att få en AI-sammanfattning av den finansiella datan.</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Balance Sheet Tab */}
@@ -622,7 +723,32 @@ export default function CompanyDetail() {
             {insiderTrades.length === 0 ? (
               <Card><CardContent className="py-12 text-center"><p className="text-muted-foreground mb-4">No insider trades imported yet.</p><FileImportDialog companyId={id!} onImportFinancials={handleImportFinancials} onImportInsiders={handleImportInsiders} /></CardContent></Card>
             ) : (
-              <InsiderTable trades={insiderTrades} />
+              <>
+                <InsiderTable trades={insiderTrades} />
+                <Card>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5" />AI-sammanfattning</CardTitle>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={generateInsiderSummary} disabled={generatingInsiderSummary} className="gap-1">
+                          {generatingInsiderSummary ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                          {localInsiderSummary ? 'Generera ny' : 'Generera'}
+                        </Button>
+                        {localInsiderSummary && localInsiderSummary !== ((company as any)?.insider_summary || '') && (
+                          <Button size="sm" onClick={saveInsiderSummary}>Spara till bolaget</Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {localInsiderSummary ? (
+                      <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: localInsiderSummary.replace(/\n/g, '<br/>') }} />
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">Klicka "Generera" för att få en AI-sammanfattning av insynshandeln.</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
             )}
           </TabsContent>
 
