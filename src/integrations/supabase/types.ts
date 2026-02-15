@@ -145,6 +145,7 @@ export type Database = {
       companies: {
         Row: {
           business_model: string | null
+          competition: string | null
           created_at: string
           current_price: number | null
           description: string | null
@@ -165,6 +166,7 @@ export type Database = {
         }
         Insert: {
           business_model?: string | null
+          competition?: string | null
           created_at?: string
           current_price?: number | null
           description?: string | null
@@ -185,6 +187,7 @@ export type Database = {
         }
         Update: {
           business_model?: string | null
+          competition?: string | null
           created_at?: string
           current_price?: number | null
           description?: string | null

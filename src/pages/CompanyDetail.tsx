@@ -339,15 +339,15 @@ export default function CompanyDetail() {
           <TabsContent value="overview" className="space-y-6">
             {/* Section visibility settings */}
             {(() => {
-              const defaultSections = { description: true, moats: true, ceo: true, pilotskolan: true, insiderOwnership: true, images: true, foundedYear: false, businessModel: false };
+              const defaultSections = { description: true, moats: true, ceo: true, pilotskolan: true, insiderOwnership: true, images: true, foundedYear: false, businessModel: false, competition: false, management: true };
               const sections = { ...defaultSections, ...((company as any)?.visible_sections || {}) };
               const toggleSection = (key: string) => {
                 const updated = { ...sections, [key]: !sections[key as keyof typeof sections] };
                 updateCompany.mutate({ visible_sections: updated } as any);
               };
               const sectionLabels: Record<string, string> = {
-                description: 'Beskrivning', moats: 'Vallgravar', ceo: 'VD/Ledning', pilotskolan: 'Pilotskolan',
-                insiderOwnership: 'Insynsägande', images: 'Bilder', foundedYear: 'Grundat', businessModel: 'Affärsmodell',
+                description: 'Beskrivning', moats: 'Vallgravar', competition: 'Konkurrens', management: 'Ledning & Styrelse',
+                images: 'Bilder', foundedYear: 'Grundat', businessModel: 'Affärsmodell',
               };
               return (
                 <>
@@ -375,21 +375,19 @@ export default function CompanyDetail() {
                   <KeyDataEditor data={{ ticker: company.ticker || undefined, reportingCurrency: company.reporting_currency, tradingCurrency: company.trading_currency }} onUpdate={handleKeyDataUpdate} />
 
                   {sections.foundedYear && (
-                    <Card>
-                      <CardHeader className="pb-2"><CardTitle>Grundat</CardTitle></CardHeader>
-                      <CardContent>
-                        <Input
-                          type="number"
-                          placeholder="t.ex. 1999"
-                          defaultValue={(company as any)?.founded_year || ''}
-                          onBlur={(e) => {
-                            const val = e.target.value ? parseInt(e.target.value) : null;
-                            if (val !== ((company as any)?.founded_year || null)) updateCompany.mutate({ founded_year: val } as any);
-                          }}
-                          className="max-w-[200px] font-mono"
-                        />
-                      </CardContent>
-                    </Card>
+                    <div className="flex items-center gap-3">
+                      <Label className="text-sm font-medium whitespace-nowrap">Grundat</Label>
+                      <Input
+                        type="number"
+                        placeholder="t.ex. 1999"
+                        defaultValue={(company as any)?.founded_year || ''}
+                        onBlur={(e) => {
+                          const val = e.target.value ? parseInt(e.target.value) : null;
+                          if (val !== ((company as any)?.founded_year || null)) updateCompany.mutate({ founded_year: val } as any);
+                        }}
+                        className="max-w-[120px] font-mono h-8"
+                      />
+                    </div>
                   )}
 
                   {sections.businessModel && (
@@ -445,14 +443,40 @@ export default function CompanyDetail() {
                       </Collapsible>
                     )}
                   </div>
-                  {sections.ceo && <CEOSection ceo={ceoData} onUpdate={handleCEOUpdate} />}
-                  {sections.pilotskolan && (
-                    <PilotskolanSection
-                      value={(company as any)?.pilotskolan || ''}
-                      onUpdate={(val) => updateCompany.mutate({ pilotskolan: val } as any)}
-                    />
+
+                  {sections.competition && (
+                    <Card>
+                      <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2">Konkurrens</CardTitle></CardHeader>
+                      <CardContent>
+                        <Textarea
+                          placeholder="Beskriv konkurrenslandskapet, huvudkonkurrenter, marknadsposition..."
+                          defaultValue={(company as any)?.competition || ''}
+                          onBlur={(e) => {
+                            if (e.target.value !== ((company as any)?.competition || '')) updateCompany.mutate({ competition: e.target.value } as any);
+                          }}
+                          className="min-h-[150px]"
+                        />
+                      </CardContent>
+                    </Card>
                   )}
-                  {sections.insiderOwnership && <InsiderOwnership data={ownershipData} onUpdate={handleOwnershipUpdate} />}
+
+                  {sections.management && (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-2">Ledning & Styrelse</CardTitle>
+                        <CardDescription>VD, insiders och ägande</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        <CEOSection ceo={ceoData} onUpdate={handleCEOUpdate} />
+                        <PilotskolanSection
+                          value={(company as any)?.pilotskolan || ''}
+                          onUpdate={(val) => updateCompany.mutate({ pilotskolan: val } as any)}
+                        />
+                        <InsiderOwnership data={ownershipData} onUpdate={handleOwnershipUpdate} />
+                      </CardContent>
+                    </Card>
+                  )}
+
                   {sections.images && (
                     <ImageUpload
                       images={companyImages}
