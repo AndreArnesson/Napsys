@@ -24,10 +24,19 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const isInternalChange = useRef(false);
+  const initializedRef = useRef(false);
 
-  // Sync external value changes
+  // Set initial value once on mount
   useEffect(() => {
-    if (editorRef.current && !isInternalChange.current) {
+    if (editorRef.current && !initializedRef.current) {
+      editorRef.current.innerHTML = value || '';
+      initializedRef.current = true;
+    }
+  }, []);
+
+  // Sync only external value changes (not from typing)
+  useEffect(() => {
+    if (editorRef.current && !isInternalChange.current && initializedRef.current) {
       if (editorRef.current.innerHTML !== value) {
         editorRef.current.innerHTML = value || '';
       }
@@ -118,7 +127,6 @@ export function RichTextEditor({
             '[&_b]:font-bold [&_strong]:font-bold [&_i]:italic [&_em]:italic',
           )}
           style={{ minHeight }}
-          dangerouslySetInnerHTML={{ __html: value || '' }}
           suppressContentEditableWarning
         />
       </div>
