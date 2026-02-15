@@ -29,46 +29,51 @@ serve(async (req) => {
       });
     }
 
-    // Build Yahoo Finance symbol
     const suffix = EXCHANGE_SUFFIXES[exchange.toLowerCase()] ?? ".ST";
     const symbol = ticker.includes(".") ? ticker : `${ticker}${suffix}`;
 
-    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
+    // Use v8 chart endpoint which is still publicly accessible
+    const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d`;
     
     const response = await fetch(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       },
     });
 
     if (!response.ok) {
       const text = await response.text();
       console.error("Yahoo Finance error:", response.status, text);
-      return new Response(JSON.stringify({ error: "Could not fetch stock price" }), {
+      return new Response(JSON.stringify({ error: `Could not fetch stock price for ${symbol}` }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const data = await response.json();
-    const quote = data?.quoteResponse?.result?.[0];
+    const result = data?.chart?.result?.[0];
 
-    if (!quote) {
+    if (!result) {
       return new Response(JSON.stringify({ error: `No data found for ${symbol}` }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const meta = result.meta;
+    const price = meta.regularMarketPrice;
+    const previousClose = meta.chartPreviousClose || meta.previousClose;
+    const change = previousClose ? price - previousClose : 0;
+    const changePercent = previousClose ? (change / previousClose) * 100 : 0;
+
     return new Response(JSON.stringify({
-      price: quote.regularMarketPrice,
-      change: quote.regularMarketChange,
-      changePercent: quote.regularMarketChangePercent,
-      currency: quote.currency,
-      name: quote.shortName || quote.longName,
-      symbol: quote.symbol,
-      marketState: quote.marketState,
-      previousClose: quote.regularMarketPreviousClose,
+      price,
+      change,
+      changePercent,
+      currency: meta.currency,
+      name: meta.shortName || meta.longName || symbol,
+      symbol: meta.symbol,
+      previousClose,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
