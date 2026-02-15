@@ -85,13 +85,15 @@ export default function Dashboard() {
     }
 
     setCreating(true);
-    const { error } = await supabase
+    const { data: newCompany, error } = await supabase
       .from('companies')
       .insert({
         name: newCompanyName.trim(),
         ticker: newCompanyTicker.trim() || null,
         user_id: user!.id,
-      });
+      })
+      .select()
+      .single();
     setCreating(false);
 
     if (error) {
@@ -103,6 +105,18 @@ export default function Dashboard() {
       setNewCompanyTicker('');
       setDialogOpen(false);
       refetchCompanies();
+
+      // Auto-fetch stock price if ticker was provided
+      if (newCompanyTicker.trim() && newCompany) {
+        supabase.functions.invoke('fetch-stock-price', {
+          body: { ticker: newCompanyTicker.trim(), exchange: 'stockholm' },
+        }).then(({ data: priceData }) => {
+          if (priceData?.price) {
+            supabase.from('companies').update({ current_price: priceData.price }).eq('id', newCompany.id)
+              .then(() => refetchCompanies());
+          }
+        }).catch(() => { /* silent fail for auto-fetch */ });
+      }
     }
   };
 
