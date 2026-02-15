@@ -192,7 +192,8 @@ export function SpreadsheetAnalysis({
       
       // Calculate derived values
       const effectiveRevenue = revenue || 0;
-      const revenuePerShare = sharesOutstanding > 0 ? effectiveRevenue / sharesOutstanding : 0;
+      // Revenue is in MSEK, convert to SEK before dividing by shares
+      const revenuePerShare = sharesOutstanding > 0 ? (effectiveRevenue * 1_000_000) / sharesOutstanding : 0;
       const earningsPerShare = revenuePerShare * (netMargin / 100);
       const peToUse = proj.targetPE || targetPE;
       const estimatedPrice = earningsPerShare * peToUse;
@@ -254,15 +255,15 @@ export function SpreadsheetAnalysis({
   // Build rows dynamically based on perShare toggle and margin options
   const rows: { label: string; key: string; editable: boolean; bg?: boolean }[] = useMemo(() => {
     const base: { label: string; key: string; editable: boolean; bg?: boolean }[] = [
-      { label: 'Kurs', key: 'price', editable: true, bg: true },
+      { label: `Kurs (${currency})`, key: 'price', editable: true, bg: true },
       { label: 'Omsättningstillv (%)', key: 'revenueGrowth', editable: true },
     ];
     
     if (perShare) {
-      base.push({ label: 'Omsättning/aktie', key: 'revenuePerShare', editable: true });
+      base.push({ label: `Omsättning/aktie (${currency})`, key: 'revenuePerShare', editable: true });
     } else {
-      base.push({ label: 'Omsättning (MSEK)', key: 'revenue', editable: true });
-      base.push({ label: 'EBIT (MSEK)', key: 'ebit', editable: true });
+      base.push({ label: `Omsättning (M${currency})`, key: 'revenue', editable: true });
+      base.push({ label: `EBIT (M${currency})`, key: 'ebit', editable: true });
     }
 
     base.push({ label: 'Vinstmarginal (%)', key: 'netMargin', editable: true });
@@ -275,11 +276,11 @@ export function SpreadsheetAnalysis({
     }
 
     base.push(
-      { label: 'Vinst/aktie', key: 'earningsPerShare', editable: false, bg: true },
+      { label: `Vinst/aktie (${currency})`, key: 'earningsPerShare', editable: false, bg: true },
       { label: 'P/E', key: 'pe', editable: false },
       { label: 'Rimlig P/E', key: 'targetPE', editable: true, bg: true },
-      { label: 'Estimerad kurs', key: 'estimatedPrice', editable: false },
-      { label: 'MOS', key: 'mos', editable: false },
+      { label: `Estimerad kurs (${currency})`, key: 'estimatedPrice', editable: false },
+      { label: 'MOS (%)', key: 'mos', editable: false },
     );
 
     return base;
