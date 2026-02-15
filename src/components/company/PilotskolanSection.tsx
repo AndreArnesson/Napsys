@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Textarea } from '@/components/ui/textarea';
 import { GraduationCap } from 'lucide-react';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 
 interface PilotskolanSectionProps {
   value: string;
@@ -22,13 +22,12 @@ export function PilotskolanSection({ value, onUpdate, readOnly = false }: Pilots
         Pilotskolan
       </div>
       <p className="text-sm text-muted-foreground">Dina tankar om insiders ägande och incitament</p>
-      <Textarea
-        placeholder="Skriv dina tankar om insiders ägande, hur det påverkar bolaget, incitamentsstrukturer..."
+      <RichTextEditor
         value={local}
-        onChange={(e) => setLocal(e.target.value)}
+        onChange={setLocal}
         onBlur={handleBlur}
+        placeholder="Skriv dina tankar om insiders ägande, hur det påverkar bolaget, incitamentsstrukturer..."
         disabled={readOnly}
-        className="min-h-[120px]"
       />
     </div>
   );
