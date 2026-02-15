@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
@@ -458,7 +458,7 @@ export function SpreadsheetAnalysis({
           <CardTitle className="text-lg">Anteckningar</CardTitle>
         </CardHeader>
         <CardContent>
-          <Textarea placeholder="Skriv dina anteckningar här..." className="min-h-[100px]" value={notes || ''} onChange={(e) => onNotesChange?.(e.target.value)} />
+          <RichTextEditor value={notes || ''} onChange={(val) => onNotesChange?.(val)} placeholder="Skriv dina anteckningar här..." minHeight="100px" />
         </CardContent>
       </Card>
     </div>
