@@ -36,7 +36,7 @@ const ALL_COLUMNS: { key: ColumnKey; label: string; group: string }[] = [
   { key: 'growth', label: 'Tillväxt', group: 'Resultat' },
   { key: 'ebit', label: 'EBIT', group: 'Resultat' },
   { key: 'ebitda', label: 'EBITDA', group: 'Resultat' },
-  { key: 'net_income', label: 'Nettores.', group: 'Resultat' },
+  
   { key: 'dividend', label: 'Utdelning', group: 'Resultat' },
   { key: 'eps', label: 'Vinst/aktie', group: 'Resultat' },
   { key: 'gross_margin', label: 'Bruttomarginal', group: 'Marginaler' },
@@ -51,7 +51,7 @@ const ALL_COLUMNS: { key: ColumnKey; label: string; group: string }[] = [
   { key: 'debt', label: 'Nettoskuld', group: 'Skuld' },
 ];
 
-const DEFAULT_COLUMNS: ColumnKey[] = ['revenue', 'growth', 'ebit', 'net_income', 'operating_margin', 'net_margin'];
+const DEFAULT_COLUMNS: ColumnKey[] = ['revenue', 'growth', 'ebit', 'operating_margin', 'net_margin'];
 
 interface HistoricalDataTableProps {
   data: HistoricalYear[];
