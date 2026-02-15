@@ -24,6 +24,7 @@ export interface YearlyProjection {
   ebitMargin?: number;
   ebitdaMargin?: number;
   earningsPerShare?: number;
+  epsGrowth?: number;
   targetPE?: number;
   estimatedPrice?: number;
   mos?: number;
@@ -75,6 +76,7 @@ export function SpreadsheetAnalysis({
   const [perShare, setPerShare] = useState(false);
   const [showEbitMargin, setShowEbitMargin] = useState(false);
   const [showEbitdaMargin, setShowEbitdaMargin] = useState(false);
+  const [qGrowthMode, setQGrowthMode] = useState<'yoy' | 'sequential'>('yoy');
 
   const currentYear = new Date().getFullYear();
 
@@ -149,82 +151,75 @@ export function SpreadsheetAnalysis({
   };
 
   const calculatedProjections = useMemo(() => {
-    // We need to calculate sequentially because each depends on the previous
-    const results: (YearlyProjection & ColumnDef & { calculatedRevenue?: number; calculatedEbit?: number })[] = [];
+    const results: (YearlyProjection & ColumnDef & { calculatedRevenue?: number; calculatedEbit?: number; calculatedEps?: number })[] = [];
     
+    // Helper: get previous period value based on growth mode
+    const getPrev = (i: number, col: ColumnDef, field: 'calculatedRevenue' | 'calculatedEps'): number | undefined => {
+      if (mode === 'quarterly' && col.quarter) {
+        if (qGrowthMode === 'yoy') {
+          // YoY: compare same quarter previous year
+          if (i >= 4) return results[i - 4]?.[field];
+          const hist = quarterlyHistoricalData.find(h => h.quarter === col.quarter && h.year === col.year - 1);
+          if (hist && field === 'calculatedRevenue') return hist.revenue;
+          return undefined;
+        } else {
+          // Sequential: previous quarter
+          if (i > 0) return results[i - 1]?.[field];
+          return undefined;
+        }
+      }
+      // Yearly
+      if (i === 0 && historicalData.length > 0) {
+        if (field === 'calculatedRevenue') return historicalData[historicalData.length - 1].revenue;
+        return undefined;
+      }
+      if (i > 0) return results[i - 1]?.[field];
+      return undefined;
+    };
+
     for (let i = 0; i < columns.length; i++) {
       const col = columns[i];
       const proj = findProj(col);
       const isFirst = i === 0 && mode === 'yearly';
       const price = isFirst ? currentPrice : proj.price || currentPrice;
       
-      // Revenue: if user set explicit revenue, use it. If only growth% is set, calculate from previous
+      // Revenue from growth
       let revenue = proj.revenue;
       const growth = proj.revenueGrowth;
       
       if (revenue === undefined && growth !== undefined) {
-        let prevRev: number | undefined;
-        if (mode === 'quarterly' && col.quarter) {
-          // In quarterly mode, find same quarter from previous year (YoY)
-          if (i >= 4) {
-            // We have a result 4 quarters back (same quarter, previous year)
-            prevRev = results[i - 4].calculatedRevenue;
-          } else {
-            // Look in quarterly historical data for same quarter previous year
-            const sameQPrevYear = quarterlyHistoricalData.find(
-              h => h.quarter === col.quarter && h.year === col.year - 1
-            );
-            if (sameQPrevYear) {
-              prevRev = sameQPrevYear.revenue;
-            }
-          }
-        } else if (i === 0 && historicalData.length > 0) {
-          prevRev = historicalData[historicalData.length - 1].revenue;
-        } else if (i > 0) {
-          prevRev = results[i - 1].calculatedRevenue;
-        }
+        const prevRev = getPrev(i, col, 'calculatedRevenue');
         if (prevRev !== undefined && prevRev > 0) {
           revenue = prevRev * (1 + growth / 100);
         }
       }
 
-      // EBIT: if user set explicit, use it. If net margin is set, calculate from revenue
       let ebit = proj.ebit;
       const netMargin = proj.netMargin || 0;
       
-      // Calculate derived values
       const effectiveRevenue = revenue || 0;
-      // Revenue is in MSEK, convert to SEK before dividing by shares
       const revenuePerShare = sharesOutstanding > 0 ? (effectiveRevenue * 1_000_000) / sharesOutstanding : 0;
       const earningsPerShare = revenuePerShare * (netMargin / 100);
       const peToUse = proj.targetPE || targetPE;
       const estimatedPrice = earningsPerShare * peToUse;
       const mos = price > 0 ? ((estimatedPrice - price) / price) * 100 : 0;
 
-      // Calculate actual growth from previous period
+      // Calculate actual revenue growth
       let actualGrowth = growth;
       if (actualGrowth === undefined && revenue !== undefined) {
-        let prevRev: number | undefined;
-        if (mode === 'quarterly' && col.quarter) {
-          if (i >= 4) {
-            prevRev = results[i - 4].calculatedRevenue;
-          } else {
-            const sameQPrevYear = quarterlyHistoricalData.find(
-              h => h.quarter === col.quarter && h.year === col.year - 1
-            );
-            if (sameQPrevYear) prevRev = sameQPrevYear.revenue;
-          }
-        } else if (i === 0 && historicalData.length > 0) {
-          prevRev = historicalData[historicalData.length - 1].revenue;
-        } else if (i > 0) {
-          prevRev = results[i - 1].calculatedRevenue;
-        }
+        const prevRev = getPrev(i, col, 'calculatedRevenue');
         if (prevRev && prevRev > 0) {
           actualGrowth = ((revenue - prevRev) / prevRev) * 100;
         }
       }
 
-      // Dividend yield
+      // EPS growth
+      let epsGrowth: number | undefined;
+      const prevEps = getPrev(i, col, 'calculatedEps');
+      if (prevEps && prevEps > 0 && earningsPerShare) {
+        epsGrowth = ((earningsPerShare - prevEps) / prevEps) * 100;
+      }
+
       const dividend = proj.dividend;
       const dividendYield = (dividend && price && price > 0) ? (dividend / price) * 100 : undefined;
 
@@ -235,10 +230,12 @@ export function SpreadsheetAnalysis({
         revenue,
         calculatedRevenue: revenue,
         calculatedEbit: ebit,
+        calculatedEps: earningsPerShare,
         revenueGrowth: actualGrowth ?? growth ?? 0,
         revenuePerShare,
         netMargin,
         earningsPerShare,
+        epsGrowth,
         targetPE: peToUse,
         estimatedPrice,
         mos,
@@ -247,7 +244,7 @@ export function SpreadsheetAnalysis({
       });
     }
     return results;
-  }, [projections, currentPrice, targetPE, columns, mode, historicalData, sharesOutstanding]);
+  }, [projections, currentPrice, targetPE, columns, mode, historicalData, sharesOutstanding, qGrowthMode, quarterlyHistoricalData]);
 
   const updateProjection = (col: ColumnDef, field: keyof YearlyProjection, value: number) => {
     const existingIndex = projections.findIndex(p => p.year === col.year && (p.quarter || undefined) === col.quarter);
@@ -285,6 +282,7 @@ export function SpreadsheetAnalysis({
 
     base.push(
       { label: `Vinst/aktie (${currency})`, key: 'earningsPerShare', editable: false, bg: true },
+      { label: 'VPA-tillväxt (%)', key: 'epsGrowth', editable: false },
       { label: `Utdelning (${currency})`, key: 'dividend', editable: true },
       { label: 'Direktavkastning (%)', key: 'dividendYield', editable: false },
       { label: 'P/E', key: 'pe', editable: false },
@@ -317,6 +315,14 @@ export function SpreadsheetAnalysis({
                   <TabsTrigger value="quarterly" className="text-xs px-3 h-7">Kvartal</TabsTrigger>
                 </TabsList>
               </Tabs>
+              {mode === 'quarterly' && (
+                <Tabs value={qGrowthMode} onValueChange={(v) => setQGrowthMode(v as 'yoy' | 'sequential')}>
+                  <TabsList className="h-8">
+                    <TabsTrigger value="yoy" className="text-xs px-3 h-7">YoY</TabsTrigger>
+                    <TabsTrigger value="sequential" className="text-xs px-3 h-7">Sekventiell</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              )}
               <div className="flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground">Per aktie</Label>
                 <Switch checked={perShare} onCheckedChange={setPerShare} />
@@ -383,6 +389,15 @@ export function SpreadsheetAnalysis({
                             <Badge className={cn('font-mono', getMOSColor(proj.mos))}>
                               {formatPercent(proj.mos)}
                             </Badge>
+                          </td>
+                        );
+                      }
+
+                      if (row.key === 'epsGrowth') {
+                        const val = (proj as any).epsGrowth;
+                        return (
+                          <td key={`${proj.year}-${proj.quarter || ''}`} className="text-center py-2 px-3 font-mono">
+                            {formatPercent(val)}
                           </td>
                         );
                       }
