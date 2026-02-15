@@ -39,7 +39,7 @@ export interface ParsedInsiderTrade {
   date: string;
   person: string;
   position: string;
-  type: 'Förvärv' | 'Avyttring' | 'Tilldelning' | 'acquisition' | 'disposal';
+  type: string;
   volume: number;
   price: number;
   currency: string;
@@ -573,11 +573,7 @@ export function FileImportDialog({ companyId, onImportFinancials, onImportInside
       if (cols.length < 20) continue;
       if (!cols[3] || !cols[4]) continue;
 
-      const type = cols[11]?.trim();
-      const isAcquisition = type === 'Förvärv' || type?.toLowerCase().includes('förvärv');
-      const isDisposal = type === 'Avyttring' || type?.toLowerCase().includes('avyttring');
-      const isAllocation = type === 'Tilldelning' || type?.toLowerCase().includes('tilldelning');
-      if (!isAcquisition && !isDisposal && !isAllocation) continue;
+      const type = cols[11]?.trim() || '';
 
       const dateStr = cols[15]?.trim() || cols[0]?.trim();
       const dateParts = dateStr.split(' ')[0];
@@ -600,7 +596,7 @@ export function FileImportDialog({ companyId, onImportFinancials, onImportInside
         date: dateParts,
         person: cols[4]?.trim() || cols[3]?.trim(),
         position: cols[5]?.trim() || '',
-        type: isAcquisition ? 'Förvärv' : isDisposal ? 'Avyttring' : 'Tilldelning',
+        type,
         volume,
         price,
         currency: cols[19]?.trim() || 'SEK',
