@@ -19,6 +19,7 @@ export type Database = {
           company_id: string
           created_at: string
           current_price: number | null
+          employees: number | null
           id: string
           images: Json | null
           is_draft: boolean | null
@@ -29,11 +30,13 @@ export type Database = {
           summary_comment: string | null
           updated_at: string
           user_id: string
+          visible_sections: Json | null
         }
         Insert: {
           company_id: string
           created_at?: string
           current_price?: number | null
+          employees?: number | null
           id?: string
           images?: Json | null
           is_draft?: boolean | null
@@ -44,11 +47,13 @@ export type Database = {
           summary_comment?: string | null
           updated_at?: string
           user_id: string
+          visible_sections?: Json | null
         }
         Update: {
           company_id?: string
           created_at?: string
           current_price?: number | null
+          employees?: number | null
           id?: string
           images?: Json | null
           is_draft?: boolean | null
@@ -59,6 +64,7 @@ export type Database = {
           summary_comment?: string | null
           updated_at?: string
           user_id?: string
+          visible_sections?: Json | null
         }
         Relationships: [
           {
@@ -138,9 +144,11 @@ export type Database = {
       }
       companies: {
         Row: {
+          business_model: string | null
           created_at: string
           current_price: number | null
           description: string | null
+          founded_year: number | null
           id: string
           images: Json | null
           management: Json | null
@@ -153,11 +161,14 @@ export type Database = {
           trading_currency: string | null
           updated_at: string
           user_id: string
+          visible_sections: Json | null
         }
         Insert: {
+          business_model?: string | null
           created_at?: string
           current_price?: number | null
           description?: string | null
+          founded_year?: number | null
           id?: string
           images?: Json | null
           management?: Json | null
@@ -170,11 +181,14 @@ export type Database = {
           trading_currency?: string | null
           updated_at?: string
           user_id: string
+          visible_sections?: Json | null
         }
         Update: {
+          business_model?: string | null
           created_at?: string
           current_price?: number | null
           description?: string | null
+          founded_year?: number | null
           id?: string
           images?: Json | null
           management?: Json | null
@@ -187,6 +201,7 @@ export type Database = {
           trading_currency?: string | null
           updated_at?: string
           user_id?: string
+          visible_sections?: Json | null
         }
         Relationships: []
       }

@@ -39,6 +39,8 @@ export default function AnalysisEditor() {
   const [showQuarterly, setShowQuarterly] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [employees, setEmployees] = useState<string>('');
+  const [analysisSections, setAnalysisSections] = useState<Record<string, boolean>>({ debt: true, images: true, employees: false });
 
   // Fetch company
   const { data: company } = useQuery({
@@ -152,6 +154,9 @@ export default function AnalysisEditor() {
       setSharesOutstanding((currentAnalysis as any).shares_outstanding?.toString() || company?.shares_outstanding?.toString() || '');
       setAnalysisName((currentAnalysis as any).name || '');
       setAnalysisImages(((currentAnalysis as any).images as string[]) || []);
+      setEmployees((currentAnalysis as any).employees?.toString() || '');
+      const defaultSections = { debt: true, images: true, employees: false };
+      setAnalysisSections({ ...defaultSections, ...((currentAnalysis as any).visible_sections || {}) });
     }
   }, [currentAnalysis, company]);
 
@@ -174,6 +179,8 @@ export default function AnalysisEditor() {
           shares_outstanding: sharesOutstanding ? parseInt(sharesOutstanding) : null,
           name: analysisName || null,
           images: analysisImages,
+          employees: employees ? parseInt(employees) : null,
+          visible_sections: analysisSections,
         } as any)
         .eq('id', analysisId);
       if (error) throw error;
@@ -196,7 +203,7 @@ export default function AnalysisEditor() {
       setIsSaving(true);
       saveMutation.mutate();
     }, 3000),
-    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages]
+    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections]
   );
 
   useEffect(() => {
@@ -204,7 +211,7 @@ export default function AnalysisEditor() {
       debouncedSave();
     }
     return () => debouncedSave.cancel();
-  }, [rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, debouncedSave]);
+  }, [rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, debouncedSave]);
 
   // Handle per-analysis financial import
   const handleAnalysisImport = async (data: ParsedFinancialData[], companyInfo?: ParsedCompanyInfo) => {
@@ -464,13 +471,53 @@ export default function AnalysisEditor() {
 
             {/* Quarterly toggle */}
             <Card>
-              <CardContent className="pt-4">
+              <CardContent className="pt-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm">Visa kvartalsdata</Label>
                   <Switch checked={showQuarterly} onCheckedChange={setShowQuarterly} />
                 </div>
               </CardContent>
             </Card>
+
+            {/* Section toggles */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2"><Settings2 className="h-4 w-4" />Sektioner</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {[
+                  { key: 'debt', label: 'Skuldsättning' },
+                  { key: 'employees', label: 'Anställda' },
+                  { key: 'images', label: 'Bilder' },
+                ].map(({ key, label }) => (
+                  <div key={key} className="flex items-center justify-between">
+                    <Label className="text-sm">{label}</Label>
+                    <Switch
+                      checked={analysisSections[key] ?? false}
+                      onCheckedChange={() => setAnalysisSections(prev => ({ ...prev, [key]: !prev[key] }))}
+                    />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Employees input */}
+            {analysisSections.employees && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Anställda</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Input
+                    type="number"
+                    placeholder="Antal anställda"
+                    value={employees}
+                    onChange={(e) => setEmployees(e.target.value)}
+                    className="font-mono"
+                  />
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Main Content */}
@@ -505,21 +552,25 @@ export default function AnalysisEditor() {
               currency={company?.reporting_currency}
               showQuarterly={showQuarterly}
             />
-            <DebtSection data={(balanceData || []).map((b: any) => ({
-              fiscal_year: b.fiscal_year,
-              long_term_debt: b.long_term_debt,
-              short_term_debt: b.short_term_debt,
-              cash_equivalents: b.cash_equivalents,
-              total_liabilities: b.total_liabilities,
-              shareholders_equity: b.shareholders_equity,
-              equity_ratio: b.equity_ratio,
-            }))} />
-            <ImageUpload
-              images={analysisImages}
-              onImagesChange={setAnalysisImages}
-              title="Analysbilder"
-              folder={`analysis/${analysisId}`}
-            />
+            {analysisSections.debt && (
+              <DebtSection data={(balanceData || []).map((b: any) => ({
+                fiscal_year: b.fiscal_year,
+                long_term_debt: b.long_term_debt,
+                short_term_debt: b.short_term_debt,
+                cash_equivalents: b.cash_equivalents,
+                total_liabilities: b.total_liabilities,
+                shareholders_equity: b.shareholders_equity,
+                equity_ratio: b.equity_ratio,
+              }))} />
+            )}
+            {analysisSections.images && (
+              <ImageUpload
+                images={analysisImages}
+                onImagesChange={setAnalysisImages}
+                title="Analysbilder"
+                folder={`analysis/${analysisId}`}
+              />
+            )}
           </div>
         </div>
       </div>
