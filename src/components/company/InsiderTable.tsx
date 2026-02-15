@@ -44,6 +44,7 @@ export function InsiderTable({ trades }: InsiderTableProps) {
   };
 
   const isAcquisition = (type: string) => type === 'Förvärv' || type === 'acquisition';
+  const isNeutral = (type: string) => ['Tilldelning', 'Pantsättning', 'Pantsättning åter', 'Koncernintern överföring minskning'].includes(type);
 
   return (
     <Card>
@@ -83,10 +84,10 @@ export function InsiderTable({ trades }: InsiderTableProps) {
                   <TableCell className="text-muted-foreground text-sm">{trade.position}</TableCell>
                   <TableCell>
                     <Badge 
-                      variant={isAcquisition(trade.type) ? 'default' : 'destructive'} 
+                      variant={isNeutral(trade.type) ? 'secondary' : isAcquisition(trade.type) ? 'default' : 'destructive'} 
                       className="gap-1"
                     >
-                      {isAcquisition(trade.type) ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                      {!isNeutral(trade.type) && (isAcquisition(trade.type) ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />)}
                       {trade.type}
                     </Badge>
                   </TableCell>
