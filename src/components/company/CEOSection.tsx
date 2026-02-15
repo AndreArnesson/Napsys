@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { User } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 
 interface CEOData {
   name: string;
@@ -37,12 +37,7 @@ export function CEOSection({ ceo, onUpdate, readOnly = false }: CEOSectionProps)
   };
 
   const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
   return (
@@ -84,12 +79,26 @@ export function CEOSection({ ceo, onUpdate, readOnly = false }: CEOSectionProps)
 
       <div className="space-y-2">
         <Label>Background</Label>
-        <Textarea placeholder="Previous roles, education, experience..." value={localCeo.background || ''} onChange={(e) => handleChange('background', e.target.value)} onBlur={handleBlur} disabled={readOnly} className="min-h-[80px]" />
+        <RichTextEditor
+          value={localCeo.background || ''}
+          onChange={(val) => handleChange('background', val)}
+          onBlur={handleBlur}
+          placeholder="Previous roles, education, experience..."
+          minHeight="80px"
+          disabled={readOnly}
+        />
       </div>
 
       <div className="space-y-2">
         <Label>Notes</Label>
-        <Textarea placeholder="Your notes about the CEO..." value={localCeo.notes || ''} onChange={(e) => handleChange('notes', e.target.value)} onBlur={handleBlur} disabled={readOnly} className="min-h-[60px]" />
+        <RichTextEditor
+          value={localCeo.notes || ''}
+          onChange={(val) => handleChange('notes', val)}
+          onBlur={handleBlur}
+          placeholder="Your notes about the CEO..."
+          minHeight="60px"
+          disabled={readOnly}
+        />
       </div>
     </div>
   );

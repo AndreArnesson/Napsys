@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ArrowLeft, Loader2, Clock, ChevronDown, Plus, Trash2, FileText, Settings2, Eye, EyeOff } from 'lucide-react';
@@ -75,6 +76,11 @@ export default function CompanyDetail() {
   const [descriptionOpen, setDescriptionOpen] = useState(true);
   const [moatsOpen, setMoatsOpen] = useState(true);
   const [creatingAnalysis, setCreatingAnalysis] = useState(false);
+  const [localDescription, setLocalDescription] = useState('');
+  const [localMoats, setLocalMoats] = useState('');
+  const [localBusinessModel, setLocalBusinessModel] = useState('');
+  const [localCompetition, setLocalCompetition] = useState('');
+  const [richTextInited, setRichTextInited] = useState(false);
 
   const { data: company, isLoading } = useQuery({
     queryKey: ['company', id],
@@ -85,6 +91,15 @@ export default function CompanyDetail() {
     },
     enabled: !!id,
   });
+
+  // Init rich text values when company loads
+  if (company && !richTextInited) {
+    setLocalDescription(company.description || '');
+    setLocalMoats(company.moats || '');
+    setLocalBusinessModel((company as any)?.business_model || '');
+    setLocalCompetition((company as any)?.competition || '');
+    setRichTextInited(true);
+  }
 
   const { data: allAnalyses } = useQuery({
     queryKey: ['all-analyses', id],
@@ -394,13 +409,12 @@ export default function CompanyDetail() {
                     <Card>
                       <CardHeader className="pb-2"><CardTitle>Affärsmodell</CardTitle></CardHeader>
                       <CardContent>
-                        <Textarea
+                        <RichTextEditor
+                          value={localBusinessModel}
+                          onChange={setLocalBusinessModel}
+                          onBlur={() => { if (localBusinessModel !== ((company as any)?.business_model || '')) updateCompany.mutate({ business_model: localBusinessModel } as any); }}
                           placeholder="Beskriv bolagets affärsmodell..."
-                          defaultValue={(company as any)?.business_model || ''}
-                          onBlur={(e) => {
-                            if (e.target.value !== ((company as any)?.business_model || '')) updateCompany.mutate({ business_model: e.target.value } as any);
-                          }}
-                          className="min-h-[150px]"
+                          minHeight="150px"
                         />
                       </CardContent>
                     </Card>
@@ -418,7 +432,7 @@ export default function CompanyDetail() {
                           </CardHeader>
                           <CollapsibleContent>
                             <CardContent>
-                              <Textarea placeholder="Add a detailed description..." defaultValue={company.description || ''} onBlur={(e) => { if (e.target.value !== company.description) updateCompany.mutate({ description: e.target.value }); }} className="min-h-[200px]" />
+                              <RichTextEditor value={localDescription} onChange={setLocalDescription} onBlur={() => { if (localDescription !== (company.description || '')) updateCompany.mutate({ description: localDescription }); }} placeholder="Add a detailed description..." minHeight="200px" />
                             </CardContent>
                           </CollapsibleContent>
                         </Card>
@@ -436,7 +450,7 @@ export default function CompanyDetail() {
                           </CardHeader>
                           <CollapsibleContent>
                             <CardContent>
-                              <Textarea placeholder="Describe the company's moats..." defaultValue={company.moats || ''} onBlur={(e) => { if (e.target.value !== company.moats) updateCompany.mutate({ moats: e.target.value }); }} className="min-h-[200px]" />
+                              <RichTextEditor value={localMoats} onChange={setLocalMoats} onBlur={() => { if (localMoats !== (company.moats || '')) updateCompany.mutate({ moats: localMoats }); }} placeholder="Describe the company's moats..." minHeight="200px" />
                             </CardContent>
                           </CollapsibleContent>
                         </Card>
@@ -448,13 +462,12 @@ export default function CompanyDetail() {
                     <Card>
                       <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2">Konkurrens</CardTitle></CardHeader>
                       <CardContent>
-                        <Textarea
+                        <RichTextEditor
+                          value={localCompetition}
+                          onChange={setLocalCompetition}
+                          onBlur={() => { if (localCompetition !== ((company as any)?.competition || '')) updateCompany.mutate({ competition: localCompetition } as any); }}
                           placeholder="Beskriv konkurrenslandskapet, huvudkonkurrenter, marknadsposition..."
-                          defaultValue={(company as any)?.competition || ''}
-                          onBlur={(e) => {
-                            if (e.target.value !== ((company as any)?.competition || '')) updateCompany.mutate({ competition: e.target.value } as any);
-                          }}
-                          className="min-h-[150px]"
+                          minHeight="150px"
                         />
                       </CardContent>
                     </Card>
