@@ -5,7 +5,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, 
-  Building2, 
   Settings, 
   LogOut,
   TrendingUp,
@@ -15,7 +14,11 @@ import {
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
-export function Sidebar() {
+interface SidebarProps {
+  onNavigate?: () => void;
+}
+
+export function Sidebar({ onNavigate }: SidebarProps) {
   const location = useLocation();
   const { t, language, setLanguage } = useLanguage();
   const { signOut, user } = useAuth();
@@ -32,7 +35,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-border bg-sidebar">
+    <div className="flex h-full flex-col bg-sidebar">
       {/* Logo */}
       <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-6">
         <TrendingUp className="h-6 w-6 text-primary" />
@@ -47,6 +50,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               to={item.href}
+              onClick={onNavigate}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 isActive(item.href)
@@ -133,6 +137,6 @@ export function Sidebar() {
           </div>
         )}
       </div>
-    </aside>
+    </div>
   );
 }
