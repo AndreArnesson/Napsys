@@ -42,7 +42,7 @@ const ALL_COLUMNS: { key: ColumnKey; label: string; group: string }[] = [
   { key: 'eps_growth', label: 'VPA-tillväxt', group: 'Resultat' },
   { key: 'gross_margin', label: 'Bruttomarginal', group: 'Marginaler' },
   { key: 'operating_margin', label: 'Rörelsemarginal', group: 'Marginaler' },
-  { key: 'net_margin', label: 'Nettomarginal', group: 'Marginaler' },
+  { key: 'net_margin', label: 'Vinstmarginal', group: 'Marginaler' },
   { key: 'pe', label: 'P/E', group: 'Värdering' },
   { key: 'ev', label: 'EV', group: 'Värdering' },
   { key: 'ev_ebit', label: 'EV/EBIT', group: 'Värdering' },
@@ -131,8 +131,10 @@ export function HistoricalDataTable({
         prev = unique[index - 1];
       }
       const revenueGrowth = prev?.revenue && row.revenue
+        && ((prev.revenue > 0 && row.revenue > 0) || (prev.revenue < 0 && row.revenue < 0))
         ? ((row.revenue - prev.revenue) / Math.abs(prev.revenue)) * 100 : undefined;
       const epsGrowth = prev?.earnings_per_share && row.earnings_per_share
+        && ((prev.earnings_per_share > 0 && row.earnings_per_share > 0) || (prev.earnings_per_share < 0 && row.earnings_per_share < 0))
         ? ((row.earnings_per_share - prev.earnings_per_share) / Math.abs(prev.earnings_per_share)) * 100 : undefined;
       return { ...row, revenue_growth: revenueGrowth, _epsGrowth: epsGrowth };
     });
@@ -269,7 +271,7 @@ export function HistoricalDataTable({
                 {isVisible('eps_growth') && <TableHead className="text-center whitespace-nowrap">VPA tillväxt</TableHead>}
                 {isVisible('gross_margin') && <TableHead className="text-right whitespace-nowrap">Brutto %</TableHead>}
                 {isVisible('operating_margin') && <TableHead className="text-right whitespace-nowrap">EBIT %</TableHead>}
-                {isVisible('net_margin') && <TableHead className="text-right whitespace-nowrap">Netto %</TableHead>}
+                {isVisible('net_margin') && <TableHead className="text-right whitespace-nowrap">Vinst %</TableHead>}
                 {isVisible('pe') && <TableHead className="text-right whitespace-nowrap">P/E</TableHead>}
                 {isVisible('ev') && <TableHead className="text-right whitespace-nowrap">EV (M{currency})</TableHead>}
                 {isVisible('ev_ebit') && <TableHead className="text-right whitespace-nowrap">EV/EBIT</TableHead>}

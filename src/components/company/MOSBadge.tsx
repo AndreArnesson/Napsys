@@ -30,9 +30,9 @@ export function MOSBadge({ value, size = 'md', showLabel = true }: MOSBadgeProps
   };
 
   const colorClasses = {
-    undervalued: 'bg-mos-undervalued/10 text-mos-undervalued border-mos-undervalued/20',
-    fair: 'bg-mos-fair/10 text-mos-fair border-mos-fair/20',
-    overvalued: 'bg-mos-overvalued/10 text-mos-overvalued border-mos-overvalued/20',
+    undervalued: 'bg-emerald-600 text-white border-emerald-700',
+    fair: 'bg-amber-500 text-white border-amber-600',
+    overvalued: 'bg-red-600 text-white border-red-700',
   };
 
   return (
