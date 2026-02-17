@@ -7,9 +7,36 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Calculator, TrendingUp, TrendingDown, Minus, Plus, Trash2 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Calculator, TrendingUp, TrendingDown, Minus, Plus, Trash2, SlidersHorizontal } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { cn } from '@/lib/utils';
+
+const ALL_ESTIMATE_ROWS: { key: string; label: string; group: string }[] = [
+  { key: 'price', label: 'Kurs', group: 'Grunddata' },
+  { key: 'revenueGrowth', label: 'Omsättningstillväxt', group: 'Grunddata' },
+  { key: 'revenue', label: 'Omsättning', group: 'Grunddata' },
+  { key: 'revenuePerShare', label: 'Omsättning/aktie', group: 'Grunddata' },
+  { key: 'ebit', label: 'EBIT', group: 'Grunddata' },
+  { key: 'netMargin', label: 'Vinstmarginal', group: 'Marginaler' },
+  { key: 'ebitMargin', label: 'EBIT-marginal', group: 'Marginaler' },
+  { key: 'ebitdaMargin', label: 'EBITDA-marginal', group: 'Marginaler' },
+  { key: 'earningsPerShare', label: 'Vinst/aktie', group: 'Värdering' },
+  { key: 'epsGrowth', label: 'VPA-tillväxt', group: 'Värdering' },
+  { key: 'dividend', label: 'Utdelning', group: 'Utdelning' },
+  { key: 'dividendYield', label: 'Direktavkastning', group: 'Utdelning' },
+  { key: 'pe', label: 'P/E', group: 'Värdering' },
+  { key: 'targetPE', label: 'Rimlig P/E', group: 'Värdering' },
+  { key: 'estimatedPrice', label: 'Estimerad kurs', group: 'Värdering' },
+  { key: 'mos', label: 'MOS', group: 'Värdering' },
+];
+
+const DEFAULT_ESTIMATE_ROWS = [
+  'price', 'revenueGrowth', 'revenue', 'ebit', 'netMargin',
+  'earningsPerShare', 'epsGrowth', 'dividend', 'dividendYield',
+  'pe', 'targetPE', 'estimatedPrice', 'mos',
+];
 
 export interface YearlyProjection {
   year: number;
@@ -74,8 +101,7 @@ export function SpreadsheetAnalysis({
   const [targetPE, setTargetPE] = useState(15);
   const [mode, setMode] = useState<'yearly' | 'quarterly'>(showQuarterly ? 'quarterly' : 'yearly');
   const [perShare, setPerShare] = useState(false);
-  const [showEbitMargin, setShowEbitMargin] = useState(false);
-  const [showEbitdaMargin, setShowEbitdaMargin] = useState(false);
+  const [visibleRows, setVisibleRows] = useState<string[]>(DEFAULT_ESTIMATE_ROWS);
   const [qGrowthMode, setQGrowthMode] = useState<'yoy' | 'sequential'>('yoy');
 
   const currentYear = new Date().getFullYear();
@@ -291,30 +317,17 @@ export function SpreadsheetAnalysis({
     onProjectionsChange(newProjections);
   };
 
-  // Build rows dynamically based on perShare toggle and margin options
+  // Build rows dynamically based on perShare toggle and visible rows
   const rows: { label: string; key: string; editable: boolean; bg?: boolean }[] = useMemo(() => {
-    const base: { label: string; key: string; editable: boolean; bg?: boolean }[] = [
+    const allRows: { label: string; key: string; editable: boolean; bg?: boolean }[] = [
       { label: `Kurs (${currency})`, key: 'price', editable: true, bg: true },
       { label: 'Omsättningstillv (%)', key: 'revenueGrowth', editable: true },
-    ];
-    
-    if (perShare) {
-      base.push({ label: `Omsättning/aktie (${currency})`, key: 'revenuePerShare', editable: true });
-    } else {
-      base.push({ label: `Omsättning (M${currency})`, key: 'revenue', editable: true });
-      base.push({ label: `EBIT (M${currency})`, key: 'ebit', editable: true });
-    }
-
-    base.push({ label: 'Vinstmarginal (%)', key: 'netMargin', editable: true });
-    
-    if (showEbitMargin) {
-      base.push({ label: 'EBIT-marginal (%)', key: 'ebitMargin', editable: true });
-    }
-    if (showEbitdaMargin) {
-      base.push({ label: 'EBITDA-marginal (%)', key: 'ebitdaMargin', editable: true });
-    }
-
-    base.push(
+      { label: `Omsättning/aktie (${currency})`, key: 'revenuePerShare', editable: true },
+      { label: `Omsättning (M${currency})`, key: 'revenue', editable: true },
+      { label: `EBIT (M${currency})`, key: 'ebit', editable: true },
+      { label: 'Vinstmarginal (%)', key: 'netMargin', editable: true },
+      { label: 'EBIT-marginal (%)', key: 'ebitMargin', editable: true },
+      { label: 'EBITDA-marginal (%)', key: 'ebitdaMargin', editable: true },
       { label: `Vinst/aktie (${currency})`, key: 'earningsPerShare', editable: false, bg: true },
       { label: 'VPA-tillväxt (%)', key: 'epsGrowth', editable: false },
       { label: `Utdelning (${currency})`, key: 'dividend', editable: true },
@@ -323,10 +336,16 @@ export function SpreadsheetAnalysis({
       { label: 'Rimlig P/E', key: 'targetPE', editable: true, bg: true },
       { label: `Estimerad kurs (${currency})`, key: 'estimatedPrice', editable: false },
       { label: 'MOS (%)', key: 'mos', editable: false },
-    );
+    ];
 
-    return base;
-  }, [perShare, showEbitMargin, showEbitdaMargin]);
+    return allRows.filter(row => {
+      if (!visibleRows.includes(row.key)) return false;
+      // perShare logic: show revenuePerShare OR (revenue + ebit), not both
+      if (perShare && (row.key === 'revenue' || row.key === 'ebit')) return false;
+      if (!perShare && row.key === 'revenuePerShare') return false;
+      return true;
+    });
+  }, [perShare, visibleRows, currency]);
 
   return (
     <div className="space-y-6">
@@ -361,14 +380,42 @@ export function SpreadsheetAnalysis({
                 <Label className="text-xs text-muted-foreground">Per aktie</Label>
                 <Switch checked={perShare} onCheckedChange={setPerShare} />
               </div>
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground">EBIT-marginal</Label>
-                <Switch checked={showEbitMargin} onCheckedChange={setShowEbitMargin} />
-              </div>
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground">EBITDA-marginal</Label>
-                <Switch checked={showEbitdaMargin} onCheckedChange={setShowEbitdaMargin} />
-              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 text-xs gap-1">
+                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                    Rader
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-3" align="end">
+                  <div className="space-y-3">
+                    {Object.entries(
+                      ALL_ESTIMATE_ROWS.reduce((acc, row) => {
+                        if (!acc[row.group]) acc[row.group] = [];
+                        acc[row.group].push(row);
+                        return acc;
+                      }, {} as Record<string, typeof ALL_ESTIMATE_ROWS>)
+                    ).map(([group, groupRows]) => (
+                      <div key={group}>
+                        <p className="text-xs font-semibold text-muted-foreground mb-1">{group}</p>
+                        {groupRows.map(row => (
+                          <label key={row.key} className="flex items-center gap-2 py-0.5 cursor-pointer">
+                            <Checkbox
+                              checked={visibleRows.includes(row.key)}
+                              onCheckedChange={(checked) => {
+                                setVisibleRows(prev =>
+                                  checked ? [...prev, row.key] : prev.filter(k => k !== row.key)
+                                );
+                              }}
+                            />
+                            <span className="text-xs">{row.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Target P/E:</span>
                 <Input
@@ -440,10 +487,11 @@ export function SpreadsheetAnalysis({
                       }
 
                       if (row.key === 'mos') {
+                        const mosVal = proj.mos;
                         return (
                           <td key={`${proj.year}-${proj.quarter || ''}`} className="text-center py-2 px-3">
-                            <Badge className={cn('font-mono', getMOSColor(proj.mos))}>
-                              {formatPercent(proj.mos)}
+                            <Badge className={cn('font-mono text-white', getMOSColor(mosVal))}>
+                              {mosVal !== undefined && !isNaN(mosVal) ? `${mosVal >= 0 ? '+' : ''}${mosVal.toFixed(2)}%` : '—'}
                             </Badge>
                           </td>
                         );
