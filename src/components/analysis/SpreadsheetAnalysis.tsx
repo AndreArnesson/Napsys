@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Calculator, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Calculator, TrendingUp, TrendingDown, Minus, Plus, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { cn } from '@/lib/utils';
 
@@ -79,11 +79,23 @@ export function SpreadsheetAnalysis({
   const [qGrowthMode, setQGrowthMode] = useState<'yoy' | 'sequential'>('yoy');
 
   const currentYear = new Date().getFullYear();
+  const [estimateYears, setEstimateYears] = useState<number[]>([currentYear, currentYear + 1, currentYear + 2, currentYear + 3]);
+
+  const addEstimateColumn = () => {
+    const maxYear = Math.max(...estimateYears);
+    setEstimateYears(prev => [...prev, maxYear + 1]);
+  };
+
+  const removeEstimateColumn = (year: number) => {
+    if (estimateYears.length <= 1) return;
+    setEstimateYears(prev => prev.filter(y => y !== year));
+  };
 
   const columns: ColumnDef[] = useMemo(() => {
+    const sortedYears = [...estimateYears].sort((a, b) => a - b);
     if (mode === 'quarterly') {
       const cols: ColumnDef[] = [];
-      for (let y = currentYear; y <= currentYear + 2; y++) {
+      for (const y of sortedYears) {
         for (let q = 1; q <= 4; q++) {
           cols.push({
             year: y,
@@ -95,12 +107,12 @@ export function SpreadsheetAnalysis({
       }
       return cols;
     }
-    return [0, 1, 2, 3].map(offset => ({
-      year: currentYear + offset,
-      label: offset === 0 ? `${currentYear} (Nu)` : String(currentYear + offset),
-      sublabel: `År ${offset}`,
+    return sortedYears.map(year => ({
+      year,
+      label: year === currentYear ? `${currentYear} (Nu)` : String(year),
+      sublabel: `År ${year - currentYear}`,
     }));
-  }, [mode, currentYear]);
+  }, [mode, currentYear, estimateYears]);
 
   const formatNumber = (value: number | undefined, decimals = 2) => {
     if (value === undefined || isNaN(value)) return '—';
@@ -124,11 +136,11 @@ export function SpreadsheetAnalysis({
 
   const getMOSColor = (mos: number | undefined) => {
     if (mos === undefined || isNaN(mos)) return '';
-    if (mos >= 30) return 'bg-success text-success-foreground';
-    if (mos >= 15) return 'bg-success/60 text-success-foreground';
-    if (mos >= 0) return 'bg-warning text-warning-foreground';
-    if (mos >= -15) return 'bg-orange-500 text-white';
-    return 'bg-destructive text-destructive-foreground';
+    if (mos >= 30) return 'bg-emerald-600 text-white';
+    if (mos >= 15) return 'bg-emerald-500 text-white';
+    if (mos >= 0) return 'bg-amber-500 text-white';
+    if (mos >= -15) return 'bg-orange-600 text-white';
+    return 'bg-red-600 text-white';
   };
 
   const findProj = (col: ColumnDef): YearlyProjection => {
@@ -161,21 +173,37 @@ export function SpreadsheetAnalysis({
           if (i >= 4) return results[i - 4]?.[field];
           const hist = quarterlyHistoricalData.find(h => h.quarter === col.quarter && h.year === col.year - 1);
           if (hist && field === 'calculatedRevenue') return hist.revenue;
+          // Fallback: try sequential when no YoY data
+          if (i > 0) return results[i - 1]?.[field];
           return undefined;
         } else {
           // Sequential: previous quarter
           if (i > 0) return results[i - 1]?.[field];
+          // For first quarter, use last available historical quarter
+          if (quarterlyHistoricalData.length > 0 && field === 'calculatedRevenue') {
+            const sorted = [...quarterlyHistoricalData].sort((a, b) => (b.year * 10 + b.quarter) - (a.year * 10 + a.quarter));
+            return sorted[0]?.revenue;
+          }
           return undefined;
         }
       }
       // Yearly
       if (i === 0 && historicalData.length > 0) {
         if (field === 'calculatedRevenue') return historicalData[historicalData.length - 1].revenue;
+        if (field === 'calculatedEps') {
+          const lastHist = historicalData[historicalData.length - 1];
+          if (lastHist.netIncome && sharesOutstanding > 0) {
+            return (lastHist.netIncome * 1_000_000) / sharesOutstanding;
+          }
+        }
         return undefined;
       }
       if (i > 0) return results[i - 1]?.[field];
       return undefined;
     };
+
+    // Helper: check if two values have the same sign
+    const sameSign = (a: number, b: number) => (a > 0 && b > 0) || (a < 0 && b < 0);
 
     for (let i = 0; i < columns.length; i++) {
       const col = columns[i];
@@ -189,8 +217,12 @@ export function SpreadsheetAnalysis({
       
       if (revenue === undefined && growth !== undefined) {
         const prevRev = getPrev(i, col, 'calculatedRevenue');
-        if (prevRev !== undefined && prevRev > 0) {
-          revenue = prevRev * (1 + growth / 100);
+        if (prevRev !== undefined && prevRev !== 0) {
+          const computed = prevRev * (1 + growth / 100);
+          // Only use if signs don't change
+          if (sameSign(prevRev, computed)) {
+            revenue = computed;
+          }
         }
       }
 
@@ -204,20 +236,22 @@ export function SpreadsheetAnalysis({
       const estimatedPrice = earningsPerShare * peToUse;
       const mos = price > 0 ? ((estimatedPrice - price) / price) * 100 : 0;
 
-      // Calculate actual revenue growth
+      // Calculate actual revenue growth - skip if sign change
       let actualGrowth = growth;
       if (actualGrowth === undefined && revenue !== undefined) {
         const prevRev = getPrev(i, col, 'calculatedRevenue');
-        if (prevRev && prevRev > 0) {
-          actualGrowth = ((revenue - prevRev) / prevRev) * 100;
+        if (prevRev && prevRev !== 0 && sameSign(prevRev, revenue)) {
+          actualGrowth = ((revenue - prevRev) / Math.abs(prevRev)) * 100;
         }
       }
 
-      // EPS growth
+      // EPS growth - skip if sign change
       let epsGrowth: number | undefined;
       const prevEps = getPrev(i, col, 'calculatedEps');
-      if (prevEps && prevEps > 0 && earningsPerShare) {
-        epsGrowth = ((earningsPerShare - prevEps) / prevEps) * 100;
+      if (prevEps && prevEps !== 0 && earningsPerShare) {
+        if (sameSign(prevEps, earningsPerShare)) {
+          epsGrowth = ((earningsPerShare - prevEps) / Math.abs(prevEps)) * 100;
+        }
       }
 
       const dividend = proj.dividend;
@@ -356,14 +390,36 @@ export function SpreadsheetAnalysis({
               <thead>
                 <tr className="border-b">
                   <th className="text-left py-2 px-3 font-medium text-muted-foreground w-48">Metric</th>
-                  {calculatedProjections.map((proj) => (
-                    <th key={`${proj.year}-${proj.quarter || ''}`} className="text-center py-2 px-3 font-medium min-w-[110px]">
-                      <div className="flex flex-col items-center">
-                        <span className="text-xs">{proj.label}</span>
-                        {proj.sublabel && <span className="text-[10px] text-muted-foreground font-normal">{proj.sublabel}</span>}
-                      </div>
-                    </th>
-                  ))}
+                  {calculatedProjections.map((proj, i) => {
+                    // For quarterly mode, only show remove on first quarter of each year
+                    const showRemove = mode === 'yearly'
+                      ? estimateYears.length > 1
+                      : (proj.quarter === 1 && estimateYears.length > 1);
+                    return (
+                      <th key={`${proj.year}-${proj.quarter || ''}`} className="text-center py-2 px-3 font-medium min-w-[110px]">
+                        <div className="flex flex-col items-center gap-0.5">
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs">{proj.label}</span>
+                            {showRemove && (
+                              <button
+                                onClick={() => removeEstimateColumn(proj.year)}
+                                className="text-muted-foreground hover:text-destructive transition-colors"
+                                title="Ta bort"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                          {proj.sublabel && <span className="text-[10px] text-muted-foreground font-normal">{proj.sublabel}</span>}
+                        </div>
+                      </th>
+                    );
+                  })}
+                  <th className="py-2 px-2">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={addEstimateColumn} title="Lägg till år">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -425,20 +481,21 @@ export function SpreadsheetAnalysis({
                       return (
                         <td key={`${proj.year}-${proj.quarter || ''}`} className="text-center py-2 px-3">
                           <Input
-                            type="number"
-                            step={row.key === 'netMargin' || row.key === 'revenueGrowth' ? '0.5' : '0.1'}
+                            type="text"
+                            inputMode="decimal"
                             className="w-24 h-8 mx-auto text-center font-mono"
                             placeholder="—"
-                            defaultValue={currentVal || ''}
+                            defaultValue={currentVal !== undefined && currentVal !== 0 ? String(currentVal) : ''}
                             key={`${proj.year}-${proj.quarter || ''}-${row.key}-${currentVal}`}
                             onBlur={(e) => {
-                              const v = parseFloat(e.target.value);
+                              const v = parseFloat(e.target.value.replace(',', '.'));
                               if (!isNaN(v)) updateProjection(col, row.key as keyof YearlyProjection, v);
                             }}
                           />
                         </td>
                       );
                     })}
+                    <td></td>
                   </tr>
                 ))}
               </tbody>
