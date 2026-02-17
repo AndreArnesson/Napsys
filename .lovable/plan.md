@@ -1,56 +1,31 @@
 
+# Fix MOS-fargkontrast och la till rad-filtrering i estimatdelen
 
-## Plan: Snyggare AI-sammanfattning + automatisk aktiekurshämtning
+## Problem 1: MOS-farg ar olaslig
+MOS-cellen anvander `formatPercent()` som returnerar text med `text-success` (gron) eller `text-destructive` (rod) farg. Denna farg hamnar inuti en Badge som har t.ex. `bg-emerald-600 text-white`. Resultatet ar att den inre `text-success`-fargen overskriver `text-white`, sa du far gron text pa gron bakgrund -- olasbart.
 
-### 1. Snyggare formatering av AI-sammanfattningar
+**Losning:** Rendera MOS-vardet direkt som vit text inuti Badge istallet for att anvanda `formatPercent()`. Formatet blir `+XX.XX%` med enbart `text-white`.
 
-AI-sammanfattningen returnerar markdown-text men renderas idag bara med `<br/>`-ersattning, vilket ser platt ut. Planen:
+## Problem 2: Rad-filtrering i estimatdelen
+Historisk data har redan en dropdown med checkboxar for att valja vilka kolumner/rader som visas. Estimatdelen saknar detta och visar alltid samma fasta rader.
 
-- Installera en liten markdown-till-HTML-konverterare (eller bygga en enkel egen med regex for rubriker, fetstil, listor, punktlistor)
-- Alternativt: be AI:n returnera HTML direkt istallet for markdown
-- Styla med `prose`-klasser for snygga rubriker, listor, fetstil
-- Applicera pa bade finansiell sammanfattning och insynssammanfattning
+**Losning:** Implementera samma monster som `HistoricalDataTable`:
+- Definiera en lista med alla tillgangliga rader (Kurs, Oms.tillvaxt, Omsattning, EBIT, Vinstmarginal, EBIT-marginal, EBITDA-marginal, VPA, VPA-tillvaxt, Utdelning, Direktavkastning, P/E, Rimlig P/E, Estimerad kurs, MOS)
+- Lagga till en "Kolumner"-knapp med Popover och checkboxar (precis som historisk data)
+- Ta bort de separata switcharna for EBIT-marginal och EBITDA-marginal (de ersatts av den nya filtreringen)
+- Behall "Per aktie"-switchen separat da den paverkar berakningar, inte bara synlighet
 
-**Losning:** Uppdatera edge function-prompten att returnera HTML istallet for markdown, och forbattra rendering-komponenten med en dedikerad `AISummaryCard`-komponent som hanterar formatering, generera-knapp och spara-knapp i ett snyggt kort.
+## Tekniska detaljer
 
-### 2. Automatisk aktiekurshamtning via Yahoo Finance
+### Fil: `src/components/analysis/SpreadsheetAnalysis.tsx`
 
-Yahoo Finance har ett inofficiellt men pålitligt API som fungerar for svenska aktier (suffix `.ST`, t.ex. `VOLV-B.ST`). Det kraver ingen API-nyckel.
+**MOS-fix (rad ~448-455):**
+- Ersatt `formatPercent(proj.mos)` med en enkel strangen `{proj.mos >= 0 ? '+' : ''}{proj.mos.toFixed(2)}%` renderad direkt med `text-white`
 
-**Implementationsplan:**
-
-- **Ny edge function `fetch-stock-price`**: Anropar Yahoo Finance API (`query1.finance.yahoo.com/v7/finance/quote`) med bolagets ticker
-- Mappar svenska tickers till Yahoo-format (lagger till `.ST` om det behövs)
-- Returnerar aktuell kurs, daglig forandring, valuta
-- **UI-knapp i KeyDataEditor eller headern**: "Hamta aktuell kurs"-knapp bredvid priset
-- Sparar automatiskt till `current_price` i databasen
-
----
-
-### Tekniska detaljer
-
-**Fil: `supabase/functions/fetch-stock-price/index.ts`** (ny)
-- Tar emot `ticker` och `exchange` (default: Stockholm)
-- Mappar ticker till Yahoo-format: `VOLV-B` -> `VOLV-B.ST`
-- Borser: `.ST` (Stockholm), `.HE` (Helsinki), `.CO` (Kopenhamn), `.OL` (Oslo)
-- Gor GET till `https://query1.finance.yahoo.com/v7/finance/quote?symbols=TICKER`
-- Returnerar `{ price, change, changePercent, currency, name }`
-
-**Fil: `supabase/functions/ai-summary/index.ts`** (uppdatera)
-- Uppdatera prompten att returnera formaterad HTML istallet for markdown
-- Laga till instruktioner om att anvanda `<h3>`, `<ul>`, `<li>`, `<strong>` etc.
-
-**Fil: `src/components/company/AISummaryCard.tsx`** (ny komponent)
-- Extrahera AI-sammanfattningskortet till en aterbrukbar komponent
-- Props: `title`, `summary`, `onGenerate`, `onSave`, `generating`, `hasUnsavedChanges`
-- Snyggare rendering med `prose`-klasser
-
-**Fil: `src/pages/CompanyDetail.tsx`** (uppdatera)
-- Ersatt inline AI-sammanfattningskort med `AISummaryCard`
-- Lagg till "Hamta kurs"-knapp i headern eller KeyDataEditor
-- Anropa `fetch-stock-price` edge function och uppdatera `current_price`
-
-**Fil: `src/components/company/KeyDataEditor.tsx`** (uppdatera)
-- Lagg till aktuellt pris-falt med "Hamta"-knapp
-- Visa senast uppdaterat pris
-
+**Rad-filtrering:**
+1. Definiera en konstant `ALL_ESTIMATE_ROWS` med `key`, `label` och `group` for varje rad
+2. Definiera `DEFAULT_ESTIMATE_ROWS` med de rader som visas som standard
+3. Lagga till state: `visibleRows` med `useState<string[]>(DEFAULT_ESTIMATE_ROWS)`
+4. Lagga till en Popover-knapp i headern (bredvid befintliga kontroller) med checkboxar grupperade efter kategori
+5. Filtrera `rows`-arrayen baserat pa `visibleRows`
+6. Ta bort `showEbitMargin`/`showEbitdaMargin` state och deras Switch-komponenter
