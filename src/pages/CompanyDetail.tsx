@@ -171,7 +171,18 @@ export default function CompanyDetail() {
     : { name: '' };
 
   const handleCEOUpdate = (newCeo: CEOData) => { updateCompany.mutate({ management: JSON.stringify(newCeo) }); };
-  const handleKeyDataUpdate = (updates: Record<string, any>) => { updateCompany.mutate(updates); };
+  const handleKeyDataUpdate = (updates: Record<string, any>) => {
+    // Map camelCase keys from KeyDataEditor to snake_case DB columns
+    const mapped: Record<string, any> = {};
+    for (const [key, value] of Object.entries(updates)) {
+      if (key === 'reportingCurrency') mapped.reporting_currency = value;
+      else if (key === 'tradingCurrency') mapped.trading_currency = value;
+      else if (key === 'currentPrice') mapped.current_price = value;
+      else if (key === 'exchange') mapped.exchange = value;
+      else mapped[key] = value;
+    }
+    updateCompany.mutate(mapped);
+  };
   const handleOwnershipUpdate = (data: OwnershipEntry[]) => { updateCompany.mutate({ insider_ownership: data }); };
 
   const rawOwnership = (company as any)?.insider_ownership;
@@ -461,7 +472,7 @@ export default function CompanyDetail() {
                     </Popover>
                   </div>
 
-                  <KeyDataEditor data={{ ticker: company.ticker || undefined, reportingCurrency: company.reporting_currency, tradingCurrency: company.trading_currency, currentPrice: company.current_price }} onUpdate={handleKeyDataUpdate} companyId={id} />
+                  <KeyDataEditor data={{ ticker: company.ticker || undefined, reportingCurrency: company.reporting_currency, tradingCurrency: company.trading_currency, currentPrice: company.current_price, exchange: (company as any).exchange || 'stockholm' }} onUpdate={handleKeyDataUpdate} companyId={id} />
 
                   {sections.foundedYear && (
                     <div className="flex items-center gap-3">

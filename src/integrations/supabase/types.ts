@@ -152,6 +152,7 @@ export type Database = {
           created_at: string
           current_price: number | null
           description: string | null
+          exchange: string | null
           financial_summary: string | null
           founded_year: number | null
           id: string
@@ -175,6 +176,7 @@ export type Database = {
           created_at?: string
           current_price?: number | null
           description?: string | null
+          exchange?: string | null
           financial_summary?: string | null
           founded_year?: number | null
           id?: string
@@ -198,6 +200,7 @@ export type Database = {
           created_at?: string
           current_price?: number | null
           description?: string | null
+          exchange?: string | null
           financial_summary?: string | null
           founded_year?: number | null
           id?: string
