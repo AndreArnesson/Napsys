@@ -1,0 +1,1 @@
+ALTER TABLE public.analyses ADD COLUMN projections jsonb DEFAULT '[]'::jsonb;
