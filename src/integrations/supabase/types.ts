@@ -25,6 +25,7 @@ export type Database = {
           is_draft: boolean | null
           margin_of_safety: number | null
           name: string | null
+          projections: Json | null
           rating: string | null
           shares_outstanding: number | null
           summary_comment: string | null
@@ -42,6 +43,7 @@ export type Database = {
           is_draft?: boolean | null
           margin_of_safety?: number | null
           name?: string | null
+          projections?: Json | null
           rating?: string | null
           shares_outstanding?: number | null
           summary_comment?: string | null
@@ -59,6 +61,7 @@ export type Database = {
           is_draft?: boolean | null
           margin_of_safety?: number | null
           name?: string | null
+          projections?: Json | null
           rating?: string | null
           shares_outstanding?: number | null
           summary_comment?: string | null

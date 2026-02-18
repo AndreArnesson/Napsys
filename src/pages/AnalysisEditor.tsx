@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,7 +42,31 @@ export default function AnalysisEditor() {
   const [employees, setEmployees] = useState<string>('');
   const [analysisSections, setAnalysisSections] = useState<Record<string, boolean>>({ debt: true, images: true, employees: false });
 
-  // Fetch company
+  // Undo stack for projections
+  const undoStackRef = useRef<YearlyProjection[][]>([]);
+  const handleProjectionsChange = useCallback((newProjections: YearlyProjection[]) => {
+    undoStackRef.current.push([...projections]);
+    // Keep stack manageable
+    if (undoStackRef.current.length > 50) undoStackRef.current.shift();
+    setProjections(newProjections);
+  }, [projections]);
+
+  // Ctrl+Z handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        // Only undo if not focused on a text input (to not interfere with native undo)
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        e.preventDefault();
+        const prev = undoStackRef.current.pop();
+        if (prev) setProjections(prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const { data: company } = useQuery({
     queryKey: ['company', id],
     queryFn: async () => {
@@ -157,6 +181,11 @@ export default function AnalysisEditor() {
       setEmployees((currentAnalysis as any).employees?.toString() || '');
       const defaultSections = { debt: true, images: true, employees: false };
       setAnalysisSections({ ...defaultSections, ...((currentAnalysis as any).visible_sections || {}) });
+      // Load persisted projections
+      const savedProjections = (currentAnalysis as any).projections;
+      if (Array.isArray(savedProjections) && savedProjections.length > 0) {
+        setProjections(savedProjections);
+      }
     }
   }, [currentAnalysis, company]);
 
@@ -174,7 +203,8 @@ export default function AnalysisEditor() {
           rating: rating || null,
           summary_comment: notes,
           margin_of_safety: currentMOS ?? null,
-          is_draft: true,
+          is_draft: !rating,
+          projections: projections,
           current_price: currentPrice ? parseFloat(currentPrice) : null,
           shares_outstanding: sharesOutstanding ? parseInt(sharesOutstanding) : null,
           name: analysisName || null,
@@ -544,7 +574,7 @@ export default function AnalysisEditor() {
                 netIncome: h.net_income || 0,
               }))}
               projections={projections}
-              onProjectionsChange={setProjections}
+              onProjectionsChange={handleProjectionsChange}
               rating={rating}
               onRatingChange={setRating}
               notes={notes}
