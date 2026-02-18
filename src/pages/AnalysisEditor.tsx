@@ -42,30 +42,43 @@ export default function AnalysisEditor() {
   const [employees, setEmployees] = useState<string>('');
   const [analysisSections, setAnalysisSections] = useState<Record<string, boolean>>({ debt: true, images: true, employees: false });
 
-  // Undo stack for projections
+  // Undo/Redo stacks for projections
   const undoStackRef = useRef<YearlyProjection[][]>([]);
+  const redoStackRef = useRef<YearlyProjection[][]>([]);
   const handleProjectionsChange = useCallback((newProjections: YearlyProjection[]) => {
     undoStackRef.current.push([...projections]);
-    // Keep stack manageable
     if (undoStackRef.current.length > 50) undoStackRef.current.shift();
+    redoStackRef.current = []; // Clear redo on new change
     setProjections(newProjections);
   }, [projections]);
 
-  // Ctrl+Z handler
+  // Ctrl+Z / Ctrl+Shift+Z handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-        // Only undo if not focused on a text input (to not interfere with native undo)
-        const tag = (e.target as HTMLElement)?.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-        e.preventDefault();
+      if (!(e.ctrlKey || e.metaKey) || e.key !== 'z') return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      e.preventDefault();
+
+      if (e.shiftKey) {
+        // Redo
+        const next = redoStackRef.current.pop();
+        if (next) {
+          undoStackRef.current.push([...projections]);
+          setProjections(next);
+        }
+      } else {
+        // Undo
         const prev = undoStackRef.current.pop();
-        if (prev) setProjections(prev);
+        if (prev) {
+          redoStackRef.current.push([...projections]);
+          setProjections(prev);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [projections]);
 
   const { data: company } = useQuery({
     queryKey: ['company', id],
