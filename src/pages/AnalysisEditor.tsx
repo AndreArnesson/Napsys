@@ -594,6 +594,11 @@ export default function AnalysisEditor() {
               onNotesChange={setNotes}
               currency={company?.reporting_currency}
               showQuarterly={showQuarterly}
+              netDebt={(() => {
+                const latestBalance = balanceData?.[balanceData.length - 1] as any;
+                if (!latestBalance) return 0;
+                return ((latestBalance.long_term_debt ?? 0) + (latestBalance.short_term_debt ?? 0) - (latestBalance.cash_equivalents ?? 0));
+              })()}
             />
             {analysisSections.debt && (
               <DebtSection data={(balanceData || []).map((b: any) => ({

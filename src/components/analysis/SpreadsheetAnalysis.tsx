@@ -19,6 +19,7 @@ const ALL_ESTIMATE_ROWS: { key: string; label: string; group: string }[] = [
   { key: 'revenue', label: 'Omsättning', group: 'Grunddata' },
   { key: 'revenuePerShare', label: 'Omsättning/aktie', group: 'Grunddata' },
   { key: 'ebit', label: 'EBIT', group: 'Grunddata' },
+  { key: 'ebitda', label: 'EBITDA', group: 'Grunddata' },
   { key: 'netMargin', label: 'Vinstmarginal', group: 'Marginaler' },
   { key: 'ebitMargin', label: 'EBIT-marginal', group: 'Marginaler' },
   { key: 'ebitdaMargin', label: 'EBITDA-marginal', group: 'Marginaler' },
@@ -27,15 +28,18 @@ const ALL_ESTIMATE_ROWS: { key: string; label: string; group: string }[] = [
   { key: 'dividend', label: 'Utdelning', group: 'Utdelning' },
   { key: 'dividendYield', label: 'Direktavkastning', group: 'Utdelning' },
   { key: 'pe', label: 'P/E', group: 'Värdering' },
+  { key: 'ev', label: 'EV', group: 'Värdering' },
+  { key: 'evEbit', label: 'EV/EBIT', group: 'Värdering' },
+  { key: 'evEbitda', label: 'EV/EBITDA', group: 'Värdering' },
   { key: 'targetPE', label: 'Rimlig P/E', group: 'Värdering' },
   { key: 'estimatedPrice', label: 'Estimerad kurs', group: 'Värdering' },
   { key: 'mos', label: 'MOS', group: 'Värdering' },
 ];
 
 const DEFAULT_ESTIMATE_ROWS = [
-  'price', 'revenueGrowth', 'revenue', 'ebit', 'netMargin',
+  'price', 'revenueGrowth', 'revenue', 'ebit', 'ebitda', 'netMargin',
   'earningsPerShare', 'epsGrowth', 'dividend', 'dividendYield',
-  'pe', 'targetPE', 'estimatedPrice', 'mos',
+  'pe', 'ev', 'evEbit', 'evEbitda', 'targetPE', 'estimatedPrice', 'mos',
 ];
 
 export interface YearlyProjection {
@@ -57,6 +61,9 @@ export interface YearlyProjection {
   mos?: number;
   dividend?: number;
   dividendYield?: number;
+  ev?: number;
+  evEbit?: number;
+  evEbitda?: number;
 }
 
 interface SpreadsheetAnalysisProps {
@@ -73,6 +80,7 @@ interface SpreadsheetAnalysisProps {
   onNotesChange?: (notes: string) => void;
   currency?: string;
   showQuarterly?: boolean;
+  netDebt?: number;
 }
 
 interface ColumnDef {
@@ -96,6 +104,7 @@ export function SpreadsheetAnalysis({
   currency = 'SEK',
   showQuarterly = false,
   quarterlyHistoricalData = [],
+  netDebt = 0,
 }: SpreadsheetAnalysisProps) {
   const { t, language } = useLanguage();
   const [targetPE, setTargetPE] = useState(15);
@@ -253,6 +262,7 @@ export function SpreadsheetAnalysis({
       }
 
       let ebit = proj.ebit;
+      let ebitda = proj.ebitda;
       const netMargin = proj.netMargin || 0;
       
       const effectiveRevenue = revenue || 0;
@@ -261,6 +271,14 @@ export function SpreadsheetAnalysis({
       const peToUse = proj.targetPE || targetPE;
       const estimatedPrice = earningsPerShare * peToUse;
       const mos = price > 0 ? ((estimatedPrice - price) / price) * 100 : 0;
+
+      // EV = Market Cap + Net Debt (netDebt in MSEK, price * shares = SEK)
+      const marketCap = (price * sharesOutstanding) / 1_000_000; // MSEK
+      const ev = marketCap + netDebt; // MSEK
+
+      // EV/EBIT and EV/EBITDA
+      const evEbit = (ebit && ebit > 0 && ev > 0) ? ev / ebit : undefined;
+      const evEbitda = (ebitda && ebitda > 0 && ev > 0) ? ev / ebitda : undefined;
 
       // Calculate actual revenue growth - skip if sign change
       let actualGrowth = growth;
@@ -288,6 +306,7 @@ export function SpreadsheetAnalysis({
         ...col,
         price,
         revenue,
+        ebitda,
         calculatedRevenue: revenue,
         calculatedEbit: ebit,
         calculatedEps: earningsPerShare,
@@ -301,10 +320,13 @@ export function SpreadsheetAnalysis({
         mos,
         dividend,
         dividendYield,
+        ev,
+        evEbit,
+        evEbitda,
       });
     }
     return results;
-  }, [projections, currentPrice, targetPE, columns, mode, historicalData, sharesOutstanding, qGrowthMode, quarterlyHistoricalData]);
+  }, [projections, currentPrice, targetPE, columns, mode, historicalData, sharesOutstanding, qGrowthMode, quarterlyHistoricalData, netDebt]);
 
   const updateProjection = (col: ColumnDef, field: keyof YearlyProjection, value: number) => {
     const existingIndex = projections.findIndex(p => p.year === col.year && (p.quarter || undefined) === col.quarter);
@@ -325,6 +347,7 @@ export function SpreadsheetAnalysis({
       { label: `Omsättning/aktie (${currency})`, key: 'revenuePerShare', editable: true },
       { label: `Omsättning (M${currency})`, key: 'revenue', editable: true },
       { label: `EBIT (M${currency})`, key: 'ebit', editable: true },
+      { label: `EBITDA (M${currency})`, key: 'ebitda', editable: true },
       { label: 'Vinstmarginal (%)', key: 'netMargin', editable: true },
       { label: 'EBIT-marginal (%)', key: 'ebitMargin', editable: true },
       { label: 'EBITDA-marginal (%)', key: 'ebitdaMargin', editable: true },
@@ -333,6 +356,9 @@ export function SpreadsheetAnalysis({
       { label: `Utdelning (${currency})`, key: 'dividend', editable: true },
       { label: 'Direktavkastning (%)', key: 'dividendYield', editable: false },
       { label: 'P/E', key: 'pe', editable: false },
+      { label: `EV (M${currency})`, key: 'ev', editable: false },
+      { label: 'EV/EBIT', key: 'evEbit', editable: false },
+      { label: 'EV/EBITDA', key: 'evEbitda', editable: false },
       { label: 'Rimlig P/E', key: 'targetPE', editable: true, bg: true },
       { label: `Estimerad kurs (${currency})`, key: 'estimatedPrice', editable: false },
       { label: 'MOS (%)', key: 'mos', editable: false },
