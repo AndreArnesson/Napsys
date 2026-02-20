@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -10,13 +10,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, Building2, Loader2 } from 'lucide-react';
+import { Plus, Search, Building2, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [newCompanyName, setNewCompanyName] = useState('');
   const [newCompanyTicker, setNewCompanyTicker] = useState('');
@@ -226,17 +228,50 @@ export default function Dashboard() {
               {filteredCompanies.map((company) => {
                 const latestAnalysis = company.analyses?.[0];
                 return (
-                <CompanyCard
-                  key={company.id}
-                  company={company}
-                  analysis={latestAnalysis ? {
-                    rating: latestAnalysis.rating as 'buy' | 'hold' | 'sell' | null,
-                    margin_of_safety: latestAnalysis.margin_of_safety,
-                    updated_at: latestAnalysis.updated_at,
-                  } : null}
-                  
-                />
-              )})}
+                  <div key={company.id} className="relative group">
+                    <CompanyCard
+                      company={company}
+                      analysis={latestAnalysis ? {
+                        rating: latestAnalysis.rating as 'buy' | 'hold' | 'sell' | null,
+                        margin_of_safety: latestAnalysis.margin_of_safety,
+                        updated_at: latestAnalysis.updated_at,
+                      } : null}
+                    />
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive h-7 w-7 z-10"
+                          onClick={(e) => e.preventDefault()}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Ta bort {company.name}?</AlertDialogTitle>
+                          <AlertDialogDescription>Bolaget och alla dess analyser, finansiell data och insynshandel tas bort permanent.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                          <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => {
+                            // Delete related data first
+                            await supabase.from('income_statement').delete().eq('company_id', company.id);
+                            await supabase.from('balance_sheet').delete().eq('company_id', company.id);
+                            await supabase.from('analyses').delete().eq('company_id', company.id);
+                            await supabase.from('insider_trades').delete().eq('company_id', company.id);
+                            await supabase.from('timeline_events').delete().eq('company_id', company.id);
+                            await supabase.from('companies').delete().eq('id', company.id);
+                            queryClient.invalidateQueries({ queryKey: ['companies'] });
+                            toast.success(`${company.name} borttagen`);
+                          }}>Ta bort</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>

@@ -32,6 +32,71 @@ import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { sv, enUS } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar } from 'recharts';
+import { Pencil } from 'lucide-react';
+
+function AnalysisListItem({ analysis, companyId, locale, onDelete, onRename }: {
+  analysis: any;
+  companyId: string;
+  locale: any;
+  onDelete: () => void;
+  onRename: (name: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState((analysis as any).name || '');
+
+  return (
+    <Card className="hover:border-primary/20 transition-colors">
+      <CardContent className="py-4">
+        <div className="flex items-center justify-between">
+          <Link to={`/company/${companyId}/analysis/${analysis.id}`} className="flex items-center gap-3 flex-1 cursor-pointer">
+            <RatingBadge rating={analysis.rating as 'buy' | 'hold' | 'sell' | null} />
+            {!editing && (analysis as any).name && (
+              <span className="font-medium">{(analysis as any).name}</span>
+            )}
+            <MOSBadge value={analysis.margin_of_safety} size="sm" />
+            <span className="text-sm text-muted-foreground">
+              {formatDistanceToNow(new Date(analysis.updated_at), { addSuffix: true, locale })}
+            </span>
+            {analysis.is_draft && <span className="text-xs bg-muted px-2 py-0.5 rounded">Draft</span>}
+          </Link>
+          <div className="flex items-center gap-1">
+            {editing ? (
+              <form className="flex items-center gap-1" onSubmit={(e) => { e.preventDefault(); onRename(editName); setEditing(false); }}>
+                <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="h-7 w-40 text-sm" autoFocus placeholder="Analysnamn..." />
+                <Button type="submit" variant="ghost" size="sm" className="h-7 px-2 text-xs">OK</Button>
+                <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setEditing(false)}>✕</Button>
+              </form>
+            ) : (
+              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); setEditing(true); }}>
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={(e) => e.stopPropagation()}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Ta bort analys?</AlertDialogTitle>
+                  <AlertDialogDescription>Analysen och all kopplad data tas bort permanent.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                  <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={onDelete}>Ta bort</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+        {analysis.summary_comment && (
+          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{analysis.summary_comment}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 interface CEOData {
   name: string;
@@ -838,49 +903,24 @@ export default function CompanyDetail() {
             ) : (
               <div className="space-y-3">
                 {allAnalyses.map((analysis) => (
-                  <Card key={analysis.id} className="hover:border-primary/20 transition-colors">
-                    <CardContent className="py-4">
-                      <div className="flex items-center justify-between">
-                        <Link to={`/company/${id}/analysis/${analysis.id}`} className="flex items-center gap-3 flex-1 cursor-pointer">
-                          <RatingBadge rating={analysis.rating as 'buy' | 'hold' | 'sell' | null} />
-                          {(analysis as any).name && (
-                            <span className="font-medium">{(analysis as any).name}</span>
-                          )}
-                          <MOSBadge value={analysis.margin_of_safety} size="sm" />
-                          <span className="text-sm text-muted-foreground">
-                            {formatDistanceToNow(new Date(analysis.updated_at), { addSuffix: true, locale })}
-                          </span>
-                          {analysis.is_draft && <span className="text-xs bg-muted px-2 py-0.5 rounded">Draft</span>}
-                        </Link>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={(e) => e.stopPropagation()}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Ta bort analys?</AlertDialogTitle>
-                              <AlertDialogDescription>Analysen och all kopplad data tas bort permanent.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => {
-                                await supabase.from('income_statement').delete().eq('analysis_id', analysis.id);
-                                await supabase.from('balance_sheet').delete().eq('analysis_id', analysis.id);
-                                await supabase.from('analyses').delete().eq('id', analysis.id);
-                                queryClient.invalidateQueries({ queryKey: ['all-analyses', id] });
-                                toast.success('Analys borttagen');
-                              }}>Ta bort</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                      {analysis.summary_comment && (
-                        <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{analysis.summary_comment}</p>
-                      )}
-                    </CardContent>
-                  </Card>
+                  <AnalysisListItem
+                    key={analysis.id}
+                    analysis={analysis}
+                    companyId={id!}
+                    locale={locale}
+                    onDelete={async () => {
+                      await supabase.from('income_statement').delete().eq('analysis_id', analysis.id);
+                      await supabase.from('balance_sheet').delete().eq('analysis_id', analysis.id);
+                      await supabase.from('analyses').delete().eq('id', analysis.id);
+                      queryClient.invalidateQueries({ queryKey: ['all-analyses', id] });
+                      toast.success('Analys borttagen');
+                    }}
+                    onRename={async (newName: string) => {
+                      await supabase.from('analyses').update({ name: newName || null } as any).eq('id', analysis.id);
+                      queryClient.invalidateQueries({ queryKey: ['all-analyses', id] });
+                      toast.success('Namn uppdaterat');
+                    }}
+                  />
                 ))}
               </div>
             )}
