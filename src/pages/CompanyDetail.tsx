@@ -635,7 +635,7 @@ export default function CompanyDetail() {
                           value={(company as any)?.pilotskolan || ''}
                           onUpdate={(val) => updateCompany.mutate({ pilotskolan: val } as any)}
                         />
-                        <InsiderOwnership data={ownershipData} onUpdate={handleOwnershipUpdate} />
+                        <InsiderOwnership data={ownershipData} onUpdate={handleOwnershipUpdate} currentPrice={company?.current_price} tradingCurrency={(company as any)?.trading_currency || 'SEK'} />
                       </CardContent>
                     </Card>
                   )}
