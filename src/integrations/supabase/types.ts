@@ -157,6 +157,7 @@ export type Database = {
           founded_year: number | null
           id: string
           images: Json | null
+          insider_ownership: Json | null
           insider_summary: string | null
           management: Json | null
           moats: string | null
@@ -181,6 +182,7 @@ export type Database = {
           founded_year?: number | null
           id?: string
           images?: Json | null
+          insider_ownership?: Json | null
           insider_summary?: string | null
           management?: Json | null
           moats?: string | null
@@ -205,6 +207,7 @@ export type Database = {
           founded_year?: number | null
           id?: string
           images?: Json | null
+          insider_ownership?: Json | null
           insider_summary?: string | null
           management?: Json | null
           moats?: string | null
