@@ -755,18 +755,6 @@ export default function CompanyDetail() {
               />
             )}
 
-            {/* AI Balance Sheet Summary */}
-            {hasBalanceData && (
-              <AISummaryCard
-                title="AI-sammanfattning Balansräkning"
-                summary={localBalanceSummary}
-                onGenerate={generateBalanceSummary}
-                onSave={saveBalanceSummary}
-                generating={generatingBalanceSummary}
-                hasUnsavedChanges={!!localBalanceSummary && localBalanceSummary !== ((company as any)?.balance_sheet_summary || '')}
-                emptyText="Klicka &quot;Generera&quot; för att få en AI-sammanfattning av balansräkningen."
-              />
-            )}
           </TabsContent>
 
           {/* Balance Sheet Tab */}
@@ -822,6 +810,19 @@ export default function CompanyDetail() {
                   </div>
                 </CardContent>
               </Card>
+            )}
+
+            {/* AI Balance Sheet Summary */}
+            {hasBalanceData && (
+              <AISummaryCard
+                title="AI-sammanfattning Balansräkning"
+                summary={localBalanceSummary}
+                onGenerate={generateBalanceSummary}
+                onSave={saveBalanceSummary}
+                generating={generatingBalanceSummary}
+                hasUnsavedChanges={!!localBalanceSummary && localBalanceSummary !== ((company as any)?.balance_sheet_summary || '')}
+                emptyText="Klicka &quot;Generera&quot; för att få en AI-sammanfattning av balansräkningen."
+              />
             )}
           </TabsContent>
 
