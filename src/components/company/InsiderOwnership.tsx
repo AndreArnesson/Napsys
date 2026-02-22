@@ -18,11 +18,13 @@ export interface OwnershipEntry {
 interface InsiderOwnershipProps {
   data: OwnershipEntry[];
   onUpdate: (data: OwnershipEntry[]) => void;
+  currentPrice?: number | null;
+  tradingCurrency?: string;
 }
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--accent))'];
 
-export function InsiderOwnership({ data, onUpdate }: InsiderOwnershipProps) {
+export function InsiderOwnership({ data, onUpdate, currentPrice, tradingCurrency = 'SEK' }: InsiderOwnershipProps) {
   const [pasteText, setPasteText] = useState('');
   const [parsing, setParsing] = useState(false);
   const [showPaste, setShowPaste] = useState(false);
@@ -114,6 +116,7 @@ export function InsiderOwnership({ data, onUpdate }: InsiderOwnershipProps) {
                   <TableHead>Role</TableHead>
                   <TableHead className="text-right">Shares</TableHead>
                   <TableHead className="text-right">%</TableHead>
+                  <TableHead className="text-right">Value ({tradingCurrency})</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -131,6 +134,11 @@ export function InsiderOwnership({ data, onUpdate }: InsiderOwnershipProps) {
                     </TableCell>
                     <TableCell>
                       <Input type="number" step="0.01" value={entry.percentage ? (entry.percentage * 100).toFixed(2) : ''} onChange={(e) => updateRow(i, 'percentage', (parseFloat(e.target.value) || 0) / 100)} className="h-8 text-right font-mono w-20" />
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-sm text-muted-foreground">
+                      {entry.shares && currentPrice
+                        ? (entry.shares * currentPrice).toLocaleString('sv-SE', { maximumFractionDigits: 0 })
+                        : '—'}
                     </TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeRow(i)}>
