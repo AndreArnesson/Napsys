@@ -1,0 +1,1 @@
+ALTER TABLE public.companies ADD COLUMN balance_sheet_summary text;

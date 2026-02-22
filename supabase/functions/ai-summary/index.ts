@@ -51,6 +51,20 @@ Fokusera på:
 
 Var konkret. Håll dig under 200 ord. Returnera BARA HTML-innehåll, ingen markdown, inga kodblock.`;
       userPrompt = `Analysera insynshandel för ${companyName || 'bolaget'}:\n\n${JSON.stringify(data, null, 2)}`;
+    } else if (type === "balance_sheet") {
+      systemPrompt = `Du är en erfaren aktieanalytiker. Analysera balansräkningen och ge en koncis sammanfattning på svenska. Formatera svaret som HTML (INTE markdown). Använd <h3>, <ul>, <li>, <strong>, <p> taggar.
+
+Fokusera på:
+1. Soliditet och utveckling över tid
+2. Skuldsättningsgrad (långfristiga vs kortfristiga skulder)
+3. Kassaposition och likviditet
+4. Nettoskuld (skulder minus kassa)
+5. Eget kapital – växer det eller krymper det?
+6. Rörelsekapital (omsättningstillgångar vs kortfristiga skulder)
+7. Risker: hög skuldsättning, svag balansräkning, låg soliditet
+
+Var konkret med siffror. Håll dig under 300 ord. Returnera BARA HTML-innehåll, ingen markdown, inga kodblock.`;
+      userPrompt = `Analysera balansräkning för ${companyName || 'bolaget'}:\n\n${JSON.stringify(data, null, 2)}`;
     } else {
       return new Response(JSON.stringify({ error: "Invalid type" }), {
         status: 400,
