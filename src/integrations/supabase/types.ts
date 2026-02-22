@@ -147,6 +147,7 @@ export type Database = {
       }
       companies: {
         Row: {
+          balance_sheet_summary: string | null
           business_model: string | null
           competition: string | null
           created_at: string
@@ -172,6 +173,7 @@ export type Database = {
           visible_sections: Json | null
         }
         Insert: {
+          balance_sheet_summary?: string | null
           business_model?: string | null
           competition?: string | null
           created_at?: string
@@ -197,6 +199,7 @@ export type Database = {
           visible_sections?: Json | null
         }
         Update: {
+          balance_sheet_summary?: string | null
           business_model?: string | null
           competition?: string | null
           created_at?: string

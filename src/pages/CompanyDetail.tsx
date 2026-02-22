@@ -149,8 +149,10 @@ export default function CompanyDetail() {
   const [richTextInited, setRichTextInited] = useState(false);
   const [generatingFinSummary, setGeneratingFinSummary] = useState(false);
   const [generatingInsiderSummary, setGeneratingInsiderSummary] = useState(false);
+  const [generatingBalanceSummary, setGeneratingBalanceSummary] = useState(false);
   const [localFinSummary, setLocalFinSummary] = useState('');
   const [localInsiderSummary, setLocalInsiderSummary] = useState('');
+  const [localBalanceSummary, setLocalBalanceSummary] = useState('');
   const [finSummaryInited, setFinSummaryInited] = useState(false);
 
   const { data: company, isLoading } = useQuery({
@@ -174,6 +176,7 @@ export default function CompanyDetail() {
   if (company && !finSummaryInited) {
     setLocalFinSummary((company as any)?.financial_summary || '');
     setLocalInsiderSummary((company as any)?.insider_summary || '');
+    setLocalBalanceSummary((company as any)?.balance_sheet_summary || '');
     setFinSummaryInited(true);
   }
 
@@ -316,6 +319,35 @@ export default function CompanyDetail() {
 
   const saveInsiderSummary = async () => {
     await supabase.from('companies').update({ insider_summary: localInsiderSummary } as any).eq('id', id);
+    queryClient.invalidateQueries({ queryKey: ['company', id] });
+    toast.success('Sammanfattning sparad');
+  };
+
+  const generateBalanceSummary = async () => {
+    if (!balanceSheetData || balanceSheetData.length === 0) return;
+    setGeneratingBalanceSummary(true);
+    try {
+      const payload = {
+        type: 'balance_sheet',
+        companyName: company?.name,
+        data: balanceSheetData,
+      };
+      const { data: result, error } = await supabase.functions.invoke('ai-summary', { body: payload });
+      if (error) throw error;
+      if (result?.summary) {
+        setLocalBalanceSummary(result.summary);
+        toast.success('AI-sammanfattning genererad');
+      }
+    } catch (e: any) {
+      console.error('Balance summary error:', e);
+      toast.error(e?.message || 'Kunde inte generera sammanfattning');
+    } finally {
+      setGeneratingBalanceSummary(false);
+    }
+  };
+
+  const saveBalanceSummary = async () => {
+    await supabase.from('companies').update({ balance_sheet_summary: localBalanceSummary } as any).eq('id', id);
     queryClient.invalidateQueries({ queryKey: ['company', id] });
     toast.success('Sammanfattning sparad');
   };
@@ -720,6 +752,19 @@ export default function CompanyDetail() {
                 generating={generatingFinSummary}
                 hasUnsavedChanges={!!localFinSummary && localFinSummary !== ((company as any)?.financial_summary || '')}
                 emptyText="Klicka &quot;Generera&quot; för att få en AI-sammanfattning av den finansiella datan."
+              />
+            )}
+
+            {/* AI Balance Sheet Summary */}
+            {hasBalanceData && (
+              <AISummaryCard
+                title="AI-sammanfattning Balansräkning"
+                summary={localBalanceSummary}
+                onGenerate={generateBalanceSummary}
+                onSave={saveBalanceSummary}
+                generating={generatingBalanceSummary}
+                hasUnsavedChanges={!!localBalanceSummary && localBalanceSummary !== ((company as any)?.balance_sheet_summary || '')}
+                emptyText="Klicka &quot;Generera&quot; för att få en AI-sammanfattning av balansräkningen."
               />
             )}
           </TabsContent>
