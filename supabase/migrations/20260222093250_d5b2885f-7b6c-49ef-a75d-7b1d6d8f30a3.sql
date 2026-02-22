@@ -1,0 +1,1 @@
+ALTER TABLE public.companies ADD COLUMN insider_ownership jsonb DEFAULT '[]'::jsonb;
