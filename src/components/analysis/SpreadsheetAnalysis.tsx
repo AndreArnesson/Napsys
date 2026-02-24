@@ -9,9 +9,10 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Calculator, TrendingUp, TrendingDown, Minus, Plus, Trash2, SlidersHorizontal } from 'lucide-react';
+import { Calculator, TrendingUp, TrendingDown, Minus, Plus, Trash2, SlidersHorizontal, ArrowRightLeft } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const ALL_ESTIMATE_ROWS: { key: string; label: string; group: string }[] = [
   { key: 'price', label: 'Kurs', group: 'Grunddata' },
@@ -374,6 +375,64 @@ export function SpreadsheetAnalysis({
     });
   }, [perShare, visibleRows, currency]);
 
+  // Check which years have all 4 quarters filled with at least revenue or netMargin
+  const yearsWithFullQuarters = useMemo(() => {
+    return estimateYears.filter(year => {
+      for (let q = 1; q <= 4; q++) {
+        const proj = projections.find(p => p.year === year && p.quarter === q);
+        if (!proj || (proj.revenue === undefined && proj.revenueGrowth === undefined && proj.netMargin === undefined)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [projections, estimateYears]);
+
+  const convertQuartersToYearly = () => {
+    const newProjections = [...projections];
+
+    for (const year of yearsWithFullQuarters) {
+      const quarters = [1, 2, 3, 4].map(q => {
+        const calc = calculatedProjections.find(p => p.year === year && p.quarter === q);
+        const raw = projections.find(p => p.year === year && p.quarter === q);
+        return { calc, raw };
+      });
+
+      const sumField = (field: string) => {
+        const vals = quarters.map(q => (q.calc as any)?.[field]).filter((v: any) => v !== undefined && !isNaN(v));
+        return vals.length > 0 ? vals.reduce((a: number, b: number) => a + b, 0) : undefined;
+      };
+
+      const avgField = (field: string) => {
+        const vals = quarters.map(q => (q.calc as any)?.[field]).filter((v: any) => v !== undefined && v !== 0 && !isNaN(v));
+        return vals.length > 0 ? vals.reduce((a: number, b: number) => a + b, 0) / vals.length : undefined;
+      };
+
+      const yearlyProj: YearlyProjection = {
+        year,
+        revenue: sumField('revenue'),
+        ebit: sumField('ebit'),
+        ebitda: sumField('ebitda'),
+        netMargin: avgField('netMargin'),
+        price: quarters[3].calc?.price || quarters[3].raw?.price || currentPrice,
+        dividend: sumField('dividend'),
+        targetPE: quarters[3].raw?.targetPE || quarters[3].calc?.targetPE,
+        ev: quarters[3].calc?.ev,
+      };
+
+      const existingIdx = newProjections.findIndex(p => p.year === year && !p.quarter);
+      if (existingIdx >= 0) {
+        newProjections[existingIdx] = { ...newProjections[existingIdx], ...yearlyProj };
+      } else {
+        newProjections.push(yearlyProj);
+      }
+    }
+
+    onProjectionsChange(newProjections);
+    setMode('yearly');
+    toast.success(`${yearsWithFullQuarters.length} år konverterade från kvartal till helårsbasis`);
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -402,6 +461,17 @@ export function SpreadsheetAnalysis({
                     <TabsTrigger value="sequential" className="text-xs px-3 h-7">Sekventiell</TabsTrigger>
                   </TabsList>
                 </Tabs>
+              )}
+              {mode === 'quarterly' && yearsWithFullQuarters.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs gap-1"
+                  onClick={convertQuartersToYearly}
+                >
+                  <ArrowRightLeft className="h-3.5 w-3.5" />
+                  Översätt kvartal till helårsbasis
+                </Button>
               )}
               <div className="flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground">Per aktie</Label>
