@@ -535,10 +535,10 @@ export function SpreadsheetAnalysis({
                 <tr className="border-b">
                   <th className="text-left py-2 px-3 font-medium text-muted-foreground w-48">Metric</th>
                   {calculatedProjections.map((proj, i) => {
-                    // For quarterly mode, only show remove on first quarter of each year
-                    const showRemove = mode === 'yearly'
-                      ? estimateYears.length > 1
-                      : (proj.quarter === 1 && estimateYears.length > 1);
+                    // Only allow removing the last (rightmost) year, shown on Q1 in quarterly mode
+                    const maxYear = Math.max(...estimateYears);
+                    const showRemove = estimateYears.length > 1 && proj.year === maxYear
+                      && (mode === 'yearly' || proj.quarter === 1);
                     return (
                       <th key={`${proj.year}-${proj.quarter || ''}`} className="text-center py-2 px-3 font-medium min-w-[110px]">
                         <div className="flex flex-col items-center gap-0.5">
