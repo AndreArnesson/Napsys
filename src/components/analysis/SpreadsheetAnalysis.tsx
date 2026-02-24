@@ -505,7 +505,38 @@ export function SpreadsheetAnalysis({
                       const isFirstYearly = i === 0 && mode === 'yearly';
 
                       if (row.key === 'pe') {
-                        const pe = proj.earningsPerShare && proj.earningsPerShare > 0 ? proj.price! / proj.earningsPerShare : undefined;
+                        let ttmEps: number | undefined;
+                        if (mode === 'quarterly') {
+                          // Trailing 12 months: sum current + previous 3 quarters' EPS
+                          // Look back through calculated projections and quarterly historical data
+                          const allQuarterEps: number[] = [];
+                          // Gather EPS from calculated projections up to and including current index
+                          for (let j = i; j >= 0 && allQuarterEps.length < 4; j--) {
+                            const ep = calculatedProjections[j]?.earningsPerShare;
+                            if (ep !== undefined) allQuarterEps.push(ep);
+                          }
+                          // If we still need more quarters, look at quarterly historical data
+                          if (allQuarterEps.length < 4 && quarterlyHistoricalData.length > 0) {
+                            const sorted = [...quarterlyHistoricalData].sort((a, b) => (b.year * 10 + b.quarter) - (a.year * 10 + a.quarter));
+                            for (const qh of sorted) {
+                              if (allQuarterEps.length >= 4) break;
+                              // Skip if this quarter is already covered by projections
+                              const alreadyCovered = calculatedProjections.slice(0, i + 1).some(
+                                p => p.year === qh.year && p.quarter === qh.quarter
+                              );
+                              if (alreadyCovered) continue;
+                              if (qh.netIncome && sharesOutstanding > 0) {
+                                allQuarterEps.push((qh.netIncome * 1_000_000) / sharesOutstanding);
+                              }
+                            }
+                          }
+                          if (allQuarterEps.length === 4) {
+                            ttmEps = allQuarterEps.reduce((sum, v) => sum + v, 0);
+                          }
+                        } else {
+                          ttmEps = proj.earningsPerShare;
+                        }
+                        const pe = ttmEps && ttmEps > 0 && proj.price ? proj.price / ttmEps : undefined;
                         return (
                           <td key={`${proj.year}-${proj.quarter || ''}`} className="text-center py-2 px-3 font-mono">
                             {pe !== undefined ? formatNumber(pe, 1) : '—'}
