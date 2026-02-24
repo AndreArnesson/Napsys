@@ -274,7 +274,8 @@ export function SpreadsheetAnalysis({
 
       // EV = Market Cap + Net Debt (netDebt in MSEK, price * shares = SEK)
       const marketCap = (price * sharesOutstanding) / 1_000_000; // MSEK
-      const ev = marketCap + netDebt; // MSEK
+      const calculatedEv = marketCap + netDebt; // MSEK
+      const ev = proj.ev !== undefined ? proj.ev : calculatedEv; // User override or calculated
 
       // EV/EBIT and EV/EBITDA
       const evEbit = (ebit && ebit > 0 && ev > 0) ? ev / ebit : undefined;
@@ -356,7 +357,7 @@ export function SpreadsheetAnalysis({
       { label: `Utdelning (${currency})`, key: 'dividend', editable: true },
       { label: 'Direktavkastning (%)', key: 'dividendYield', editable: false },
       { label: 'P/E', key: 'pe', editable: false },
-      { label: `EV (M${currency})`, key: 'ev', editable: false },
+      { label: `EV (M${currency})`, key: 'ev', editable: true, bg: true },
       { label: 'EV/EBIT', key: 'evEbit', editable: false },
       { label: 'EV/EBITDA', key: 'evEbitda', editable: false },
       { label: 'Rimlig P/E', key: 'targetPE', editable: true, bg: true },
