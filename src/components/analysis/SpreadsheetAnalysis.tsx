@@ -115,7 +115,19 @@ export function SpreadsheetAnalysis({
   const [qGrowthMode, setQGrowthMode] = useState<'yoy' | 'sequential'>('yoy');
 
   const currentYear = new Date().getFullYear();
-  const [estimateYears, setEstimateYears] = useState<number[]>([currentYear, currentYear + 1]);
+  const defaultYears = [currentYear, currentYear + 1];
+  
+  // Derive initial estimateYears from saved projections if they exist
+  const initialYears = useMemo(() => {
+    if (projections.length > 0) {
+      const years = [...new Set(projections.map(p => p.year))].sort((a, b) => a - b);
+      if (years.length > 0) return years;
+    }
+    return defaultYears;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  
+  const [estimateYears, setEstimateYears] = useState<number[]>(initialYears);
 
   const addEstimateColumn = () => {
     const maxYear = Math.max(...estimateYears);
