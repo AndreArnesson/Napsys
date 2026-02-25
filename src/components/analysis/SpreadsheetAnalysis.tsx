@@ -115,7 +115,7 @@ export function SpreadsheetAnalysis({
   const [qGrowthMode, setQGrowthMode] = useState<'yoy' | 'sequential'>('yoy');
 
   const currentYear = new Date().getFullYear();
-  const [estimateYears, setEstimateYears] = useState<number[]>([currentYear, currentYear + 1, currentYear + 2, currentYear + 3]);
+  const [estimateYears, setEstimateYears] = useState<number[]>([currentYear, currentYear + 1]);
 
   const addEstimateColumn = () => {
     const maxYear = Math.max(...estimateYears);
