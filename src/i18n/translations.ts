@@ -46,7 +46,7 @@ export const translations = {
       overview: 'Översikt',
       financials: 'Finansiellt',
       balanceSheet: 'Balansräkning',
-      timeline: 'Tidslinje',
+      
       analysis: 'Analys',
       notes: 'Anteckningar',
       description: 'Beskrivning',
@@ -124,15 +124,6 @@ export const translations = {
       undervalued: 'Undervärderad',
       fair: 'Rimlig',
       overvalued: 'Övervärderad',
-    },
-    // Timeline
-    timeline: {
-      title: 'Tidslinje',
-      analysis: 'Analys',
-      comment: 'Kommentar',
-      insiderBuy: 'Insynsköp',
-      ratingChange: 'Betygsändring',
-      noEvents: 'Inga händelser ännu',
     },
     // Sharing
     sharing: {
@@ -233,7 +224,7 @@ export const translations = {
       overview: 'Overview',
       financials: 'Financials',
       balanceSheet: 'Balance Sheet',
-      timeline: 'Timeline',
+      
       analysis: 'Analysis',
       notes: 'Notes',
       description: 'Description',
@@ -311,15 +302,6 @@ export const translations = {
       undervalued: 'Undervalued',
       fair: 'Fair',
       overvalued: 'Overvalued',
-    },
-    // Timeline
-    timeline: {
-      title: 'Timeline',
-      analysis: 'Analysis',
-      comment: 'Comment',
-      insiderBuy: 'Insider Buy',
-      ratingChange: 'Rating Change',
-      noEvents: 'No events yet',
     },
     // Sharing
     sharing: {

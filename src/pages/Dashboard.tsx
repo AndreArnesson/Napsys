@@ -261,7 +261,6 @@ export default function Dashboard() {
                             await supabase.from('balance_sheet').delete().eq('company_id', company.id);
                             await supabase.from('analyses').delete().eq('company_id', company.id);
                             await supabase.from('insider_trades').delete().eq('company_id', company.id);
-                            await supabase.from('timeline_events').delete().eq('company_id', company.id);
                             await supabase.from('companies').delete().eq('id', company.id);
                             queryClient.invalidateQueries({ queryKey: ['companies'] });
                             toast.success(`${company.name} borttagen`);

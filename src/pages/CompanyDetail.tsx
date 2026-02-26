@@ -22,7 +22,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, Loader2, Clock, ChevronDown, Plus, Trash2, FileText, Settings2, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Loader2, ChevronDown, Plus, Trash2, FileText, Settings2, Eye, EyeOff } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -212,15 +212,6 @@ export default function CompanyDetail() {
     enabled: !!id,
   });
 
-  const { data: timelineEvents } = useQuery({
-    queryKey: ['timeline', id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('timeline_events').select('*').eq('company_id', id).order('event_date', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id,
-  });
 
   const updateCompany = useMutation({
     mutationFn: async (updates: Record<string, any>) => {
@@ -528,7 +519,7 @@ export default function CompanyDetail() {
             <TabsTrigger value="financials">{t.company.financials}</TabsTrigger>
             <TabsTrigger value="balance-sheet">{t.company.balanceSheet}</TabsTrigger>
             <TabsTrigger value="insiders">{t.company.insiders}</TabsTrigger>
-            <TabsTrigger value="timeline">{t.company.timeline}</TabsTrigger>
+            
             <TabsTrigger value="analysis">{t.analysis.title}</TabsTrigger>
           </TabsList>
 
@@ -844,37 +835,6 @@ export default function CompanyDetail() {
                 />
               </>
             )}
-          </TabsContent>
-
-          {/* Timeline Tab */}
-          <TabsContent value="timeline" className="space-y-6">
-            <Card>
-              <CardHeader><CardTitle>{t.timeline.title}</CardTitle></CardHeader>
-              <CardContent>
-                {!timelineEvents?.length ? (
-                  <p className="text-muted-foreground text-center py-8">{t.timeline.noEvents}</p>
-                ) : (
-                  <div className="relative space-y-4">
-                    <div className="absolute left-4 top-0 bottom-0 w-px bg-border" />
-                    {timelineEvents.map((event) => (
-                      <div key={event.id} className="relative pl-10">
-                        <div className="absolute left-2 top-2 h-4 w-4 rounded-full border-2 border-primary bg-background" />
-                        <Card>
-                          <CardContent className="pt-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Clock className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-sm text-muted-foreground">{formatDistanceToNow(new Date(event.event_date), { addSuffix: true, locale })}</span>
-                              {event.rating && <RatingBadge rating={event.rating as 'buy' | 'hold' | 'sell'} size="sm" />}
-                            </div>
-                            {event.comment && <p className="text-sm">{event.comment}</p>}
-                          </CardContent>
-                        </Card>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </TabsContent>
 
           {/* Analysis Tab */}
