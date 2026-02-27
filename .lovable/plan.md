@@ -1,23 +1,45 @@
 
 
-## Remove Timeline Feature
+## Engångsjusteringar i analysen
 
-The "Tidslinje" (Timeline) tab in company detail is dead code. The `timeline_events` table exists in the database but nothing ever writes to it. The tab just shows "Inga händelser ännu" permanently.
+Lägga till möjlighet att registrera engångsposter (one-time items) som justerar EBIT, EBITDA eller Nettoresultat per år/kvartal. Justerade värden visas som nya rader i estimattabellen.
 
-### Steps
+### Datamodell
 
-1. **Remove Timeline tab and content from `CompanyDetail.tsx`**
-   - Remove the `useQuery` for `timeline_events`
-   - Remove the `<TabsTrigger value="timeline">` 
-   - Remove the `<TabsContent value="timeline">` block
+Justeringarna sparas i analysens `projections`-JSON (som redan lagrar all estimatdata) via ett nytt fält `adjustments` på analysen, alternativt direkt i analysens JSON-kolumn. Enklast: ett nytt fält `adjustments` i `analyses`-tabellen (JSONB).
 
-2. **Remove timeline translations from `translations.ts` and `LanguageContext.tsx`**
-   - Remove `timeline` key from both `sv` and `en` translation objects
-   - Remove `company.timeline` key
-   - Remove timeline type from `LanguageContext.tsx`
+Varje justering:
+```text
+{
+  id: string (uuid),
+  description: string,      // "Omstruktureringskostnad"
+  amount: number,            // 12 (MSEK)
+  metric: 'ebit' | 'ebitda' | 'netIncome',
+  year: number,
+  quarter?: number
+}
+```
 
-3. **Clean up `Dashboard.tsx`**
-   - Remove the `timeline_events` delete call when deleting a company
+### Steg
 
-4. **Drop `timeline_events` table** via database migration (optional — can keep for future use)
+1. **Databasmigration** -- Lägg till `adjustments JSONB DEFAULT '[]'` kolumn på `analyses`-tabellen.
+
+2. **Ny komponent `AdjustmentsEditor`** -- Ett litet UI-block (collapsible card) i analysflödet:
+   - Tabell med kolumner: Beskrivning, Belopp (MSEK), Typ (EBIT/EBITDA/Nettoresultat), Period (år + ev kvartal)
+   - Knappar för att lägga till / ta bort justeringar
+   - Data sparas via autosave precis som övriga analysfält
+
+3. **Uppdatera `AnalysisEditor.tsx`** -- Hantera `adjustments` state, ladda från `currentAnalysis`, inkludera i `saveMutation`, rendera `AdjustmentsEditor` mellan historisk data och estimattabellen.
+
+4. **Uppdatera `SpreadsheetAnalysis.tsx`** -- 
+   - Ny prop `adjustments`
+   - Nya beräknade rader: "Justerad EBIT", "Justerad EBITDA", "Justerat nettoresultat" som summerar basvärdena + justeringar för respektive period
+   - Justerade marginaler (justerad EBIT-marginal etc.) baserade på justerade värden
+   - Nya rader läggs till i `ALL_ESTIMATE_ROWS` och `rows`
+
+### Tekniska detaljer
+
+- Justeringsbeloppet adderas till grundvärdet (positivt belopp = kostnad som läggs tillbaka, t.ex. +12 MSEK på EBIT betyder att man justerar bort en engångskostnad)
+- Justerade värden påverkar även EV/EBIT och EV/EBITDA om användaren väljer att visa justerade multiplar
+- Sparas automatiskt via befintlig debounce-save
 
