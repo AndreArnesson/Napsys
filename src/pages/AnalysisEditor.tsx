@@ -576,6 +576,7 @@ export default function AnalysisEditor() {
               currency={company?.reporting_currency}
               sharesOutstanding={sharesNum}
               currentPrice={priceNum}
+              adjustments={adjustments}
             />
             <AdjustmentsEditor
               adjustments={adjustments}
