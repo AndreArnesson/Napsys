@@ -1,0 +1,1 @@
+ALTER TABLE public.analyses ADD COLUMN adjustments JSONB DEFAULT '[]'::jsonb;

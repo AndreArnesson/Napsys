@@ -10,6 +10,7 @@ import { RatingBadge } from '@/components/company/RatingBadge';
 import { HistoricalDataTable, HistoricalYear } from '@/components/analysis/HistoricalDataTable';
 import { SpreadsheetAnalysis, YearlyProjection } from '@/components/analysis/SpreadsheetAnalysis';
 import { DebtSection } from '@/components/analysis/DebtSection';
+import { AdjustmentsEditor, Adjustment } from '@/components/analysis/AdjustmentsEditor';
 import { ImageUpload } from '@/components/company/ImageUpload';
 import { FileImportDialog, ParsedFinancialData, ParsedCompanyInfo } from '@/components/company/FileImportDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,6 +42,7 @@ export default function AnalysisEditor() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [employees, setEmployees] = useState<string>('');
   const [analysisSections, setAnalysisSections] = useState<Record<string, boolean>>({ debt: true, images: true, employees: false });
+  const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
 
   // Undo/Redo stacks for projections
   const undoStackRef = useRef<YearlyProjection[][]>([]);
@@ -194,6 +196,9 @@ export default function AnalysisEditor() {
       setEmployees((currentAnalysis as any).employees?.toString() || '');
       const defaultSections = { debt: true, images: true, employees: false };
       setAnalysisSections({ ...defaultSections, ...((currentAnalysis as any).visible_sections || {}) });
+      // Load adjustments
+      const savedAdjustments = (currentAnalysis as any).adjustments;
+      if (Array.isArray(savedAdjustments)) setAdjustments(savedAdjustments);
       // Load persisted projections
       const savedProjections = (currentAnalysis as any).projections;
       if (Array.isArray(savedProjections) && savedProjections.length > 0) {
@@ -224,6 +229,7 @@ export default function AnalysisEditor() {
           images: analysisImages,
           employees: employees ? parseInt(employees) : null,
           visible_sections: analysisSections,
+          adjustments: adjustments,
         } as any)
         .eq('id', analysisId);
       if (error) throw error;
@@ -246,7 +252,7 @@ export default function AnalysisEditor() {
       setIsSaving(true);
       saveMutation.mutate();
     }, 3000),
-    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections]
+    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments]
   );
 
   useEffect(() => {
@@ -254,7 +260,7 @@ export default function AnalysisEditor() {
       debouncedSave();
     }
     return () => debouncedSave.cancel();
-  }, [rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, debouncedSave]);
+  }, [rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, debouncedSave]);
 
   // Handle per-analysis financial import
   const handleAnalysisImport = async (data: ParsedFinancialData[], companyInfo?: ParsedCompanyInfo) => {
@@ -571,6 +577,10 @@ export default function AnalysisEditor() {
               sharesOutstanding={sharesNum}
               currentPrice={priceNum}
             />
+            <AdjustmentsEditor
+              adjustments={adjustments}
+              onAdjustmentsChange={setAdjustments}
+            />
             <SpreadsheetAnalysis
               analysisDate={currentAnalysis?.created_at?.split('T')[0]}
               currentPrice={priceNum}
@@ -594,6 +604,7 @@ export default function AnalysisEditor() {
               onNotesChange={setNotes}
               currency={company?.reporting_currency}
               showQuarterly={showQuarterly}
+              adjustments={adjustments}
               netDebt={(() => {
                 const latestBalance = balanceData?.[balanceData.length - 1] as any;
                 if (!latestBalance) return 0;
