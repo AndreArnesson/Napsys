@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       analyses: {
         Row: {
+          adjustments: Json | null
           company_id: string
           created_at: string
           current_price: number | null
@@ -34,6 +35,7 @@ export type Database = {
           visible_sections: Json | null
         }
         Insert: {
+          adjustments?: Json | null
           company_id: string
           created_at?: string
           current_price?: number | null
@@ -52,6 +54,7 @@ export type Database = {
           visible_sections?: Json | null
         }
         Update: {
+          adjustments?: Json | null
           company_id?: string
           created_at?: string
           current_price?: number | null

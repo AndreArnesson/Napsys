@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import type { Adjustment } from './AdjustmentsEditor';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -35,12 +36,19 @@ const ALL_ESTIMATE_ROWS: { key: string; label: string; group: string }[] = [
   { key: 'targetPE', label: 'Rimlig P/E', group: 'Värdering' },
   { key: 'estimatedPrice', label: 'Estimerad kurs', group: 'Värdering' },
   { key: 'mos', label: 'MOS', group: 'Värdering' },
+  { key: 'adjustedEbit', label: 'Justerad EBIT', group: 'Justerat' },
+  { key: 'adjustedEbitda', label: 'Justerad EBITDA', group: 'Justerat' },
+  { key: 'adjustedNetIncome', label: 'Justerat nettoresultat', group: 'Justerat' },
+  { key: 'adjustedEbitMargin', label: 'Justerad EBIT-marginal', group: 'Justerat' },
+  { key: 'adjustedEvEbit', label: 'Justerad EV/EBIT', group: 'Justerat' },
+  { key: 'adjustedEvEbitda', label: 'Justerad EV/EBITDA', group: 'Justerat' },
 ];
 
 const DEFAULT_ESTIMATE_ROWS = [
   'price', 'revenueGrowth', 'revenue', 'ebit', 'ebitda', 'netMargin',
   'earningsPerShare', 'epsGrowth', 'dividend', 'dividendYield',
   'pe', 'ev', 'evEbit', 'evEbitda', 'targetPE', 'estimatedPrice', 'mos',
+  'adjustedEbit', 'adjustedEbitda', 'adjustedNetIncome', 'adjustedEbitMargin', 'adjustedEvEbit', 'adjustedEvEbitda',
 ];
 
 export interface YearlyProjection {
@@ -65,6 +73,12 @@ export interface YearlyProjection {
   ev?: number;
   evEbit?: number;
   evEbitda?: number;
+  adjustedEbit?: number;
+  adjustedEbitda?: number;
+  adjustedNetIncome?: number;
+  adjustedEbitMargin?: number;
+  adjustedEvEbit?: number;
+  adjustedEvEbitda?: number;
 }
 
 interface SpreadsheetAnalysisProps {
@@ -82,6 +96,7 @@ interface SpreadsheetAnalysisProps {
   currency?: string;
   showQuarterly?: boolean;
   netDebt?: number;
+  adjustments?: Adjustment[];
 }
 
 interface ColumnDef {
@@ -106,6 +121,7 @@ export function SpreadsheetAnalysis({
   showQuarterly = false,
   quarterlyHistoricalData = [],
   netDebt = 0,
+  adjustments = [],
 }: SpreadsheetAnalysisProps) {
   const { t, language } = useLanguage();
   const [targetPE, setTargetPE] = useState(15);
@@ -315,6 +331,26 @@ export function SpreadsheetAnalysis({
       const dividend = proj.dividend;
       const dividendYield = (dividend && price && price > 0) ? (dividend / price) * 100 : undefined;
 
+      // Adjusted values from one-time adjustments
+      const getAdjSum = (metric: string) => {
+        return adjustments
+          .filter(a => a.metric === metric && a.year === col.year && (col.quarter ? a.quarter === col.quarter : !a.quarter))
+          .reduce((sum, a) => sum + (a.amount || 0), 0);
+      };
+      const ebitAdj = getAdjSum('ebit');
+      const ebitdaAdj = getAdjSum('ebitda');
+      const netIncomeAdj = getAdjSum('netIncome');
+
+      const adjustedEbit = ebit !== undefined ? ebit + ebitAdj : (ebitAdj !== 0 ? ebitAdj : undefined);
+      const adjustedEbitda = ebitda !== undefined ? ebitda + ebitdaAdj : (ebitdaAdj !== 0 ? ebitdaAdj : undefined);
+      const netIncome = effectiveRevenue * (netMargin / 100);
+      const adjustedNetIncome = netIncome + netIncomeAdj;
+      const adjustedEbitMargin = (adjustedEbit !== undefined && effectiveRevenue > 0) ? (adjustedEbit / effectiveRevenue) * 100 : undefined;
+      const adjustedEvEbit = (adjustedEbit && adjustedEbit > 0 && ev > 0) ? ev / adjustedEbit : undefined;
+      const adjustedEvEbitda = (adjustedEbitda && adjustedEbitda > 0 && ev > 0) ? ev / adjustedEbitda : undefined;
+
+      const hasAnyAdj = ebitAdj !== 0 || ebitdaAdj !== 0 || netIncomeAdj !== 0;
+
       results.push({
         ...proj,
         ...col,
@@ -337,10 +373,18 @@ export function SpreadsheetAnalysis({
         ev,
         evEbit,
         evEbitda,
+        ...(hasAnyAdj || adjustments.length > 0 ? {
+          adjustedEbit,
+          adjustedEbitda,
+          adjustedNetIncome: netIncomeAdj !== 0 ? adjustedNetIncome : undefined,
+          adjustedEbitMargin,
+          adjustedEvEbit,
+          adjustedEvEbitda,
+        } : {}),
       });
     }
     return results;
-  }, [projections, currentPrice, targetPE, columns, mode, historicalData, sharesOutstanding, qGrowthMode, quarterlyHistoricalData, netDebt]);
+  }, [projections, currentPrice, targetPE, columns, mode, historicalData, sharesOutstanding, qGrowthMode, quarterlyHistoricalData, netDebt, adjustments]);
 
   const updateProjection = (col: ColumnDef, field: keyof YearlyProjection, value: number) => {
     const existingIndex = projections.findIndex(p => p.year === col.year && (p.quarter || undefined) === col.quarter);
@@ -376,16 +420,25 @@ export function SpreadsheetAnalysis({
       { label: 'Rimlig P/E', key: 'targetPE', editable: true, bg: true },
       { label: `Estimerad kurs (${currency})`, key: 'estimatedPrice', editable: false },
       { label: 'MOS (%)', key: 'mos', editable: false },
+      // Adjusted rows
+      { label: `Justerad EBIT (M${currency})`, key: 'adjustedEbit', editable: false, bg: true },
+      { label: `Justerad EBITDA (M${currency})`, key: 'adjustedEbitda', editable: false, bg: true },
+      { label: `Just. nettoresultat (M${currency})`, key: 'adjustedNetIncome', editable: false, bg: true },
+      { label: 'Justerad EBIT-marg (%)', key: 'adjustedEbitMargin', editable: false },
+      { label: 'Just. EV/EBIT', key: 'adjustedEvEbit', editable: false },
+      { label: 'Just. EV/EBITDA', key: 'adjustedEvEbitda', editable: false },
     ];
 
     return allRows.filter(row => {
       if (!visibleRows.includes(row.key)) return false;
+      // Hide adjusted rows if no adjustments exist
+      if (row.key.startsWith('adjusted') && adjustments.length === 0) return false;
       // perShare logic: show revenuePerShare OR (revenue + ebit), not both
       if (perShare && (row.key === 'revenue' || row.key === 'ebit')) return false;
       if (!perShare && row.key === 'revenuePerShare') return false;
       return true;
     });
-  }, [perShare, visibleRows, currency]);
+  }, [perShare, visibleRows, currency, adjustments.length]);
 
   // Check which years have all 4 quarters filled with at least revenue or netMargin
   const yearsWithFullQuarters = useMemo(() => {
