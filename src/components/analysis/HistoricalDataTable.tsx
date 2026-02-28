@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TrendingUp, TrendingDown, Minus, BarChart3, Settings2 } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { cn } from '@/lib/utils';
+import type { Adjustment } from './AdjustmentsEditor';
 
 export interface HistoricalYear {
   fiscal_year: number;
@@ -73,6 +74,7 @@ interface HistoricalDataTableProps {
   sharesOutstanding?: number;
   currentPrice?: number;
   onRowClick?: (year: number) => void;
+  adjustments?: Adjustment[];
 }
 
 function computeCAGR(startVal: number, endVal: number, years: number): number | undefined {
@@ -161,6 +163,7 @@ export function HistoricalDataTable({
   sharesOutstanding,
   currentPrice,
   onRowClick,
+  adjustments = [],
 }: HistoricalDataTableProps) {
   const { language } = useLanguage();
   const [perShare, setPerShare] = useState(false);
@@ -415,32 +418,54 @@ export function HistoricalDataTable({
             </TableHeader>
             <TableBody>
               {sortedData.map((row) => {
+                // Compute adjustment sums for this row
+                const getAdjSum = (metric: string) =>
+                  adjustments
+                    .filter(a => a.metric === metric && a.year === row.fiscal_year && (row.quarter ? a.quarter === row.quarter : !a.quarter))
+                    .reduce((sum, a) => sum + (a.amount || 0), 0);
+                const ebitAdj = getAdjSum('ebit');
+                const ebitdaAdj = getAdjSum('ebitda');
+                const netIncomeAdj = getAdjSum('netIncome');
+
+                const adjEbit = ebitAdj !== 0 && row.ebit !== undefined ? row.ebit + ebitAdj : row.ebit;
+                const adjEbitda = ebitdaAdj !== 0 && row.ebitda !== undefined ? row.ebitda + ebitdaAdj : row.ebitda;
+                const adjNetIncome = netIncomeAdj !== 0 && row.net_income !== undefined ? row.net_income + netIncomeAdj : row.net_income;
+
+                // Adjusted margins
+                const adjOpMargin = ebitAdj !== 0 && adjEbit !== undefined && row.revenue && row.revenue > 0
+                  ? (adjEbit / row.revenue) * 100 : row.operating_margin;
+                const adjNetMargin = netIncomeAdj !== 0 && adjNetIncome !== undefined && row.revenue && row.revenue > 0
+                  ? (adjNetIncome / row.revenue) * 100 : row.net_margin;
+
                 const ev = computeEV(row);
-                const evEbit = ev && row.ebit && row.ebit > 0 ? ev / row.ebit : undefined;
-                const evEbitda = ev && row.ebitda && row.ebitda > 0 ? ev / row.ebitda : undefined;
+                const evEbit = ev && adjEbit && adjEbit > 0 ? ev / adjEbit : undefined;
+                const evEbitda = ev && adjEbitda && adjEbitda > 0 ? ev / adjEbitda : undefined;
                 const pe = currentPrice && row.earnings_per_share && row.earnings_per_share > 0 ? currentPrice / row.earnings_per_share : undefined;
                 const netDebt = computeNetDebt(row);
                 const cagr = cagrData[row.fiscal_year];
                 const label = row.quarter ? `${row.fiscal_year} Q${row.quarter}` : String(row.fiscal_year);
+
+                const star = (val: string, isAdj: boolean) => isAdj ? `${val} *` : val;
+
                 return (
                   <TableRow key={label} className={cn(onRowClick && 'cursor-pointer hover:bg-muted/50')}>
                     <TableCell className="font-medium whitespace-nowrap">{label}</TableCell>
                     {isVisible('revenue') && <TableCell className="text-right font-mono text-sm">{formatNumber(row.revenue)}</TableCell>}
                     {isVisible('growth') && <TableCell className="text-center">{getGrowthBadge(row.revenue_growth)}</TableCell>}
-                    {isVisible('ebit') && <TableCell className="text-right font-mono text-sm">{formatNumber(row.ebit)}</TableCell>}
+                    {isVisible('ebit') && <TableCell className="text-right font-mono text-sm">{star(formatNumber(adjEbit), ebitAdj !== 0)}</TableCell>}
                     {isVisible('ebit_growth') && <TableCell className="text-center">{getGrowthBadge((row as any)._ebitGrowth)}</TableCell>}
-                    {isVisible('ebitda') && <TableCell className="text-right font-mono text-sm">{formatNumber(row.ebitda)}</TableCell>}
+                    {isVisible('ebitda') && <TableCell className="text-right font-mono text-sm">{star(formatNumber(adjEbitda), ebitdaAdj !== 0)}</TableCell>}
                     {isVisible('ebitda_growth') && <TableCell className="text-center">{getGrowthBadge((row as any)._ebitdaGrowth)}</TableCell>}
                     {isVisible('dividend') && <TableCell className="text-right font-mono text-sm">{row.dividend !== undefined ? formatNumber(row.dividend, 2) : '—'}</TableCell>}
                     {isVisible('eps') && <TableCell className="text-right font-mono text-sm">{row.earnings_per_share !== undefined ? row.earnings_per_share.toFixed(2) : '—'}</TableCell>}
                     {isVisible('eps_growth') && <TableCell className="text-center">{getGrowthBadge((row as any)._epsGrowth)}</TableCell>}
                     {isVisible('gross_margin') && <TableCell className="text-right font-mono text-sm">{formatPercent(row.gross_margin)}</TableCell>}
-                    {isVisible('operating_margin') && <TableCell className="text-right font-mono text-sm">{formatPercent(row.operating_margin)}</TableCell>}
-                    {isVisible('net_margin') && <TableCell className="text-right font-mono text-sm">{formatPercent(row.net_margin)}</TableCell>}
+                    {isVisible('operating_margin') && <TableCell className="text-right font-mono text-sm">{star(formatPercent(adjOpMargin) || '—', ebitAdj !== 0)}</TableCell>}
+                    {isVisible('net_margin') && <TableCell className="text-right font-mono text-sm">{star(formatPercent(adjNetMargin) || '—', netIncomeAdj !== 0)}</TableCell>}
                     {isVisible('pe') && <TableCell className="text-right font-mono text-sm">{formatRatio(pe)}</TableCell>}
                     {isVisible('ev') && <TableCell className="text-right font-mono text-sm">{ev !== undefined ? formatNumber(ev) : '—'}</TableCell>}
-                    {isVisible('ev_ebit') && <TableCell className="text-right font-mono text-sm">{formatRatio(evEbit)}</TableCell>}
-                    {isVisible('ev_ebitda') && <TableCell className="text-right font-mono text-sm">{formatRatio(evEbitda)}</TableCell>}
+                    {isVisible('ev_ebit') && <TableCell className="text-right font-mono text-sm">{star(formatRatio(evEbit), ebitAdj !== 0)}</TableCell>}
+                    {isVisible('ev_ebitda') && <TableCell className="text-right font-mono text-sm">{star(formatRatio(evEbitda), ebitdaAdj !== 0)}</TableCell>}
                     {isVisible('cagr_revenue') && <TableCell className="text-right font-mono text-sm">{cagr?.cagrRevenue !== undefined ? formatPercent(cagr.cagrRevenue) : '—'}</TableCell>}
                     {isVisible('cagr_profit') && <TableCell className="text-right font-mono text-sm">{cagr?.cagrProfit !== undefined ? formatPercent(cagr.cagrProfit) : '—'}</TableCell>}
                     {isVisible('debt') && <TableCell className="text-right font-mono text-sm">{netDebt !== undefined ? formatNumber(netDebt) : '—'}</TableCell>}
