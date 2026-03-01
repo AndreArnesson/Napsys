@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.update-all-prices]
 verify_jwt = false
+
+[functions.parse-excel-preview]
+verify_jwt = false
