@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.parse-excel-preview]
 verify_jwt = false
+
+[functions.import-analyses]
+verify_jwt = false
