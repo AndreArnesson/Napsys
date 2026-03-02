@@ -101,9 +101,15 @@ export function AdjustmentsEditor({ adjustments, onAdjustmentsChange }: Adjustme
                             type="text"
                             inputMode="decimal"
                             placeholder="0"
-                            value={adj.amount || ''}
+                            value={adj.amount === 0 ? '' : adj.amount}
                             onChange={e => {
-                              const v = parseFloat(e.target.value.replace(',', '.'));
+                              const raw = e.target.value.replace(',', '.');
+                              // Allow typing minus sign and partial numbers like "-" or "-."
+                              if (raw === '' || raw === '-' || raw === '-.') {
+                                updateAdjustment(adj.id, 'amount', raw === '' ? 0 : raw as any);
+                                return;
+                              }
+                              const v = parseFloat(raw);
                               updateAdjustment(adj.id, 'amount', isNaN(v) ? 0 : v);
                             }}
                             className="h-8 text-sm font-mono w-24"
