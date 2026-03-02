@@ -525,6 +525,59 @@ export default function AnalysisEditor() {
                   <Label className="text-sm">Visa kvartalsdata</Label>
                   <Switch checked={showQuarterly} onCheckedChange={setShowQuarterly} />
                 </div>
+                <div className="border-t pt-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Rensa data</p>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full gap-1 text-destructive hover:text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" />Rensa kvartalsdata
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Rensa kvartalsdata?</AlertDialogTitle>
+                        <AlertDialogDescription>All kvartalsdata för detta bolag tas bort. Denna åtgärd kan inte ångras.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                        <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => {
+                          await supabase.from('quarterly_income_statement' as any).delete().eq('company_id', id!);
+                          await supabase.from('quarterly_balance_sheet' as any).delete().eq('company_id', id!);
+                          queryClient.invalidateQueries({ queryKey: ['quarterly_income', id, analysisId] });
+                          toast.success('Kvartalsdata rensad');
+                        }}>Rensa</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full gap-1 text-destructive hover:text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" />Rensa årsdata
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Rensa årsdata?</AlertDialogTitle>
+                        <AlertDialogDescription>All årsdata (resultaträkning och balansräkning) för denna analys tas bort.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                        <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => {
+                          if (analysisId) {
+                            await supabase.from('income_statement').delete().eq('company_id', id!).eq('analysis_id', analysisId);
+                            await supabase.from('balance_sheet').delete().eq('company_id', id!).eq('analysis_id', analysisId);
+                          }
+                          // Also clear company-level data
+                          await supabase.from('income_statement').delete().eq('company_id', id!).is('analysis_id', null);
+                          await supabase.from('balance_sheet').delete().eq('company_id', id!).is('analysis_id', null);
+                          queryClient.invalidateQueries({ queryKey: ['income_statement', id, analysisId] });
+                          queryClient.invalidateQueries({ queryKey: ['balance_sheet', id, analysisId] });
+                          toast.success('Årsdata rensad');
+                        }}>Rensa</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </CardContent>
             </Card>
 

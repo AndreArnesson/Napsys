@@ -34,6 +34,28 @@ import { sv, enUS } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar } from 'recharts';
 import { Pencil } from 'lucide-react';
 
+function CompanyNameEditor({ name, onSave }: { name: string; onSave: (name: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(name);
+
+  if (editing) {
+    return (
+      <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); if (editName.trim()) { onSave(editName.trim()); setEditing(false); } }}>
+        <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="text-3xl font-bold h-auto py-0 border-none shadow-none px-0 focus-visible:ring-0 max-w-md" autoFocus />
+        <Button type="submit" variant="ghost" size="sm">OK</Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => { setEditName(name); setEditing(false); }}>✕</Button>
+      </form>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setEditing(true)}>
+      <h1 className="text-3xl font-bold">{name}</h1>
+      <Pencil className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+    </div>
+  );
+}
+
 function AnalysisListItem({ analysis, companyId, locale, onDelete, onRename }: {
   analysis: any;
   companyId: string;
@@ -490,8 +512,8 @@ export default function CompanyDetail() {
             <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="h-4 w-4" />{t.common.back}
             </Link>
+            <CompanyNameEditor name={company.name} onSave={(newName) => updateCompany.mutate({ name: newName })} />
             <div className="flex items-center gap-4">
-              <h1 className="text-3xl font-bold">{company.name}</h1>
               {company.ticker && <span className="text-lg font-mono text-muted-foreground">{company.ticker}</span>}
               {latestAnalysis && (
                 <Link
