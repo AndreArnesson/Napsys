@@ -127,7 +127,7 @@ export default function AnalysisEditor() {
       if (error) throw error;
       return (data || []) as any[];
     },
-    enabled: !!id && showQuarterly,
+    enabled: !!id,
   });
 
   // Transform DB data to HistoricalYear format
