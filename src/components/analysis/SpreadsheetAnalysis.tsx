@@ -296,7 +296,9 @@ export function SpreadsheetAnalysis({
       
       const effectiveRevenue = revenue || 0;
       const revenuePerShare = sharesOutstanding > 0 ? (effectiveRevenue * 1_000_000) / sharesOutstanding : 0;
-      const earningsPerShare = revenuePerShare * (netMargin / 100);
+      // Use manually entered EPS if provided, otherwise calculate from revenue/margin/shares
+      const calculatedEpsFromRevenue = revenuePerShare * (netMargin / 100);
+      const earningsPerShare = proj.earningsPerShare !== undefined ? proj.earningsPerShare : calculatedEpsFromRevenue;
       const peToUse = proj.targetPE || targetPE;
       const estimatedPrice = earningsPerShare * peToUse;
       const mos = price > 0 ? ((estimatedPrice - price) / price) * 100 : 0;
@@ -409,7 +411,7 @@ export function SpreadsheetAnalysis({
       { label: 'Vinstmarginal (%)', key: 'netMargin', editable: true },
       { label: 'EBIT-marginal (%)', key: 'ebitMargin', editable: true },
       { label: 'EBITDA-marginal (%)', key: 'ebitdaMargin', editable: true },
-      { label: `Vinst/aktie (${currency})`, key: 'earningsPerShare', editable: false, bg: true },
+      { label: `Vinst/aktie (${currency})`, key: 'earningsPerShare', editable: true, bg: true },
       { label: 'VPA-tillväxt (%)', key: 'epsGrowth', editable: false },
       { label: `Utdelning (${currency})`, key: 'dividend', editable: true },
       { label: 'Direktavkastning (%)', key: 'dividendYield', editable: false },
