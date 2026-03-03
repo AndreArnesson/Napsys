@@ -105,7 +105,7 @@ export function KeyDataEditor({ data, onUpdate, readOnly = false, companyId }: K
             <Input
               placeholder="e.g. VOLV-B"
               value={localData.ticker || ''}
-              onChange={(e) => handleChange('ticker', e.target.value)}
+              onChange={(e) => handleChange('ticker', e.target.value.toUpperCase())}
               onBlur={() => handleBlur('ticker')}
               disabled={readOnly}
             />
