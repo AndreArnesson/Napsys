@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, Building2, Loader2, Trash2 } from 'lucide-react';
+import { Plus, Search, Building2, Loader2, Trash2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Dashboard() {
@@ -24,6 +24,8 @@ export default function Dashboard() {
   const [newCompanyTicker, setNewCompanyTicker] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   // Fetch user's companies with their latest analysis
   const { data: companies, isLoading: companiesLoading, refetch: refetchCompanies } = useQuery({
@@ -229,45 +231,73 @@ export default function Dashboard() {
                 const latestAnalysis = company.analyses?.[0];
                 return (
                   <div key={company.id} className="relative group">
-                    <CompanyCard
-                      company={company}
-                      analysis={latestAnalysis ? {
-                        rating: latestAnalysis.rating as 'buy' | 'hold' | 'sell' | null,
-                        margin_of_safety: latestAnalysis.margin_of_safety,
-                        updated_at: latestAnalysis.updated_at,
-                      } : null}
-                    />
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
+                    {renamingId === company.id ? (
+                      <Card className="animate-fade-in">
+                        <CardContent className="py-4">
+                          <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            if (!renameValue.trim()) return;
+                            await supabase.from('companies').update({ name: renameValue.trim() }).eq('id', company.id);
+                            queryClient.invalidateQueries({ queryKey: ['companies'] });
+                            setRenamingId(null);
+                            toast.success('Namn uppdaterat');
+                          }} className="flex items-center gap-2">
+                            <Input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} autoFocus className="flex-1" />
+                            <Button type="submit" size="sm">OK</Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setRenamingId(null)}>✕</Button>
+                          </form>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <>
+                        <CompanyCard
+                          company={company}
+                          analysis={latestAnalysis ? {
+                            rating: latestAnalysis.rating as 'buy' | 'hold' | 'sell' | null,
+                            margin_of_safety: latestAnalysis.margin_of_safety,
+                            updated_at: latestAnalysis.updated_at,
+                          } : null}
+                        />
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive h-7 w-7 z-10"
-                          onClick={(e) => e.preventDefault()}
+                          className="absolute top-2 right-10 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground h-7 w-7 z-10"
+                          onClick={(e) => { e.preventDefault(); setRenamingId(company.id); setRenameValue(company.name); }}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Ta bort {company.name}?</AlertDialogTitle>
-                          <AlertDialogDescription>Bolaget och alla dess analyser, finansiell data och insynshandel tas bort permanent.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                          <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => {
-                            // Delete related data first
-                            await supabase.from('income_statement').delete().eq('company_id', company.id);
-                            await supabase.from('balance_sheet').delete().eq('company_id', company.id);
-                            await supabase.from('analyses').delete().eq('company_id', company.id);
-                            await supabase.from('insider_trades').delete().eq('company_id', company.id);
-                            await supabase.from('companies').delete().eq('id', company.id);
-                            queryClient.invalidateQueries({ queryKey: ['companies'] });
-                            toast.success(`${company.name} borttagen`);
-                          }}>Ta bort</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive h-7 w-7 z-10"
+                              onClick={(e) => e.preventDefault()}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Ta bort {company.name}?</AlertDialogTitle>
+                              <AlertDialogDescription>Bolaget och alla dess analyser, finansiell data och insynshandel tas bort permanent.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => {
+                                await supabase.from('income_statement').delete().eq('company_id', company.id);
+                                await supabase.from('balance_sheet').delete().eq('company_id', company.id);
+                                await supabase.from('analyses').delete().eq('company_id', company.id);
+                                await supabase.from('insider_trades').delete().eq('company_id', company.id);
+                                await supabase.from('companies').delete().eq('id', company.id);
+                                queryClient.invalidateQueries({ queryKey: ['companies'] });
+                                toast.success(`${company.name} borttagen`);
+                              }}>Ta bort</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </>
+                    )}
                   </div>
                 );
               })}
