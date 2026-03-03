@@ -681,6 +681,16 @@ export default function CompanyDetail() {
                           onUpdate={(val) => updateCompany.mutate({ pilotskolan: val } as any)}
                         />
                         <InsiderOwnership data={ownershipData} onUpdate={handleOwnershipUpdate} currentPrice={company?.current_price} tradingCurrency={(company as any)?.trading_currency || 'SEK'} />
+                        
+                        {/* Ägarbild */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Ägarbild</Label>
+                          <RichTextEditor
+                            value={(company as any)?.ownership_description || ''}
+                            onChange={(val) => updateCompany.mutate({ ownership_description: val } as any)}
+                            placeholder="Beskriv ägarbilden – t.ex. huvudägare, institutionella ägare, ägarstruktur..."
+                          />
+                        </div>
                       </CardContent>
                     </Card>
                   )}
