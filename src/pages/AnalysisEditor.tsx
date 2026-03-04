@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Loader2, Save, CheckCircle, Settings2, Trash2, LayoutDashboard, BarChart3, FileText } from 'lucide-react';
+import { ArrowLeft, Loader2, Save, CheckCircle, Settings2, Trash2, LayoutDashboard, BarChart3, FileText, Lock, Unlock } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import debounce from 'lodash/debounce';
@@ -43,6 +43,7 @@ export default function AnalysisEditor() {
   const [employees, setEmployees] = useState<string>('');
   const [analysisSections, setAnalysisSections] = useState<Record<string, boolean>>({ debt: true, images: true, employees: false });
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
+  const [isLocked, setIsLocked] = useState(false);
 
   // Undo/Redo stacks for projections
   const undoStackRef = useRef<YearlyProjection[][]>([]);
@@ -204,6 +205,7 @@ export default function AnalysisEditor() {
       if (Array.isArray(savedProjections) && savedProjections.length > 0) {
         setProjections(savedProjections);
       }
+      setIsLocked((currentAnalysis as any).locked === true);
     }
   }, [currentAnalysis, company]);
 
@@ -248,12 +250,22 @@ export default function AnalysisEditor() {
 
   const debouncedSave = useCallback(
     debounce(() => {
-      if (!user || !analysisId) return;
+      if (!user || !analysisId || isLocked) return;
       setIsSaving(true);
       saveMutation.mutate();
     }, 3000),
-    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments]
+    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, isLocked]
   );
+
+  const toggleLock = async () => {
+    if (!analysisId) return;
+    const newLocked = !isLocked;
+    const { error } = await supabase.from('analyses').update({ locked: newLocked } as any).eq('id', analysisId);
+    if (error) { toast.error('Kunde inte uppdatera'); return; }
+    setIsLocked(newLocked);
+    queryClient.invalidateQueries({ queryKey: ['analysis', analysisId] });
+    toast.success(newLocked ? 'Analysen är nu låst' : 'Analysen är nu upplåst');
+  };
 
   useEffect(() => {
     if (user && analysisId && (notes || rating || analysisName)) {
