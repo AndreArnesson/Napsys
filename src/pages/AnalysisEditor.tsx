@@ -493,8 +493,15 @@ export default function AnalysisEditor() {
           </div>
         </div>
 
+        {isLocked && (
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+            <Lock className="h-4 w-4" />
+            Denna analys är låst och kan inte redigeras. Klicka på "Låst" ovan för att låsa upp.
+          </div>
+        )}
+
         {/* Main Layout */}
-        <div className="grid gap-6 xl:grid-cols-4">
+        <div className={`grid gap-6 xl:grid-cols-4 ${isLocked ? 'pointer-events-none opacity-60' : ''}`}>
           {/* Left Sidebar */}
           <div className="xl:col-span-1 space-y-6">
             <Card>
