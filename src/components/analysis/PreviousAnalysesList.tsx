@@ -5,7 +5,7 @@ import { RatingBadge } from '@/components/company/RatingBadge';
 import { MOSBadge } from '@/components/company/MOSBadge';
 import { formatDistanceToNow } from 'date-fns';
 import { sv, enUS } from 'date-fns/locale';
-import { History, Plus, ChevronRight } from 'lucide-react';
+import { History, Plus, ChevronRight, Lock } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 interface Analysis {
@@ -15,6 +15,7 @@ interface Analysis {
   confidence_level?: number | null;
   summary_comment?: string | null;
   is_draft: boolean;
+  locked?: boolean;
   updated_at: string;
   created_at: string;
 }
@@ -73,6 +74,9 @@ export function PreviousAnalysesList({
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <RatingBadge rating={analysis.rating as 'buy' | 'hold' | 'sell' | null} size="sm" />
+                  {analysis.locked && (
+                    <Lock className="h-3 w-3 text-muted-foreground" />
+                  )}
                   {analysis.is_draft && (
                     <Badge variant="outline" className="text-xs">
                       {t.analysis.draft}

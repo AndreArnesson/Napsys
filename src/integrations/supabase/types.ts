@@ -25,6 +25,7 @@ export type Database = {
           images: Json | null
           imported: boolean
           is_draft: boolean | null
+          locked: boolean
           margin_of_safety: number | null
           name: string | null
           projections: Json | null
@@ -45,6 +46,7 @@ export type Database = {
           images?: Json | null
           imported?: boolean
           is_draft?: boolean | null
+          locked?: boolean
           margin_of_safety?: number | null
           name?: string | null
           projections?: Json | null
@@ -65,6 +67,7 @@ export type Database = {
           images?: Json | null
           imported?: boolean
           is_draft?: boolean | null
+          locked?: boolean
           margin_of_safety?: number | null
           name?: string | null
           projections?: Json | null

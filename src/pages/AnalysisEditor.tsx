@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Loader2, Save, CheckCircle, Settings2, Trash2, LayoutDashboard, BarChart3, FileText } from 'lucide-react';
+import { ArrowLeft, Loader2, Save, CheckCircle, Settings2, Trash2, LayoutDashboard, BarChart3, FileText, Lock, Unlock } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import debounce from 'lodash/debounce';
@@ -43,6 +43,7 @@ export default function AnalysisEditor() {
   const [employees, setEmployees] = useState<string>('');
   const [analysisSections, setAnalysisSections] = useState<Record<string, boolean>>({ debt: true, images: true, employees: false });
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
+  const [isLocked, setIsLocked] = useState(false);
 
   // Undo/Redo stacks for projections
   const undoStackRef = useRef<YearlyProjection[][]>([]);
@@ -204,6 +205,7 @@ export default function AnalysisEditor() {
       if (Array.isArray(savedProjections) && savedProjections.length > 0) {
         setProjections(savedProjections);
       }
+      setIsLocked((currentAnalysis as any).locked === true);
     }
   }, [currentAnalysis, company]);
 
@@ -248,12 +250,22 @@ export default function AnalysisEditor() {
 
   const debouncedSave = useCallback(
     debounce(() => {
-      if (!user || !analysisId) return;
+      if (!user || !analysisId || isLocked) return;
       setIsSaving(true);
       saveMutation.mutate();
     }, 3000),
-    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments]
+    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, isLocked]
   );
+
+  const toggleLock = async () => {
+    if (!analysisId) return;
+    const newLocked = !isLocked;
+    const { error } = await supabase.from('analyses').update({ locked: newLocked } as any).eq('id', analysisId);
+    if (error) { toast.error('Kunde inte uppdatera'); return; }
+    setIsLocked(newLocked);
+    queryClient.invalidateQueries({ queryKey: ['analysis', analysisId] });
+    toast.success(newLocked ? 'Analysen är nu låst' : 'Analysen är nu upplåst');
+  };
 
   useEffect(() => {
     if (user && analysisId && (notes || rating || analysisName)) {
@@ -434,8 +446,8 @@ export default function AnalysisEditor() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <FileImportDialog companyId={id!} onImportFinancials={handleAnalysisImport} onImportInsiders={async () => {}} />
-            {isSaving ? (
+            {!isLocked && <FileImportDialog companyId={id!} onImportFinancials={handleAnalysisImport} onImportInsiders={async () => {}} />}
+            {!isLocked && (isSaving ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /><span>Sparar...</span>
               </div>
@@ -443,38 +455,53 @@ export default function AnalysisEditor() {
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <CheckCircle className="h-4 w-4 text-success" /><span>{t.analysis.autosaved}</span>
               </div>
-            ) : null}
-            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="gap-2">
-              {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {t.analysis.saveAnalysis}
+            ) : null)}
+            {!isLocked && (
+              <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="gap-2">
+                {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {t.analysis.saveAnalysis}
+              </Button>
+            )}
+            <Button variant={isLocked ? "secondary" : "outline"} size="sm" onClick={toggleLock} className="gap-1.5">
+              {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+              {isLocked ? 'Låst' : 'Lås'}
             </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Ta bort analys?</AlertDialogTitle>
-                  <AlertDialogDescription>Analysen och all kopplad data tas bort permanent.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                  <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => {
-                    await supabase.from('income_statement').delete().eq('analysis_id', analysisId!);
-                    await supabase.from('balance_sheet').delete().eq('analysis_id', analysisId!);
-                    await supabase.from('analyses').delete().eq('id', analysisId!);
-                    queryClient.invalidateQueries({ queryKey: ['all-analyses', id] });
-                    toast.success('Analys borttagen');
-                    navigate(`/company/${id}?tab=analysis`);
-                  }}>Ta bort</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            {!isLocked && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Ta bort analys?</AlertDialogTitle>
+                    <AlertDialogDescription>Analysen och all kopplad data tas bort permanent.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                    <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => {
+                      await supabase.from('income_statement').delete().eq('analysis_id', analysisId!);
+                      await supabase.from('balance_sheet').delete().eq('analysis_id', analysisId!);
+                      await supabase.from('analyses').delete().eq('id', analysisId!);
+                      queryClient.invalidateQueries({ queryKey: ['all-analyses', id] });
+                      toast.success('Analys borttagen');
+                      navigate(`/company/${id}?tab=analysis`);
+                    }}>Ta bort</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </div>
 
+        {isLocked && (
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+            <Lock className="h-4 w-4" />
+            Denna analys är låst och kan inte redigeras. Klicka på "Låst" ovan för att låsa upp.
+          </div>
+        )}
+
         {/* Main Layout */}
-        <div className="grid gap-6 xl:grid-cols-4">
+        <div className={`grid gap-6 xl:grid-cols-4 ${isLocked ? 'pointer-events-none opacity-60' : ''}`}>
           {/* Left Sidebar */}
           <div className="xl:col-span-1 space-y-6">
             <Card>
