@@ -216,7 +216,7 @@ export default function AnalysisEditor() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!analysisId) return;
+      if (!analysisId || isLocked) return;
       const { error } = await supabase
         .from('analyses')
         .update({
