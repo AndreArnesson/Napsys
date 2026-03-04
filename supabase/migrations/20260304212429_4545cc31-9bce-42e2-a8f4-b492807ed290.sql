@@ -1,0 +1,1 @@
+ALTER TABLE public.analyses ADD COLUMN IF NOT EXISTS imported boolean NOT NULL DEFAULT false;
