@@ -2,8 +2,9 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MOSBadge } from './MOSBadge';
 import { RatingBadge } from './RatingBadge';
+import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/i18n/LanguageContext';
-import { TrendingUp, TrendingDown, Minus, Calendar } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Calendar, FileDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { sv, enUS } from 'date-fns/locale';
 
@@ -22,9 +23,10 @@ interface CompanyCardProps {
   } | null;
   priceChange?: number;
   isShared?: boolean;
+  onlyImported?: boolean;
 }
 
-export function CompanyCard({ company, analysis, priceChange, isShared }: CompanyCardProps) {
+export function CompanyCard({ company, analysis, priceChange, isShared, onlyImported }: CompanyCardProps) {
   const { t, language } = useLanguage();
 
   const locale = language === 'sv' ? sv : enUS;
@@ -59,11 +61,19 @@ export function CompanyCard({ company, analysis, priceChange, isShared }: Compan
                 </p>
               )}
             </div>
-            {isShared && (
-              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                {t.dashboard.sharedWithMe}
-              </span>
-            )}
+            <div className="flex items-center gap-1.5">
+              {onlyImported && (
+                <Badge variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
+                  <FileDown className="h-3 w-3" />
+                  {language === 'sv' ? 'Importerad' : 'Imported'}
+                </Badge>
+              )}
+              {isShared && (
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                  {t.dashboard.sharedWithMe}
+                </span>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">

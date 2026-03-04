@@ -38,7 +38,8 @@ export default function Dashboard() {
           analyses (
             rating,
             margin_of_safety,
-            updated_at
+            updated_at,
+            imported
           )
         `)
         .eq('user_id', user!.id)
@@ -70,7 +71,8 @@ export default function Dashboard() {
           analyses (
             rating,
             margin_of_safety,
-            updated_at
+            updated_at,
+            imported
           )
         `)
         .in('id', companyIds)
@@ -257,6 +259,7 @@ export default function Dashboard() {
                             margin_of_safety: latestAnalysis.margin_of_safety,
                             updated_at: latestAnalysis.updated_at,
                           } : null}
+                          onlyImported={company.analyses?.length > 0 && company.analyses.every((a: any) => a.imported)}
                         />
                         <Button
                           variant="ghost"
@@ -339,7 +342,7 @@ export default function Dashboard() {
                     margin_of_safety: latestAnalysis.margin_of_safety,
                     updated_at: latestAnalysis.updated_at,
                   } : null}
-                  
+                  onlyImported={company.analyses?.length > 0 && company.analyses.every((a: any) => a.imported)}
                   isShared
                 />
               )})}

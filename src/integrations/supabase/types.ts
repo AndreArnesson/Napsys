@@ -23,6 +23,7 @@ export type Database = {
           employees: number | null
           id: string
           images: Json | null
+          imported: boolean
           is_draft: boolean | null
           margin_of_safety: number | null
           name: string | null
@@ -42,6 +43,7 @@ export type Database = {
           employees?: number | null
           id?: string
           images?: Json | null
+          imported?: boolean
           is_draft?: boolean | null
           margin_of_safety?: number | null
           name?: string | null
@@ -61,6 +63,7 @@ export type Database = {
           employees?: number | null
           id?: string
           images?: Json | null
+          imported?: boolean
           is_draft?: boolean | null
           margin_of_safety?: number | null
           name?: string | null
