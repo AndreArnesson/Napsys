@@ -242,7 +242,6 @@ export default function CompanyDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['company', id] });
-      toast.success(t.common.success);
     },
     onError: () => toast.error(t.common.error),
   });
