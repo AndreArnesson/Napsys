@@ -704,6 +704,12 @@ export default function AnalysisEditor() {
                 equity_ratio: b.equity_ratio,
               }))} />
             )}
+            <ReportAnalyzer
+              companyId={id!}
+              analysisId={analysisId!}
+              companyName={company?.name}
+              readOnly={isLocked}
+            />
             {analysisSections.images && (
               <ImageUpload
                 images={analysisImages}
