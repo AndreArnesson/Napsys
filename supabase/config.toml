@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.import-analyses]
 verify_jwt = false
+
+[functions.analyze-reports]
+verify_jwt = false
