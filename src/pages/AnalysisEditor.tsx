@@ -12,6 +12,7 @@ import { SpreadsheetAnalysis, YearlyProjection } from '@/components/analysis/Spr
 import { DebtSection } from '@/components/analysis/DebtSection';
 import { AdjustmentsEditor, Adjustment } from '@/components/analysis/AdjustmentsEditor';
 import { ImageUpload } from '@/components/company/ImageUpload';
+import { ReportAnalyzer } from '@/components/analysis/ReportAnalyzer';
 import { FileImportDialog, ParsedFinancialData, ParsedCompanyInfo } from '@/components/company/FileImportDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
