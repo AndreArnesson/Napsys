@@ -1,36 +1,79 @@
 
 
-## Import Analyses from Excel
+## Plan: Portföljhantering ("Min portfölj")
 
-Since the Excel file is binary and can't be read directly, the approach is to build a backend function that parses the file and imports the data.
+### Koncept
+En ny sektion i appen där användaren kan:
+1. Skapa flera namngivna portföljer (t.ex. "Aktivt förvaltad", "Byrålådan")
+2. Göra portföljuppdateringar per datum — varje uppdatering är en "snapshot" av innehavet vid det tillfället
+3. Per innehav ange: bolag/ticker, andel (% eller kr), conviction, motivering, övrigt
+4. Importera bankutdrag via CSV/Excel/PDF som AI tolkar och fyller i
 
-### Step 1: Deploy a discovery function
+### Databasschema
 
-Create a temporary edge function `parse-excel-preview` that:
-- Receives the uploaded Excel file
-- Uses SheetJS (xlsx) to parse it
-- Returns the sheet names, row counts, and first ~20 rows of each sheet as JSON
+**Tabell: `portfolios`**
+- `id` uuid PK
+- `user_id` uuid (NOT NULL)
+- `name` text (t.ex. "Byrålådan")
+- `created_at`, `updated_at`
 
-This lets us see the exact structure (what "Analysavskiljare" looks like, column layout, which sheets exist) before writing the import logic.
+**Tabell: `portfolio_snapshots`**
+- `id` uuid PK
+- `portfolio_id` uuid → portfolios
+- `snapshot_date` date
+- `comment` text (övergripande kommentar)
+- `created_at`
 
-### Step 2: Build the import function
+**Tabell: `portfolio_holdings`**
+- `id` uuid PK
+- `snapshot_id` uuid → portfolio_snapshots
+- `company_name` text
+- `ticker` text
+- `weight_percent` numeric (andel i %)
+- `value_sek` numeric (värde i kr)
+- `conviction` text (hög/medel/låg)
+- `rationale` text (motivering)
+- `notes` text (övrigt)
+- `created_at`
 
-Based on the discovered structure, create an `import-analyses` edge function that:
-1. Clears all data from: `income_statement`, `balance_sheet`, `quarterly_income_statement`, `quarterly_balance_sheet`, `analyses`, `insider_trades`, `companies`, `watchlist`, `shares`
-2. Parses each section between "Analysavskiljare" markers as a separate analysis
-3. Extracts company name from the section header (e.g. "Bolagsnamn_André")
-4. Maps user ownership:
-   - `_André` / `_andre` → `andre.arnesson@gmail.com` (user ID: `3924ba1f-e8e5-4285-b2fa-ad43bd7b6627`)
-   - `_pontus` / `_Pontus` → `tstning@gmail.com` (user ID: `ae160905-7460-44cc-8cfb-32c9ea6fb309`)
-5. Creates company records and analysis records with financial data using the existing `parseBoersdataExcel`-style field mappings
-6. Uses the service role key to bypass RLS
+RLS-policies via `portfolio_id → portfolios.user_id = auth.uid()`.
 
-### Step 3: Trigger the import
+### Frontend-ändringar
 
-Call the edge function with the uploaded file to execute the import, then verify the data.
+1. **Sidebar** (`Sidebar.tsx`): Lägg till nav-item "Min portfölj" med `Briefcase`-ikon, route `/portfolio`
+2. **Route** i `App.tsx`: `/portfolio` → ny `Portfolio.tsx`-sida
+3. **Portfolio.tsx**: 
+   - Lista portföljer med möjlighet att skapa nya
+   - Klick på portfölj visar lista av snapshots (sorterade efter datum)
+   - Knapp "Ny portföljuppdatering" → dialog med datumväljare
+4. **PortfolioSnapshot.tsx**: 
+   - Tabell med holdings (bolag, %, kr, conviction, motivering, övrigt)
+   - Inline-redigering eller formulär för att lägga till/ta bort innehav
+   - Visa historik av snapshots i en tidslinje
+5. **Import-funktion**: 
+   - Knapp "Importera utdrag" som accepterar CSV, XLSX, PDF
+   - Edge function `parse-portfolio-import` som tar filen, extraherar text (PDF via pdf-parse, Excel via xlsx), skickar till AI (Lovable AI / Gemini Flash) med prompt att tolka till strukturerad JSON med holdings
+   - Resultatet förhandsgranskas innan det sparas
 
-### User accounts
-- `andre.arnesson@gmail.com` → `3924ba1f-e8e5-4285-b2fa-ad43bd7b6627`
-- `tstning@gmail.com` → `ae160905-7460-44cc-8cfb-32c9ea6fb309`
-- Third user: `flugansomaldrigkomhem@gmail.com` → `e3d6ecef-1182-474d-9ee6-c5b7c59edccf`
+### Edge Function: `parse-portfolio-import`
+- Tar emot fil (base64) + filtyp + portföljnamn
+- Parsar till text beroende på format
+- Skickar till Lovable AI Gateway med prompt att extrahera: bolag, ticker, andel, värde
+- Returnerar strukturerad JSON
+- Användaren kan även skriva en fritext-prompt som AI tolkar
+
+### Translations
+Lägg till `portfolio`-sektion i sv/en translations.
+
+### Filer som skapas/ändras
+- `supabase/migrations/...` — 3 nya tabeller + RLS
+- `supabase/functions/parse-portfolio-import/index.ts` — ny edge function
+- `src/pages/Portfolio.tsx` — ny sida
+- `src/components/portfolio/PortfolioList.tsx` — lista/skapa portföljer
+- `src/components/portfolio/SnapshotEditor.tsx` — redigera snapshot med holdings
+- `src/components/portfolio/ImportDialog.tsx` — importera bankutdrag
+- `src/components/layout/Sidebar.tsx` — ny nav-länk
+- `src/App.tsx` — ny route
+- `src/i18n/translations.ts` — nya strängar
+- `supabase/config.toml` — ny function-config
 
