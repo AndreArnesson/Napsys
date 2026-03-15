@@ -363,6 +363,109 @@ export type Database = {
           },
         ]
       }
+      portfolio_holdings: {
+        Row: {
+          company_name: string | null
+          conviction: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          rationale: string | null
+          snapshot_id: string
+          ticker: string | null
+          value_sek: number | null
+          weight_percent: number | null
+        }
+        Insert: {
+          company_name?: string | null
+          conviction?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          rationale?: string | null
+          snapshot_id: string
+          ticker?: string | null
+          value_sek?: number | null
+          weight_percent?: number | null
+        }
+        Update: {
+          company_name?: string | null
+          conviction?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          rationale?: string | null
+          snapshot_id?: string
+          ticker?: string | null
+          value_sek?: number | null
+          weight_percent?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_holdings_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portfolio_snapshots: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          portfolio_id: string
+          snapshot_date: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          portfolio_id: string
+          snapshot_date?: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          portfolio_id?: string
+          snapshot_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_snapshots_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portfolios: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
