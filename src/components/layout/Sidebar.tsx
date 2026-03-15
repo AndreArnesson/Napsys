@@ -10,7 +10,8 @@ import {
   TrendingUp,
   Globe,
   Moon,
-  Sun
+  Sun,
+  Briefcase
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
