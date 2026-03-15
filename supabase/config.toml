@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.analyze-reports]
 verify_jwt = false
+
+[functions.parse-portfolio-import]
+verify_jwt = false

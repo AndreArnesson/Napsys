@@ -27,6 +27,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   const navItems = [
     { href: '/', label: t.nav.dashboard, icon: LayoutDashboard },
+    { href: '/portfolio', label: t.portfolio.title, icon: Briefcase },
     { href: '/settings', label: t.nav.settings, icon: Settings },
   ];
 
