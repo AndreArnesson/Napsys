@@ -179,7 +179,7 @@ export const translations = {
       clear: 'Rensa',
     },
     portfolio: {
-      title: 'Min portfölj',
+      title: 'Min Ekonomi',
       createPortfolio: 'Skapa portfölj',
       noPortfolios: 'Inga portföljer ännu',
       noPortfoliosDescription: 'Skapa din första portfölj för att börja spåra dina innehav',
