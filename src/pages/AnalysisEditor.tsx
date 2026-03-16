@@ -13,6 +13,7 @@ import { DebtSection } from '@/components/analysis/DebtSection';
 import { AdjustmentsEditor, Adjustment } from '@/components/analysis/AdjustmentsEditor';
 import { ImageUpload } from '@/components/company/ImageUpload';
 import { ReportAnalyzer } from '@/components/analysis/ReportAnalyzer';
+import { InvestmentHoldings, InvestmentHolding } from '@/components/analysis/InvestmentHoldings';
 import { FileImportDialog, ParsedFinancialData, ParsedCompanyInfo } from '@/components/company/FileImportDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
