@@ -179,7 +179,7 @@ export const translations = {
       clear: 'Rensa',
     },
     portfolio: {
-      title: 'Min portfölj',
+      title: 'Min Ekonomi',
       createPortfolio: 'Skapa portfölj',
       noPortfolios: 'Inga portföljer ännu',
       noPortfoliosDescription: 'Skapa din första portfölj för att börja spåra dina innehav',
@@ -391,7 +391,7 @@ export const translations = {
       clear: 'Clear',
     },
     portfolio: {
-      title: 'My Portfolio',
+      title: 'My Economy',
       createPortfolio: 'Create Portfolio',
       noPortfolios: 'No portfolios yet',
       noPortfoliosDescription: 'Create your first portfolio to start tracking your holdings',
