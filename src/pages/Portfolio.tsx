@@ -8,18 +8,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Briefcase, ChevronRight, Trash2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Plus, Briefcase, ChevronRight, Trash2, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
 import { SnapshotEditor } from '@/components/portfolio/SnapshotEditor';
+import { EconomyOverview } from '@/components/economy/EconomyOverview';
 
 export default function Portfolio() {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [selectedPortfolio, setSelectedPortfolio] = useState<{ id: string; name: string } | null>(null);
+  const sv = language === 'sv';
 
   const { data: portfolios, isLoading } = useQuery({
     queryKey: ['portfolios'],

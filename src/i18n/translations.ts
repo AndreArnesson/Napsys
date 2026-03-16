@@ -391,7 +391,7 @@ export const translations = {
       clear: 'Clear',
     },
     portfolio: {
-      title: 'My Portfolio',
+      title: 'My Economy',
       createPortfolio: 'Create Portfolio',
       noPortfolios: 'No portfolios yet',
       noPortfoliosDescription: 'Create your first portfolio to start tracking your holdings',
