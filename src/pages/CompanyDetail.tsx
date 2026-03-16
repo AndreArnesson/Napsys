@@ -252,13 +252,13 @@ export default function CompanyDetail() {
 
   const handleCEOUpdate = (newCeo: CEOData) => { updateCompany.mutate({ management: JSON.stringify(newCeo) }); };
   const handleKeyDataUpdate = (updates: Record<string, any>) => {
-    // Map camelCase keys from KeyDataEditor to snake_case DB columns
     const mapped: Record<string, any> = {};
     for (const [key, value] of Object.entries(updates)) {
       if (key === 'reportingCurrency') mapped.reporting_currency = value;
       else if (key === 'tradingCurrency') mapped.trading_currency = value;
       else if (key === 'currentPrice') mapped.current_price = value;
       else if (key === 'exchange') mapped.exchange = value;
+      else if (key === 'companyType') mapped.company_type = value;
       else mapped[key] = value;
     }
     updateCompany.mutate(mapped);
