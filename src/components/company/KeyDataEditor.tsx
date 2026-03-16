@@ -15,6 +15,7 @@ interface KeyData {
   tradingCurrency: string;
   currentPrice?: number | null;
   exchange?: string;
+  companyType?: string;
 }
 
 interface StockPriceResult {
