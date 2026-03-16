@@ -232,6 +232,8 @@ export default function AnalysisEditor() {
     return year3Proj?.mos;
   }, [projections]);
 
+  const isInvestmentCompany = (company as any)?.company_type === 'investment_company';
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!analysisId || isLocked) return;
@@ -242,7 +244,7 @@ export default function AnalysisEditor() {
           summary_comment: notes,
           margin_of_safety: currentMOS ?? null,
           is_draft: !rating,
-          projections: projections,
+          projections: isInvestmentCompany ? investmentHoldings : projections,
           current_price: currentPrice ? parseFloat(currentPrice) : null,
           shares_outstanding: sharesOutstanding ? parseInt(sharesOutstanding) : null,
           name: analysisName || null,
