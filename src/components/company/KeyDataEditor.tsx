@@ -102,6 +102,28 @@ export function KeyDataEditor({ data, onUpdate, readOnly = false, companyId }: K
       <CardContent>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
+            <Label>Typ</Label>
+            <Select
+              value={localData.companyType || 'stock'}
+              onValueChange={(value) => {
+                handleChange('companyType', value);
+                onUpdate({ companyType: value } as any);
+              }}
+              disabled={readOnly}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="stock">Aktie</SelectItem>
+                <SelectItem value="investment_company">Investmentbolag</SelectItem>
+                <SelectItem value="fund">Fond</SelectItem>
+                <SelectItem value="etf">ETF</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
             <Label>{t.company.ticker}</Label>
             <Input
               placeholder="e.g. VOLV-B"
