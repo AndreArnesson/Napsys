@@ -581,7 +581,7 @@ export default function CompanyDetail() {
                     </Popover>
                   </div>
 
-                  <KeyDataEditor data={{ ticker: company.ticker || undefined, reportingCurrency: company.reporting_currency, tradingCurrency: company.trading_currency, currentPrice: company.current_price, exchange: (company as any).exchange || 'stockholm' }} onUpdate={handleKeyDataUpdate} companyId={id} />
+                  <KeyDataEditor data={{ ticker: company.ticker || undefined, reportingCurrency: company.reporting_currency, tradingCurrency: company.trading_currency, currentPrice: company.current_price, exchange: (company as any).exchange || 'stockholm', companyType: (company as any).company_type || 'stock' }} onUpdate={handleKeyDataUpdate} companyId={id} />
 
                   {sections.foundedYear && (
                     <div className="flex items-center gap-3">
