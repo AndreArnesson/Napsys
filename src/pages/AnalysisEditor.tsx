@@ -13,8 +13,10 @@ import { DebtSection } from '@/components/analysis/DebtSection';
 import { AdjustmentsEditor, Adjustment } from '@/components/analysis/AdjustmentsEditor';
 import { ImageUpload } from '@/components/company/ImageUpload';
 import { ReportAnalyzer } from '@/components/analysis/ReportAnalyzer';
+import { InvestmentHoldings, InvestmentHolding } from '@/components/analysis/InvestmentHoldings';
 import { FileImportDialog, ParsedFinancialData, ParsedCompanyInfo } from '@/components/company/FileImportDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,6 +47,7 @@ export default function AnalysisEditor() {
   const [analysisSections, setAnalysisSections] = useState<Record<string, boolean>>({ debt: true, images: true, employees: false });
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [isLocked, setIsLocked] = useState(false);
+  const [investmentHoldings, setInvestmentHoldings] = useState<InvestmentHolding[]>([]);
 
   // Undo/Redo stacks for projections
   const undoStackRef = useRef<YearlyProjection[][]>([]);
@@ -200,11 +203,26 @@ export default function AnalysisEditor() {
       setAnalysisSections({ ...defaultSections, ...((currentAnalysis as any).visible_sections || {}) });
       // Load adjustments
       const savedAdjustments = (currentAnalysis as any).adjustments;
-      if (Array.isArray(savedAdjustments)) setAdjustments(savedAdjustments);
+      if (Array.isArray(savedAdjustments)) {
+        // Check if these are investment holdings (have 'name' key) or regular adjustments
+        const isInvestmentType = (company as any)?.company_type === 'investment_company';
+        if (isInvestmentType) {
+          // Investment holdings stored in adjustments
+          setInvestmentHoldings(savedAdjustments.filter((a: any) => a._type === 'investment_holding').map((a: any) => ({ ...a, _type: undefined })));
+          setAdjustments(savedAdjustments.filter((a: any) => a._type !== 'investment_holding'));
+        } else {
+          setAdjustments(savedAdjustments);
+        }
+      }
       // Load persisted projections
       const savedProjections = (currentAnalysis as any).projections;
       if (Array.isArray(savedProjections) && savedProjections.length > 0) {
-        setProjections(savedProjections);
+        // Check if it's investment holdings data
+        if (savedProjections[0]?.name !== undefined && savedProjections[0]?.id !== undefined) {
+          setInvestmentHoldings(savedProjections as any);
+        } else {
+          setProjections(savedProjections);
+        }
       }
       setIsLocked((currentAnalysis as any).locked === true);
     }
@@ -214,6 +232,8 @@ export default function AnalysisEditor() {
     const year3Proj = projections.find(p => p.year === new Date().getFullYear() + 3);
     return year3Proj?.mos;
   }, [projections]);
+
+  const isInvestmentCompany = (company as any)?.company_type === 'investment_company';
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -225,7 +245,7 @@ export default function AnalysisEditor() {
           summary_comment: notes,
           margin_of_safety: currentMOS ?? null,
           is_draft: !rating,
-          projections: projections,
+          projections: isInvestmentCompany ? investmentHoldings : projections,
           current_price: currentPrice ? parseFloat(currentPrice) : null,
           shares_outstanding: sharesOutstanding ? parseInt(sharesOutstanding) : null,
           name: analysisName || null,
@@ -255,7 +275,7 @@ export default function AnalysisEditor() {
       setIsSaving(true);
       saveMutation.mutate();
     }, 3000),
-    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, isLocked]
+    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, isLocked, investmentHoldings]
   );
 
   const toggleLock = async () => {
@@ -273,7 +293,7 @@ export default function AnalysisEditor() {
       debouncedSave();
     }
     return () => debouncedSave.cancel();
-  }, [rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, debouncedSave]);
+  }, [rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, investmentHoldings, debouncedSave]);
 
   // Handle per-analysis financial import
   const handleAnalysisImport = async (data: ParsedFinancialData[], companyInfo?: ParsedCompanyInfo) => {
@@ -652,57 +672,96 @@ export default function AnalysisEditor() {
 
           {/* Main Content */}
           <div className="xl:col-span-3 space-y-6">
-            <HistoricalDataTable
-              data={displayData}
-              currency={company?.reporting_currency}
-              sharesOutstanding={sharesNum}
-              currentPrice={priceNum}
-              adjustments={adjustments}
-            />
-            <AdjustmentsEditor
-              adjustments={adjustments}
-              onAdjustmentsChange={setAdjustments}
-            />
-            <SpreadsheetAnalysis
-              analysisDate={currentAnalysis?.created_at?.split('T')[0]}
-              currentPrice={priceNum}
-              sharesOutstanding={sharesNum}
-              historicalData={historicalData.map(h => ({
-                year: h.fiscal_year,
-                revenue: h.revenue || 0,
-                netIncome: h.net_income || 0,
-              }))}
-              quarterlyHistoricalData={quarterlyHistoricalData.map(h => ({
-                year: h.fiscal_year,
-                quarter: h.quarter || 1,
-                revenue: h.revenue || 0,
-                netIncome: h.net_income || 0,
-              }))}
-              projections={projections}
-              onProjectionsChange={handleProjectionsChange}
-              rating={rating}
-              onRatingChange={setRating}
-              notes={notes}
-              onNotesChange={setNotes}
-              currency={company?.reporting_currency}
-              showQuarterly={showQuarterly}
-              adjustments={adjustments}
-              netDebt={(() => {
-                const latestBalance = balanceData?.[balanceData.length - 1] as any;
-                if (!latestBalance) return 0;
-                return ((latestBalance.long_term_debt ?? 0) + (latestBalance.short_term_debt ?? 0) - (latestBalance.cash_equivalents ?? 0));
-              })()}
-            />
-            {analysisSections.debt && (
-              <DebtSection data={(balanceData || []).map((b: any) => ({
-                fiscal_year: b.fiscal_year,
-                long_term_debt: b.long_term_debt,
-                short_term_debt: b.short_term_debt,
-                cash_equivalents: b.cash_equivalents,
-                total_liabilities: b.total_liabilities,
-                shareholders_equity: b.shareholders_equity,
-                equity_ratio: b.equity_ratio,
-              }))} />
+            {isInvestmentCompany ? (
+              <>
+                <InvestmentHoldings
+                  holdings={investmentHoldings}
+                  onHoldingsChange={setInvestmentHoldings}
+                  readOnly={isLocked}
+                />
+                {/* Rating & Notes for investment company */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Betyg & Kommentar</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex gap-2">
+                      {(['buy', 'hold', 'sell'] as const).map((r) => (
+                        <Button
+                          key={r}
+                          variant={rating === r ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setRating(r)}
+                          className={rating === r ? (r === 'buy' ? 'bg-emerald-600 hover:bg-emerald-700' : r === 'sell' ? 'bg-destructive hover:bg-destructive/90' : '') : ''}
+                        >
+                          {r === 'buy' ? 'Köp' : r === 'hold' ? 'Behåll' : 'Sälj'}
+                        </Button>
+                      ))}
+                    </div>
+                    <Textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Övergripande kommentar om investmentbolaget..."
+                      rows={4}
+                    />
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <>
+                <HistoricalDataTable
+                  data={displayData}
+                  currency={company?.reporting_currency}
+                  sharesOutstanding={sharesNum}
+                  currentPrice={priceNum}
+                  adjustments={adjustments}
+                />
+                <AdjustmentsEditor
+                  adjustments={adjustments}
+                  onAdjustmentsChange={setAdjustments}
+                />
+                <SpreadsheetAnalysis
+                  analysisDate={currentAnalysis?.created_at?.split('T')[0]}
+                  currentPrice={priceNum}
+                  sharesOutstanding={sharesNum}
+                  historicalData={historicalData.map(h => ({
+                    year: h.fiscal_year,
+                    revenue: h.revenue || 0,
+                    netIncome: h.net_income || 0,
+                  }))}
+                  quarterlyHistoricalData={quarterlyHistoricalData.map(h => ({
+                    year: h.fiscal_year,
+                    quarter: h.quarter || 1,
+                    revenue: h.revenue || 0,
+                    netIncome: h.net_income || 0,
+                  }))}
+                  projections={projections}
+                  onProjectionsChange={handleProjectionsChange}
+                  rating={rating}
+                  onRatingChange={setRating}
+                  notes={notes}
+                  onNotesChange={setNotes}
+                  currency={company?.reporting_currency}
+                  showQuarterly={showQuarterly}
+                  adjustments={adjustments}
+                  netDebt={(() => {
+                    const latestBalance = balanceData?.[balanceData.length - 1] as any;
+                    if (!latestBalance) return 0;
+                    return ((latestBalance.long_term_debt ?? 0) + (latestBalance.short_term_debt ?? 0) - (latestBalance.cash_equivalents ?? 0));
+                  })()}
+                />
+                {analysisSections.debt && (
+                  <DebtSection data={(balanceData || []).map((b: any) => ({
+                    fiscal_year: b.fiscal_year,
+                    long_term_debt: b.long_term_debt,
+                    short_term_debt: b.short_term_debt,
+                    cash_equivalents: b.cash_equivalents,
+                    total_liabilities: b.total_liabilities,
+                    shareholders_equity: b.shareholders_equity,
+                    equity_ratio: b.equity_ratio,
+                  }))} />
+                )}
+              </>
             )}
             <ReportAnalyzer
               companyId={id!}

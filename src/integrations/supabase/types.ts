@@ -158,6 +158,7 @@ export type Database = {
         Row: {
           balance_sheet_summary: string | null
           business_model: string | null
+          company_type: string
           competition: string | null
           created_at: string
           current_price: number | null
@@ -185,6 +186,7 @@ export type Database = {
         Insert: {
           balance_sheet_summary?: string | null
           business_model?: string | null
+          company_type?: string
           competition?: string | null
           created_at?: string
           current_price?: number | null
@@ -212,6 +214,7 @@ export type Database = {
         Update: {
           balance_sheet_summary?: string | null
           business_model?: string | null
+          company_type?: string
           competition?: string | null
           created_at?: string
           current_price?: number | null
