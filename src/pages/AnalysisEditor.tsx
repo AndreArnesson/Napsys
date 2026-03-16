@@ -671,57 +671,96 @@ export default function AnalysisEditor() {
 
           {/* Main Content */}
           <div className="xl:col-span-3 space-y-6">
-            <HistoricalDataTable
-              data={displayData}
-              currency={company?.reporting_currency}
-              sharesOutstanding={sharesNum}
-              currentPrice={priceNum}
-              adjustments={adjustments}
-            />
-            <AdjustmentsEditor
-              adjustments={adjustments}
-              onAdjustmentsChange={setAdjustments}
-            />
-            <SpreadsheetAnalysis
-              analysisDate={currentAnalysis?.created_at?.split('T')[0]}
-              currentPrice={priceNum}
-              sharesOutstanding={sharesNum}
-              historicalData={historicalData.map(h => ({
-                year: h.fiscal_year,
-                revenue: h.revenue || 0,
-                netIncome: h.net_income || 0,
-              }))}
-              quarterlyHistoricalData={quarterlyHistoricalData.map(h => ({
-                year: h.fiscal_year,
-                quarter: h.quarter || 1,
-                revenue: h.revenue || 0,
-                netIncome: h.net_income || 0,
-              }))}
-              projections={projections}
-              onProjectionsChange={handleProjectionsChange}
-              rating={rating}
-              onRatingChange={setRating}
-              notes={notes}
-              onNotesChange={setNotes}
-              currency={company?.reporting_currency}
-              showQuarterly={showQuarterly}
-              adjustments={adjustments}
-              netDebt={(() => {
-                const latestBalance = balanceData?.[balanceData.length - 1] as any;
-                if (!latestBalance) return 0;
-                return ((latestBalance.long_term_debt ?? 0) + (latestBalance.short_term_debt ?? 0) - (latestBalance.cash_equivalents ?? 0));
-              })()}
-            />
-            {analysisSections.debt && (
-              <DebtSection data={(balanceData || []).map((b: any) => ({
-                fiscal_year: b.fiscal_year,
-                long_term_debt: b.long_term_debt,
-                short_term_debt: b.short_term_debt,
-                cash_equivalents: b.cash_equivalents,
-                total_liabilities: b.total_liabilities,
-                shareholders_equity: b.shareholders_equity,
-                equity_ratio: b.equity_ratio,
-              }))} />
+            {isInvestmentCompany ? (
+              <>
+                <InvestmentHoldings
+                  holdings={investmentHoldings}
+                  onHoldingsChange={setInvestmentHoldings}
+                  readOnly={isLocked}
+                />
+                {/* Rating & Notes for investment company */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Betyg & Kommentar</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex gap-2">
+                      {(['buy', 'hold', 'sell'] as const).map((r) => (
+                        <Button
+                          key={r}
+                          variant={rating === r ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setRating(r)}
+                          className={rating === r ? (r === 'buy' ? 'bg-emerald-600 hover:bg-emerald-700' : r === 'sell' ? 'bg-destructive hover:bg-destructive/90' : '') : ''}
+                        >
+                          {r === 'buy' ? 'Köp' : r === 'hold' ? 'Behåll' : 'Sälj'}
+                        </Button>
+                      ))}
+                    </div>
+                    <Textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Övergripande kommentar om investmentbolaget..."
+                      rows={4}
+                    />
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <>
+                <HistoricalDataTable
+                  data={displayData}
+                  currency={company?.reporting_currency}
+                  sharesOutstanding={sharesNum}
+                  currentPrice={priceNum}
+                  adjustments={adjustments}
+                />
+                <AdjustmentsEditor
+                  adjustments={adjustments}
+                  onAdjustmentsChange={setAdjustments}
+                />
+                <SpreadsheetAnalysis
+                  analysisDate={currentAnalysis?.created_at?.split('T')[0]}
+                  currentPrice={priceNum}
+                  sharesOutstanding={sharesNum}
+                  historicalData={historicalData.map(h => ({
+                    year: h.fiscal_year,
+                    revenue: h.revenue || 0,
+                    netIncome: h.net_income || 0,
+                  }))}
+                  quarterlyHistoricalData={quarterlyHistoricalData.map(h => ({
+                    year: h.fiscal_year,
+                    quarter: h.quarter || 1,
+                    revenue: h.revenue || 0,
+                    netIncome: h.net_income || 0,
+                  }))}
+                  projections={projections}
+                  onProjectionsChange={handleProjectionsChange}
+                  rating={rating}
+                  onRatingChange={setRating}
+                  notes={notes}
+                  onNotesChange={setNotes}
+                  currency={company?.reporting_currency}
+                  showQuarterly={showQuarterly}
+                  adjustments={adjustments}
+                  netDebt={(() => {
+                    const latestBalance = balanceData?.[balanceData.length - 1] as any;
+                    if (!latestBalance) return 0;
+                    return ((latestBalance.long_term_debt ?? 0) + (latestBalance.short_term_debt ?? 0) - (latestBalance.cash_equivalents ?? 0));
+                  })()}
+                />
+                {analysisSections.debt && (
+                  <DebtSection data={(balanceData || []).map((b: any) => ({
+                    fiscal_year: b.fiscal_year,
+                    long_term_debt: b.long_term_debt,
+                    short_term_debt: b.short_term_debt,
+                    cash_equivalents: b.cash_equivalents,
+                    total_liabilities: b.total_liabilities,
+                    shareholders_equity: b.shareholders_equity,
+                    equity_ratio: b.equity_ratio,
+                  }))} />
+                )}
+              </>
             )}
             <ReportAnalyzer
               companyId={id!}
