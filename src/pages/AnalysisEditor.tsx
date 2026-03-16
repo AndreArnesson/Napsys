@@ -16,6 +16,7 @@ import { ReportAnalyzer } from '@/components/analysis/ReportAnalyzer';
 import { InvestmentHoldings, InvestmentHolding } from '@/components/analysis/InvestmentHoldings';
 import { FileImportDialog, ParsedFinancialData, ParsedCompanyInfo } from '@/components/company/FileImportDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
