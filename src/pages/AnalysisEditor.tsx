@@ -202,11 +202,26 @@ export default function AnalysisEditor() {
       setAnalysisSections({ ...defaultSections, ...((currentAnalysis as any).visible_sections || {}) });
       // Load adjustments
       const savedAdjustments = (currentAnalysis as any).adjustments;
-      if (Array.isArray(savedAdjustments)) setAdjustments(savedAdjustments);
+      if (Array.isArray(savedAdjustments)) {
+        // Check if these are investment holdings (have 'name' key) or regular adjustments
+        const isInvestmentType = (company as any)?.company_type === 'investment_company';
+        if (isInvestmentType) {
+          // Investment holdings stored in adjustments
+          setInvestmentHoldings(savedAdjustments.filter((a: any) => a._type === 'investment_holding').map((a: any) => ({ ...a, _type: undefined })));
+          setAdjustments(savedAdjustments.filter((a: any) => a._type !== 'investment_holding'));
+        } else {
+          setAdjustments(savedAdjustments);
+        }
+      }
       // Load persisted projections
       const savedProjections = (currentAnalysis as any).projections;
       if (Array.isArray(savedProjections) && savedProjections.length > 0) {
-        setProjections(savedProjections);
+        // Check if it's investment holdings data
+        if (savedProjections[0]?.name !== undefined && savedProjections[0]?.id !== undefined) {
+          setInvestmentHoldings(savedProjections as any);
+        } else {
+          setProjections(savedProjections);
+        }
       }
       setIsLocked((currentAnalysis as any).locked === true);
     }
