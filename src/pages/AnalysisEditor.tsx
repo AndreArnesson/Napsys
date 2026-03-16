@@ -46,6 +46,7 @@ export default function AnalysisEditor() {
   const [analysisSections, setAnalysisSections] = useState<Record<string, boolean>>({ debt: true, images: true, employees: false });
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [isLocked, setIsLocked] = useState(false);
+  const [investmentHoldings, setInvestmentHoldings] = useState<InvestmentHolding[]>([]);
 
   // Undo/Redo stacks for projections
   const undoStackRef = useRef<YearlyProjection[][]>([]);
