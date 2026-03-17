@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
@@ -133,6 +134,16 @@ export function PortfolioOverview({ portfolios }: { portfolios: Portfolio[] }) {
   const { language } = useLanguage();
   const sv = language === 'sv';
   const [groupSmall, setGroupSmall] = useState(true);
+  const [includedIds, setIncludedIds] = useState<Set<string>>(new Set(portfolios.map(p => p.id)));
+
+  const togglePortfolio = (id: string) => {
+    setIncludedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const { data: portfolioHoldings, isLoading } = useQuery({
     queryKey: ['portfolio-overview-holdings', portfolios.map(p => p.id)],
@@ -180,14 +191,16 @@ export function PortfolioOverview({ portfolios }: { portfolios: Portfolio[] }) {
     return h.weight_percent || 0;
   };
 
-  // Aggregate all holdings
+  // Aggregate only included portfolios
   const aggregatedMap = new Map<string, number>();
-  portfolioHoldings.forEach(({ holdings }) => {
-    holdings.forEach(h => {
-      const name = h.company_name || (sv ? 'Okänt' : 'Unknown');
-      aggregatedMap.set(name, (aggregatedMap.get(name) || 0) + toChartValue(h));
+  portfolioHoldings
+    .filter(({ portfolio }) => includedIds.has(portfolio.id))
+    .forEach(({ holdings }) => {
+      holdings.forEach(h => {
+        const name = h.company_name || (sv ? 'Okänt' : 'Unknown');
+        aggregatedMap.set(name, (aggregatedMap.get(name) || 0) + toChartValue(h));
+      });
     });
-  });
   const rawAggregated = Array.from(aggregatedMap.entries())
     .map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }))
     .sort((a, b) => b.value - a.value);
@@ -237,21 +250,40 @@ export function PortfolioOverview({ portfolios }: { portfolios: Portfolio[] }) {
       </div>
 
       {/* Aggregated total */}
-      {aggregatedData.length > 0 && (
-        <Card>
-          <CardHeader className="pb-0">
-            <CardTitle className="text-base">
-              {sv ? 'Totalt alla portföljer' : 'All Portfolios Combined'}
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              {sv ? 'Baserat på senaste snapshot per portfölj' : 'Based on latest snapshot per portfolio'}
-            </p>
-          </CardHeader>
-          <CardContent className="pt-2">
-            {renderPieChart(aggregatedData, 280, true)}
+      <Card>
+        <CardHeader className="pb-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">
+                {sv ? 'Totalt alla portföljer' : 'All Portfolios Combined'}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {sv ? 'Baserat på senaste snapshot per portfölj' : 'Based on latest snapshot per portfolio'}
+              </p>
+            </div>
+          </div>
+          {/* Portfolio checklist */}
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-2">
+            {portfolioHoldings
+              .filter(p => p.holdings.length > 0)
+              .map(({ portfolio }) => (
+                <label key={portfolio.id} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                  <Checkbox
+                    checked={includedIds.has(portfolio.id)}
+                    onCheckedChange={() => togglePortfolio(portfolio.id)}
+                  />
+                  <span className="text-muted-foreground">{portfolio.name}</span>
+                </label>
+              ))}
+          </div>
+        </CardHeader>
+        <CardContent className="pt-2">
+          {aggregatedData.length > 0
+            ? renderPieChart(aggregatedData, 280, true)
+            : <p className="text-sm text-muted-foreground text-center py-8">{sv ? 'Välj minst en portfölj' : 'Select at least one portfolio'}</p>
+          }
           </CardContent>
         </Card>
-      )}
 
       {/* Per portfolio */}
       <div className="grid gap-4 md:grid-cols-2">
