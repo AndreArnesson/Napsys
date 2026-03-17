@@ -134,6 +134,16 @@ export function PortfolioOverview({ portfolios }: { portfolios: Portfolio[] }) {
   const { language } = useLanguage();
   const sv = language === 'sv';
   const [groupSmall, setGroupSmall] = useState(true);
+  const [includedIds, setIncludedIds] = useState<Set<string>>(new Set(portfolios.map(p => p.id)));
+
+  const togglePortfolio = (id: string) => {
+    setIncludedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const { data: portfolioHoldings, isLoading } = useQuery({
     queryKey: ['portfolio-overview-holdings', portfolios.map(p => p.id)],
