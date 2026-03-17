@@ -154,7 +154,7 @@ export function PortfolioOverview({ portfolios }: { portfolios: Portfolio[] }) {
             const data = holdings
               .map(h => ({
                 name: h.company_name || (sv ? 'Okänt' : 'Unknown'),
-                value: h.weight_percent || 0,
+                value: toChartValue(h),
               }))
               .sort((a, b) => b.value - a.value);
 
