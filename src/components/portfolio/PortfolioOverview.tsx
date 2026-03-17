@@ -250,18 +250,38 @@ export function PortfolioOverview({ portfolios }: { portfolios: Portfolio[] }) {
       </div>
 
       {/* Aggregated total */}
-      {aggregatedData.length > 0 && (
-        <Card>
-          <CardHeader className="pb-0">
-            <CardTitle className="text-base">
-              {sv ? 'Totalt alla portföljer' : 'All Portfolios Combined'}
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              {sv ? 'Baserat på senaste snapshot per portfölj' : 'Based on latest snapshot per portfolio'}
-            </p>
-          </CardHeader>
-          <CardContent className="pt-2">
-            {renderPieChart(aggregatedData, 280, true)}
+      <Card>
+        <CardHeader className="pb-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">
+                {sv ? 'Totalt alla portföljer' : 'All Portfolios Combined'}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {sv ? 'Baserat på senaste snapshot per portfölj' : 'Based on latest snapshot per portfolio'}
+              </p>
+            </div>
+          </div>
+          {/* Portfolio checklist */}
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-2">
+            {portfolioHoldings
+              .filter(p => p.holdings.length > 0)
+              .map(({ portfolio }) => (
+                <label key={portfolio.id} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                  <Checkbox
+                    checked={includedIds.has(portfolio.id)}
+                    onCheckedChange={() => togglePortfolio(portfolio.id)}
+                  />
+                  <span className="text-muted-foreground">{portfolio.name}</span>
+                </label>
+              ))}
+          </div>
+        </CardHeader>
+        <CardContent className="pt-2">
+          {aggregatedData.length > 0
+            ? renderPieChart(aggregatedData, 280, true)
+            : <p className="text-sm text-muted-foreground text-center py-8">{sv ? 'Välj minst en portfölj' : 'Select at least one portfolio'}</p>
+          }
           </CardContent>
         </Card>
       )}
