@@ -13,6 +13,7 @@ import { Plus, Briefcase, ChevronRight, Trash2, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
 import { SnapshotEditor } from '@/components/portfolio/SnapshotEditor';
+import { PortfolioOverview } from '@/components/portfolio/PortfolioOverview';
 import { EconomyOverview } from '@/components/economy/EconomyOverview';
 
 export default function Portfolio() {
@@ -103,6 +104,9 @@ export default function Portfolio() {
 
           <TabsContent value="portfolios">
             <div className="space-y-6">
+              {portfolios && portfolios.length > 0 && (
+                <PortfolioOverview portfolios={portfolios.map(p => ({ id: p.id, name: p.name }))} />
+              )}
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold">{sv ? 'Portföljer' : 'Portfolios'}</h2>
                 <Button onClick={() => setShowCreate(true)}>
