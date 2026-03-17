@@ -191,14 +191,16 @@ export function PortfolioOverview({ portfolios }: { portfolios: Portfolio[] }) {
     return h.weight_percent || 0;
   };
 
-  // Aggregate all holdings
+  // Aggregate only included portfolios
   const aggregatedMap = new Map<string, number>();
-  portfolioHoldings.forEach(({ holdings }) => {
-    holdings.forEach(h => {
-      const name = h.company_name || (sv ? 'Okänt' : 'Unknown');
-      aggregatedMap.set(name, (aggregatedMap.get(name) || 0) + toChartValue(h));
+  portfolioHoldings
+    .filter(({ portfolio }) => includedIds.has(portfolio.id))
+    .forEach(({ holdings }) => {
+      holdings.forEach(h => {
+        const name = h.company_name || (sv ? 'Okänt' : 'Unknown');
+        aggregatedMap.set(name, (aggregatedMap.get(name) || 0) + toChartValue(h));
+      });
     });
-  });
   const rawAggregated = Array.from(aggregatedMap.entries())
     .map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }))
     .sort((a, b) => b.value - a.value);
