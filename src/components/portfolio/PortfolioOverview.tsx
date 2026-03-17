@@ -75,12 +75,24 @@ export function PortfolioOverview({ portfolios }: { portfolios: Portfolio[] }) {
   const hasAnyHoldings = portfolioHoldings.some(p => p.holdings.length > 0);
   if (!hasAnyHoldings) return null;
 
+  // Determine if we should use value_sek (when weight_percent is mostly null)
+  const useValue = portfolioHoldings.every(({ holdings }) =>
+    holdings.every(h => h.weight_percent == null || h.weight_percent === 0)
+  );
+
+  const toChartValue = (h: Holding) => {
+    if (useValue) return h.value_sek || 0;
+    return h.weight_percent || 0;
+  };
+
+  const valueLabel = useValue ? 'SEK' : '%';
+
   // Aggregate all holdings
   const aggregatedMap = new Map<string, number>();
   portfolioHoldings.forEach(({ holdings }) => {
     holdings.forEach(h => {
       const name = h.company_name || (sv ? 'Okänt' : 'Unknown');
-      aggregatedMap.set(name, (aggregatedMap.get(name) || 0) + (h.weight_percent || 0));
+      aggregatedMap.set(name, (aggregatedMap.get(name) || 0) + toChartValue(h));
     });
   });
   const aggregatedData = Array.from(aggregatedMap.entries())
@@ -108,7 +120,7 @@ export function PortfolioOverview({ portfolios }: { portfolios: Portfolio[] }) {
           ))}
         </Pie>
         <Tooltip
-          formatter={(value: number) => [`${value}%`, sv ? 'Vikt' : 'Weight']}
+          formatter={(value: number) => [useValue ? `${value.toLocaleString()} kr` : `${value}%`, sv ? 'Vikt' : 'Weight']}
           contentStyle={{
             backgroundColor: 'hsl(var(--background))',
             border: '1px solid hsl(var(--border))',
@@ -142,7 +154,7 @@ export function PortfolioOverview({ portfolios }: { portfolios: Portfolio[] }) {
             const data = holdings
               .map(h => ({
                 name: h.company_name || (sv ? 'Okänt' : 'Unknown'),
-                value: h.weight_percent || 0,
+                value: toChartValue(h),
               }))
               .sort((a, b) => b.value - a.value);
 
