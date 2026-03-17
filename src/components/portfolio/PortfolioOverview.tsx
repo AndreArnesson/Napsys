@@ -120,7 +120,7 @@ export function PortfolioOverview({ portfolios }: { portfolios: Portfolio[] }) {
           ))}
         </Pie>
         <Tooltip
-          formatter={(value: number) => [`${value}%`, sv ? 'Vikt' : 'Weight']}
+          formatter={(value: number) => [useValue ? `${value.toLocaleString()} kr` : `${value}%`, sv ? 'Vikt' : 'Weight']}
           contentStyle={{
             backgroundColor: 'hsl(var(--background))',
             border: '1px solid hsl(var(--border))',
