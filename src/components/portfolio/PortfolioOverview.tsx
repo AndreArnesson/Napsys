@@ -284,7 +284,6 @@ export function PortfolioOverview({ portfolios }: { portfolios: Portfolio[] }) {
           }
           </CardContent>
         </Card>
-      )}
 
       {/* Per portfolio */}
       <div className="grid gap-4 md:grid-cols-2">
