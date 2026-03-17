@@ -13,6 +13,7 @@ import { Plus, Briefcase, ChevronRight, Trash2, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
 import { SnapshotEditor } from '@/components/portfolio/SnapshotEditor';
+import { PortfolioOverview } from '@/components/portfolio/PortfolioOverview';
 import { EconomyOverview } from '@/components/economy/EconomyOverview';
 
 export default function Portfolio() {
