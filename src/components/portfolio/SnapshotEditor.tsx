@@ -218,9 +218,12 @@ export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
       ticker: h.ticker || '',
       weight_percent: h.weight_percent,
       value_sek: h.value_sek,
+      price: (h as any).price ?? null,
+      shares_count: (h as any).shares_count ?? null,
       conviction: h.conviction || '',
       rationale: h.rationale || '',
       notes: h.notes || '',
+      future_plan: (h as any).future_plan || '',
     })));
   }
 
