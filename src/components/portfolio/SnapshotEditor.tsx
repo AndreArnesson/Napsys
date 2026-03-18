@@ -28,12 +28,15 @@ interface Holding {
   ticker: string;
   weight_percent: number | null;
   value_sek: number | null;
+  price: number | null;
+  shares_count: number | null;
   conviction: string;
   rationale: string;
   notes: string;
+  future_plan: string;
 }
 
-type SortField = 'company_name' | 'ticker' | 'weight_percent' | 'value_sek' | 'conviction';
+type SortField = 'company_name' | 'ticker' | 'weight_percent' | 'value_sek' | 'price' | 'shares_count' | 'conviction' | 'future_plan';
 type SortDir = 'asc' | 'desc';
 
 export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
@@ -68,21 +71,26 @@ export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
   const sortedHoldings = (() => {
     if (!sortField) return holdings.map((h, i) => ({ h, i }));
     const convictionOrder = { high: 3, medium: 2, low: 1, '': 0 };
+    const planOrder = { buy_more: 4, hold: 3, scale_down: 2, sell_all: 1, '': 0 };
     return holdings
       .map((h, i) => ({ h, i }))
       .sort((a, b) => {
-        let av: number, bv: number;
         if (sortField === 'conviction') {
-          av = convictionOrder[a.h.conviction as keyof typeof convictionOrder] ?? 0;
-          bv = convictionOrder[b.h.conviction as keyof typeof convictionOrder] ?? 0;
+          const av = convictionOrder[a.h.conviction as keyof typeof convictionOrder] ?? 0;
+          const bv = convictionOrder[b.h.conviction as keyof typeof convictionOrder] ?? 0;
+          return sortDir === 'desc' ? bv - av : av - bv;
+        } else if (sortField === 'future_plan') {
+          const av = planOrder[a.h.future_plan as keyof typeof planOrder] ?? 0;
+          const bv = planOrder[b.h.future_plan as keyof typeof planOrder] ?? 0;
+          return sortDir === 'desc' ? bv - av : av - bv;
         } else if (sortField === 'company_name' || sortField === 'ticker') {
           const cmp = (a.h[sortField] || '').localeCompare(b.h[sortField] || '', 'sv');
           return sortDir === 'asc' ? cmp : -cmp;
         } else {
-          av = a.h[sortField] ?? -Infinity;
-          bv = b.h[sortField] ?? -Infinity;
+          const av = a.h[sortField] ?? -Infinity;
+          const bv = b.h[sortField] ?? -Infinity;
+          return sortDir === 'desc' ? bv - av : av - bv;
         }
-        return sortDir === 'desc' ? bv - av : av - bv;
       });
   })();
 
@@ -163,10 +171,13 @@ export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
             ticker: h.ticker || null,
             weight_percent: h.weight_percent,
             value_sek: h.value_sek,
+            price: h.price,
+            shares_count: h.shares_count,
             conviction: h.conviction || null,
             rationale: h.rationale || null,
             notes: h.notes || null,
-          }))
+            future_plan: h.future_plan || null,
+          } as any))
         );
         if (error) throw error;
       }
@@ -179,7 +190,7 @@ export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
   });
 
   const addHolding = () => {
-    setHoldings([...holdings, { company_name: '', ticker: '', weight_percent: null, value_sek: null, conviction: '', rationale: '', notes: '' }]);
+    setHoldings([...holdings, { company_name: '', ticker: '', weight_percent: null, value_sek: null, price: null, shares_count: null, conviction: '', rationale: '', notes: '', future_plan: '' }]);
   };
 
   const updateHolding = (index: number, field: keyof Holding, value: any) => {
@@ -210,9 +221,12 @@ export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
       ticker: h.ticker || '',
       weight_percent: h.weight_percent,
       value_sek: h.value_sek,
+      price: (h as any).price ?? null,
+      shares_count: (h as any).shares_count ?? null,
       conviction: h.conviction || '',
       rationale: h.rationale || '',
       notes: h.notes || '',
+      future_plan: (h as any).future_plan || '',
     })));
   }
 
@@ -263,6 +277,15 @@ export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
                 <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('conviction')}>
                   <span className="inline-flex items-center">{t.portfolio.conviction}<SortIcon field="conviction" /></span>
                 </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('price')}>
+                  <span className="inline-flex items-center">{t.portfolio.price}<SortIcon field="price" /></span>
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('shares_count')}>
+                  <span className="inline-flex items-center">{t.portfolio.sharesCount}<SortIcon field="shares_count" /></span>
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('future_plan')}>
+                  <span className="inline-flex items-center">{t.portfolio.futurePlan}<SortIcon field="future_plan" /></span>
+                </TableHead>
                 <TableHead>{t.portfolio.rationale}</TableHead>
                 <TableHead>{t.portfolio.notes}</TableHead>
                 <TableHead></TableHead>
@@ -292,6 +315,25 @@ export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
                         <SelectItem value="high">{t.portfolio.convictionHigh}</SelectItem>
                         <SelectItem value="medium">{t.portfolio.convictionMedium}</SelectItem>
                         <SelectItem value="low">{t.portfolio.convictionLow}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Input type="number" value={h.price ?? ''} onChange={(e) => updateHolding(i, 'price', e.target.value ? parseFloat(e.target.value) : null)} className="min-w-[80px]" />
+                  </TableCell>
+                  <TableCell>
+                    <Input type="number" value={h.shares_count ?? ''} onChange={(e) => updateHolding(i, 'shares_count', e.target.value ? parseFloat(e.target.value) : null)} className="min-w-[80px]" />
+                  </TableCell>
+                  <TableCell>
+                    <Select value={h.future_plan} onValueChange={(v) => updateHolding(i, 'future_plan', v)}>
+                      <SelectTrigger className="min-w-[120px]">
+                        <SelectValue placeholder="-" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="buy_more">{t.portfolio.futurePlanBuyMore}</SelectItem>
+                        <SelectItem value="hold">{t.portfolio.futurePlanHold}</SelectItem>
+                        <SelectItem value="scale_down">{t.portfolio.futurePlanScaleDown}</SelectItem>
+                        <SelectItem value="sell_all">{t.portfolio.futurePlanSellAll}</SelectItem>
                       </SelectContent>
                     </Select>
                   </TableCell>

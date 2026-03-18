@@ -404,9 +404,12 @@ export type Database = {
           company_name: string | null
           conviction: string | null
           created_at: string
+          future_plan: string | null
           id: string
           notes: string | null
+          price: number | null
           rationale: string | null
+          shares_count: number | null
           snapshot_id: string
           ticker: string | null
           value_sek: number | null
@@ -416,9 +419,12 @@ export type Database = {
           company_name?: string | null
           conviction?: string | null
           created_at?: string
+          future_plan?: string | null
           id?: string
           notes?: string | null
+          price?: number | null
           rationale?: string | null
+          shares_count?: number | null
           snapshot_id: string
           ticker?: string | null
           value_sek?: number | null
@@ -428,9 +434,12 @@ export type Database = {
           company_name?: string | null
           conviction?: string | null
           created_at?: string
+          future_plan?: string | null
           id?: string
           notes?: string | null
+          price?: number | null
           rationale?: string | null
+          shares_count?: number | null
           snapshot_id?: string
           ticker?: string | null
           value_sek?: number | null

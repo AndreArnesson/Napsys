@@ -14,9 +14,12 @@ interface Holding {
   ticker: string;
   weight_percent: number | null;
   value_sek: number | null;
+  price: number | null;
+  shares_count: number | null;
   conviction: string;
   rationale: string;
   notes: string;
+  future_plan: string;
 }
 
 interface Props {
@@ -58,9 +61,12 @@ export function ImportDialog({ open, onOpenChange, onImport }: Props) {
         ticker: h.ticker || '',
         weight_percent: h.weight_percent ?? null,
         value_sek: h.value_sek ?? null,
+        price: h.price ?? null,
+        shares_count: h.shares_count ?? null,
         conviction: '',
         rationale: '',
         notes: '',
+        future_plan: '',
       }));
       setPreview(holdings);
     } catch (err: any) {
@@ -84,9 +90,12 @@ export function ImportDialog({ open, onOpenChange, onImport }: Props) {
         ticker: h.ticker || '',
         weight_percent: h.weight_percent ?? null,
         value_sek: h.value_sek ?? null,
+        price: h.price ?? null,
+        shares_count: h.shares_count ?? null,
         conviction: '',
         rationale: '',
         notes: '',
+        future_plan: '',
       }));
       setPreview(holdings);
     } catch (err: any) {
