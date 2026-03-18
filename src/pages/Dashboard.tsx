@@ -39,6 +39,7 @@ export default function Dashboard() {
             rating,
             margin_of_safety,
             updated_at,
+            created_at,
             imported
           )
         `)
