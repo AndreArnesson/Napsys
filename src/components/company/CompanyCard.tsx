@@ -30,8 +30,8 @@ export function CompanyCard({ company, analysis, priceChange, isShared, onlyImpo
   const { t, language } = useLanguage();
 
   const locale = language === 'sv' ? sv : enUS;
-  const lastAnalysisDate = analysis?.updated_at 
-    ? formatDistanceToNow(new Date(analysis.updated_at), { addSuffix: true, locale })
+  const lastAnalysisDate = analysis?.created_at 
+    ? formatDistanceToNow(new Date(analysis.created_at), { addSuffix: true, locale })
     : null;
 
   const PriceIcon = priceChange && priceChange > 0 
