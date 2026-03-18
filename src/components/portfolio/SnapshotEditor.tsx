@@ -36,7 +36,7 @@ interface Holding {
   future_plan: string;
 }
 
-type SortField = 'company_name' | 'ticker' | 'weight_percent' | 'value_sek' | 'conviction';
+type SortField = 'company_name' | 'ticker' | 'weight_percent' | 'value_sek' | 'price' | 'shares_count' | 'conviction' | 'future_plan';
 type SortDir = 'asc' | 'desc';
 
 export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
