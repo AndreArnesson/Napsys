@@ -33,6 +33,9 @@ interface Holding {
   notes: string;
 }
 
+type SortField = 'company_name' | 'ticker' | 'weight_percent' | 'value_sek' | 'conviction';
+type SortDir = 'asc' | 'desc';
+
 export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
@@ -42,6 +45,46 @@ export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
   const [editingSnapshot, setEditingSnapshot] = useState<string | null>(null);
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [showImport, setShowImport] = useState(false);
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      if (sortDir === 'desc') setSortDir('asc');
+      else { setSortField(null); setSortDir('desc'); }
+    } else {
+      setSortField(field);
+      setSortDir('desc');
+    }
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-40" />;
+    return sortDir === 'desc'
+      ? <ArrowDown className="h-3 w-3 ml-1" />
+      : <ArrowUp className="h-3 w-3 ml-1" />;
+  };
+
+  const sortedHoldings = (() => {
+    if (!sortField) return holdings.map((h, i) => ({ h, i }));
+    const convictionOrder = { high: 3, medium: 2, low: 1, '': 0 };
+    return holdings
+      .map((h, i) => ({ h, i }))
+      .sort((a, b) => {
+        let av: number, bv: number;
+        if (sortField === 'conviction') {
+          av = convictionOrder[a.h.conviction as keyof typeof convictionOrder] ?? 0;
+          bv = convictionOrder[b.h.conviction as keyof typeof convictionOrder] ?? 0;
+        } else if (sortField === 'company_name' || sortField === 'ticker') {
+          const cmp = (a.h[sortField] || '').localeCompare(b.h[sortField] || '', 'sv');
+          return sortDir === 'asc' ? cmp : -cmp;
+        } else {
+          av = a.h[sortField] ?? -Infinity;
+          bv = b.h[sortField] ?? -Infinity;
+        }
+        return sortDir === 'desc' ? bv - av : av - bv;
+      });
+  })();
 
   const { data: snapshots, isLoading } = useQuery({
     queryKey: ['portfolio-snapshots', portfolioId],
