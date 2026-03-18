@@ -187,7 +187,7 @@ export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
   });
 
   const addHolding = () => {
-    setHoldings([...holdings, { company_name: '', ticker: '', weight_percent: null, value_sek: null, conviction: '', rationale: '', notes: '' }]);
+    setHoldings([...holdings, { company_name: '', ticker: '', weight_percent: null, value_sek: null, price: null, shares_count: null, conviction: '', rationale: '', notes: '', future_plan: '' }]);
   };
 
   const updateHolding = (index: number, field: keyof Holding, value: any) => {
