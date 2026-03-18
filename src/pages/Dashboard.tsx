@@ -39,6 +39,7 @@ export default function Dashboard() {
             rating,
             margin_of_safety,
             updated_at,
+            created_at,
             imported
           )
         `)
@@ -72,6 +73,7 @@ export default function Dashboard() {
             rating,
             margin_of_safety,
             updated_at,
+            created_at,
             imported
           )
         `)
@@ -257,7 +259,7 @@ export default function Dashboard() {
                           analysis={latestAnalysis ? {
                             rating: latestAnalysis.rating as 'buy' | 'hold' | 'sell' | null,
                             margin_of_safety: latestAnalysis.margin_of_safety,
-                            updated_at: latestAnalysis.updated_at,
+                            created_at: latestAnalysis.created_at,
                           } : null}
                           onlyImported={company.analyses?.length > 0 && company.analyses.every((a: any) => a.imported)}
                         />
@@ -340,7 +342,7 @@ export default function Dashboard() {
                   analysis={latestAnalysis ? {
                     rating: latestAnalysis.rating as 'buy' | 'hold' | 'sell' | null,
                     margin_of_safety: latestAnalysis.margin_of_safety,
-                    updated_at: latestAnalysis.updated_at,
+                    created_at: latestAnalysis.created_at,
                   } : null}
                   onlyImported={company.analyses?.length > 0 && company.analyses.every((a: any) => a.imported)}
                   isShared
