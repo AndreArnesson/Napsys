@@ -171,10 +171,13 @@ export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
             ticker: h.ticker || null,
             weight_percent: h.weight_percent,
             value_sek: h.value_sek,
+            price: h.price,
+            shares_count: h.shares_count,
             conviction: h.conviction || null,
             rationale: h.rationale || null,
             notes: h.notes || null,
-          }))
+            future_plan: h.future_plan || null,
+          } as any))
         );
         if (error) throw error;
       }
