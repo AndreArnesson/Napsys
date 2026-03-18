@@ -14,9 +14,12 @@ interface Holding {
   ticker: string;
   weight_percent: number | null;
   value_sek: number | null;
+  price: number | null;
+  shares_count: number | null;
   conviction: string;
   rationale: string;
   notes: string;
+  future_plan: string;
 }
 
 interface Props {
