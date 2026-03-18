@@ -277,6 +277,15 @@ export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
                 <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('conviction')}>
                   <span className="inline-flex items-center">{t.portfolio.conviction}<SortIcon field="conviction" /></span>
                 </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('price')}>
+                  <span className="inline-flex items-center">{t.portfolio.price}<SortIcon field="price" /></span>
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('shares_count')}>
+                  <span className="inline-flex items-center">{t.portfolio.sharesCount}<SortIcon field="shares_count" /></span>
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('future_plan')}>
+                  <span className="inline-flex items-center">{t.portfolio.futurePlan}<SortIcon field="future_plan" /></span>
+                </TableHead>
                 <TableHead>{t.portfolio.rationale}</TableHead>
                 <TableHead>{t.portfolio.notes}</TableHead>
                 <TableHead></TableHead>
