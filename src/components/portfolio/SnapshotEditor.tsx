@@ -319,6 +319,25 @@ export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
                     </Select>
                   </TableCell>
                   <TableCell>
+                    <Input type="number" value={h.price ?? ''} onChange={(e) => updateHolding(i, 'price', e.target.value ? parseFloat(e.target.value) : null)} className="min-w-[80px]" />
+                  </TableCell>
+                  <TableCell>
+                    <Input type="number" value={h.shares_count ?? ''} onChange={(e) => updateHolding(i, 'shares_count', e.target.value ? parseFloat(e.target.value) : null)} className="min-w-[80px]" />
+                  </TableCell>
+                  <TableCell>
+                    <Select value={h.future_plan} onValueChange={(v) => updateHolding(i, 'future_plan', v)}>
+                      <SelectTrigger className="min-w-[120px]">
+                        <SelectValue placeholder="-" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="buy_more">{t.portfolio.futurePlanBuyMore}</SelectItem>
+                        <SelectItem value="hold">{t.portfolio.futurePlanHold}</SelectItem>
+                        <SelectItem value="scale_down">{t.portfolio.futurePlanScaleDown}</SelectItem>
+                        <SelectItem value="sell_all">{t.portfolio.futurePlanSellAll}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
                     <Input value={h.rationale} onChange={(e) => updateHolding(i, 'rationale', e.target.value)} className="min-w-[150px]" />
                   </TableCell>
                   <TableCell>
