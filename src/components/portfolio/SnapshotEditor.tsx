@@ -248,18 +248,28 @@ export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{t.portfolio.companyName}</TableHead>
-                <TableHead>{t.portfolio.ticker}</TableHead>
-                <TableHead>{t.portfolio.weightPercent}</TableHead>
-                <TableHead>{t.portfolio.valueSek}</TableHead>
-                <TableHead>{t.portfolio.conviction}</TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('company_name')}>
+                  <span className="inline-flex items-center">{t.portfolio.companyName}<SortIcon field="company_name" /></span>
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('ticker')}>
+                  <span className="inline-flex items-center">{t.portfolio.ticker}<SortIcon field="ticker" /></span>
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('weight_percent')}>
+                  <span className="inline-flex items-center">{t.portfolio.weightPercent}<SortIcon field="weight_percent" /></span>
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('value_sek')}>
+                  <span className="inline-flex items-center">{t.portfolio.valueSek}<SortIcon field="value_sek" /></span>
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('conviction')}>
+                  <span className="inline-flex items-center">{t.portfolio.conviction}<SortIcon field="conviction" /></span>
+                </TableHead>
                 <TableHead>{t.portfolio.rationale}</TableHead>
                 <TableHead>{t.portfolio.notes}</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {holdings.map((h, i) => (
+              {sortedHoldings.map(({ h, i }) => (
                 <TableRow key={i}>
                   <TableCell>
                     <Input value={h.company_name} onChange={(e) => updateHolding(i, 'company_name', e.target.value)} className="min-w-[120px]" />
