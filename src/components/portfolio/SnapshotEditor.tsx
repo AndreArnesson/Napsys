@@ -71,21 +71,26 @@ export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
   const sortedHoldings = (() => {
     if (!sortField) return holdings.map((h, i) => ({ h, i }));
     const convictionOrder = { high: 3, medium: 2, low: 1, '': 0 };
+    const planOrder = { buy_more: 4, hold: 3, scale_down: 2, sell_all: 1, '': 0 };
     return holdings
       .map((h, i) => ({ h, i }))
       .sort((a, b) => {
-        let av: number, bv: number;
         if (sortField === 'conviction') {
-          av = convictionOrder[a.h.conviction as keyof typeof convictionOrder] ?? 0;
-          bv = convictionOrder[b.h.conviction as keyof typeof convictionOrder] ?? 0;
+          const av = convictionOrder[a.h.conviction as keyof typeof convictionOrder] ?? 0;
+          const bv = convictionOrder[b.h.conviction as keyof typeof convictionOrder] ?? 0;
+          return sortDir === 'desc' ? bv - av : av - bv;
+        } else if (sortField === 'future_plan') {
+          const av = planOrder[a.h.future_plan as keyof typeof planOrder] ?? 0;
+          const bv = planOrder[b.h.future_plan as keyof typeof planOrder] ?? 0;
+          return sortDir === 'desc' ? bv - av : av - bv;
         } else if (sortField === 'company_name' || sortField === 'ticker') {
           const cmp = (a.h[sortField] || '').localeCompare(b.h[sortField] || '', 'sv');
           return sortDir === 'asc' ? cmp : -cmp;
         } else {
-          av = a.h[sortField] ?? -Infinity;
-          bv = b.h[sortField] ?? -Infinity;
+          const av = a.h[sortField] ?? -Infinity;
+          const bv = b.h[sortField] ?? -Infinity;
+          return sortDir === 'desc' ? bv - av : av - bv;
         }
-        return sortDir === 'desc' ? bv - av : av - bv;
       });
   })();
 
