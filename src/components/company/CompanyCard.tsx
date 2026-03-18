@@ -19,7 +19,7 @@ interface CompanyCardProps {
   analysis?: {
     rating: 'buy' | 'hold' | 'sell' | null;
     margin_of_safety: number | null;
-    updated_at: string;
+    created_at: string;
   } | null;
   priceChange?: number;
   isShared?: boolean;
