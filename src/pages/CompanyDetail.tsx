@@ -22,7 +22,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, Loader2, ChevronDown, Plus, Trash2, FileText, Settings2, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Loader2, ChevronDown, Plus, Trash2, FileText, Settings2, Eye, EyeOff, ExternalLink } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -524,9 +524,31 @@ export default function CompanyDetail() {
                 </Link>
               )}
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               <RatingBadge rating={latestAnalysis?.rating as 'buy' | 'hold' | 'sell' | null} size="lg" />
               <MOSBadge value={latestAnalysis?.margin_of_safety} size="lg" />
+              <div className="flex items-center gap-2">
+                <a
+                  href={`https://marknadssok.fi.se/Publiceringsklient/sv-SE/Search/Search?SearchFunctionType=Insyn&Utgivare=${encodeURIComponent(company.name)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  FI Insyn
+                </a>
+                {company.ticker && (
+                  <a
+                    href={`https://borsdata.se/terminal/se/${encodeURIComponent(company.ticker.toLowerCase())}/export`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Börsdata
+                  </a>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
