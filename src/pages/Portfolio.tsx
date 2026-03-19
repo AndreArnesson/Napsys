@@ -113,7 +113,8 @@ export default function Portfolio() {
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {portfolios.map((p) => (
-                    <Card key={p.id} className="cursor-pointer hover:border-primary transition-colors" onClick={() => setSelectedPortfolio({ id: p.id, name: p.name })}>
+                    <Link key={p.id} to={`/portfolio/${p.id}`}>
+                    <Card className="cursor-pointer hover:border-primary transition-colors">
                       <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-lg">{p.name}</CardTitle>
                         <div className="flex items-center gap-1">
