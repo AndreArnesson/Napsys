@@ -62,22 +62,6 @@ export default function Portfolio() {
 
   if (!user) return <Navigate to="/auth" />;
 
-  if (selectedPortfolio) {
-    return (
-      <MainLayout>
-        <div className="space-y-6">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setSelectedPortfolio(null)}>
-              ← {t.common.back}
-            </Button>
-            <h1 className="text-2xl font-bold">{selectedPortfolio.name}</h1>
-          </div>
-          <SnapshotEditor portfolioId={selectedPortfolio.id} portfolioName={selectedPortfolio.name} />
-        </div>
-      </MainLayout>
-    );
-  }
-
   return (
     <MainLayout>
       <div className="space-y-6">
