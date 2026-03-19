@@ -21,7 +21,6 @@ export default function Portfolio() {
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
-  const [selectedPortfolio, setSelectedPortfolio] = useState<{ id: string; name: string } | null>(null);
   const sv = language === 'sv';
 
   const { data: portfolios, isLoading } = useQuery({
