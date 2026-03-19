@@ -13,6 +13,7 @@ import AnalysisEditor from "./pages/AnalysisEditor";
 import Settings from "./pages/Settings";
 import AdminImport from "./pages/AdminImport";
 import Portfolio from "./pages/Portfolio";
+import PortfolioDetail from "./pages/PortfolioDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
