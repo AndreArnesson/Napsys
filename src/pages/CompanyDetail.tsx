@@ -695,12 +695,46 @@ export default function CompanyDetail() {
                   )}
 
                   {sections.images && (
-                    <ImageUpload
-                      images={companyImages}
-                      onImagesChange={(imgs) => updateCompany.mutate({ images: imgs })}
-                      title="Bilder"
-                      folder={`company/${id}`}
-                    />
+                    <>
+                      <ImageUpload
+                        images={companyImages}
+                        onImagesChange={(imgs) => updateCompany.mutate({ images: imgs })}
+                        title="Bilder"
+                        folder={`company/${id}`}
+                      />
+                      {/* Analysis-linked images */}
+                      {allAnalyses && allAnalyses.filter((a: any) => {
+                        const imgs = (a as any).images as string[] | null;
+                        return imgs && imgs.length > 0;
+                      }).map((a: any) => {
+                        const imgs = (a as any).images as string[];
+                        const label = (a as any).name || 'Namnlös analys';
+                        return (
+                          <Card key={a.id}>
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-lg flex items-center gap-2">
+                                <FileText className="h-4 w-4" />
+                                Bilder från analys: {label}
+                              </CardTitle>
+                              <CardDescription>
+                                <Link to={`/company/${id}/analysis/${a.id}`} className="text-primary hover:underline text-xs">
+                                  Öppna analys →
+                                </Link>
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                {imgs.map((url: string, i: number) => (
+                                  <div key={i} className="relative group aspect-video rounded-lg overflow-hidden border cursor-pointer">
+                                    <img src={url} alt="" className="w-full h-full object-cover" />
+                                  </div>
+                                ))}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </>
                   )}
                 </>
               );
