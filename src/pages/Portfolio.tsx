@@ -11,8 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Briefcase, ChevronRight, Trash2, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
-import { Navigate } from 'react-router-dom';
-import { SnapshotEditor } from '@/components/portfolio/SnapshotEditor';
+import { Navigate, Link } from 'react-router-dom';
 import { PortfolioOverview } from '@/components/portfolio/PortfolioOverview';
 import { EconomyOverview } from '@/components/economy/EconomyOverview';
 
@@ -22,7 +21,6 @@ export default function Portfolio() {
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
-  const [selectedPortfolio, setSelectedPortfolio] = useState<{ id: string; name: string } | null>(null);
   const sv = language === 'sv';
 
   const { data: portfolios, isLoading } = useQuery({
@@ -58,28 +56,11 @@ export default function Portfolio() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolios'] });
-      if (selectedPortfolio) setSelectedPortfolio(null);
     },
     onError: () => toast.error(t.common.error),
   });
 
   if (!user) return <Navigate to="/auth" />;
-
-  if (selectedPortfolio) {
-    return (
-      <MainLayout>
-        <div className="space-y-6">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setSelectedPortfolio(null)}>
-              ← {t.common.back}
-            </Button>
-            <h1 className="text-2xl font-bold">{selectedPortfolio.name}</h1>
-          </div>
-          <SnapshotEditor portfolioId={selectedPortfolio.id} portfolioName={selectedPortfolio.name} />
-        </div>
-      </MainLayout>
-    );
-  }
 
   return (
     <MainLayout>
@@ -132,7 +113,8 @@ export default function Portfolio() {
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {portfolios.map((p) => (
-                    <Card key={p.id} className="cursor-pointer hover:border-primary transition-colors" onClick={() => setSelectedPortfolio({ id: p.id, name: p.name })}>
+                    <Link key={p.id} to={`/portfolio/${p.id}`}>
+                    <Card className="cursor-pointer hover:border-primary transition-colors">
                       <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-lg">{p.name}</CardTitle>
                         <div className="flex items-center gap-1">
@@ -141,6 +123,7 @@ export default function Portfolio() {
                             size="icon"
                             className="h-8 w-8"
                             onClick={(e) => {
+                              e.preventDefault();
                               e.stopPropagation();
                               if (confirm(t.common.confirm + '?')) deletePortfolio.mutate(p.id);
                             }}
@@ -156,6 +139,7 @@ export default function Portfolio() {
                         </p>
                       </CardContent>
                     </Card>
+                    </Link>
                   ))}
                 </div>
               )}
