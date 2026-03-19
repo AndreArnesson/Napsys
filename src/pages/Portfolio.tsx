@@ -56,7 +56,6 @@ export default function Portfolio() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolios'] });
-      if (selectedPortfolio) setSelectedPortfolio(null);
     },
     onError: () => toast.error(t.common.error),
   });
