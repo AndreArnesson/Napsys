@@ -123,6 +123,7 @@ export default function Portfolio() {
                             size="icon"
                             className="h-8 w-8"
                             onClick={(e) => {
+                              e.preventDefault();
                               e.stopPropagation();
                               if (confirm(t.common.confirm + '?')) deletePortfolio.mutate(p.id);
                             }}
