@@ -139,6 +139,7 @@ export default function Portfolio() {
                       </CardContent>
                     </Card>
                     </Link>
+                  ))}
                 </div>
               )}
 
