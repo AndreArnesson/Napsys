@@ -277,7 +277,7 @@ export default function Dashboard() {
                               variant="ghost"
                               size="icon"
                               className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive h-7 w-7 z-10"
-                              onClick={(e) => e.preventDefault()}
+                               type="button"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
