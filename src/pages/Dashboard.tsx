@@ -290,10 +290,17 @@ export default function Dashboard() {
                             <AlertDialogFooter>
                               <AlertDialogCancel>Avbryt</AlertDialogCancel>
                               <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => {
+                                // Delete all related data before company
+                                await supabase.from('report_documents').delete().eq('company_id', company.id);
+                                await supabase.from('quarterly_income_statement').delete().eq('company_id', company.id);
+                                await supabase.from('quarterly_balance_sheet').delete().eq('company_id', company.id);
                                 await supabase.from('income_statement').delete().eq('company_id', company.id);
                                 await supabase.from('balance_sheet').delete().eq('company_id', company.id);
-                                await supabase.from('analyses').delete().eq('company_id', company.id);
+                                await supabase.from('timeline_events').delete().eq('company_id', company.id);
                                 await supabase.from('insider_trades').delete().eq('company_id', company.id);
+                                await supabase.from('shares').delete().eq('company_id', company.id);
+                                await supabase.from('watchlist').delete().eq('company_id', company.id);
+                                await supabase.from('analyses').delete().eq('company_id', company.id);
                                 await supabase.from('companies').delete().eq('id', company.id);
                                 queryClient.invalidateQueries({ queryKey: ['companies'] });
                                 toast.success(`${company.name} borttagen`);
