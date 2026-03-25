@@ -281,7 +281,7 @@ export default function AnalysisEditor() {
       setIsSaving(true);
       saveMutation.mutate();
     }, 3000),
-    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, isLocked, investmentHoldings]
+    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, isLocked, investmentHoldings, navDiscount]
   );
 
   const toggleLock = async () => {
@@ -299,7 +299,7 @@ export default function AnalysisEditor() {
       debouncedSave();
     }
     return () => debouncedSave.cancel();
-  }, [rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, investmentHoldings, debouncedSave]);
+  }, [rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, investmentHoldings, navDiscount, debouncedSave]);
 
   // Handle per-analysis financial import
   const handleAnalysisImport = async (data: ParsedFinancialData[], companyInfo?: ParsedCompanyInfo) => {
