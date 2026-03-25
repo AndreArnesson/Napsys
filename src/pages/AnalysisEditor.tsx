@@ -48,6 +48,7 @@ export default function AnalysisEditor() {
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [isLocked, setIsLocked] = useState(false);
   const [investmentHoldings, setInvestmentHoldings] = useState<InvestmentHolding[]>([]);
+  const [navDiscount, setNavDiscount] = useState<string>('');
 
   // Undo/Redo stacks for projections
   const undoStackRef = useRef<YearlyProjection[][]>([]);
