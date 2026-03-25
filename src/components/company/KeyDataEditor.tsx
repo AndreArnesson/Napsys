@@ -140,13 +140,24 @@ export function KeyDataEditor({ data, onUpdate, readOnly = false, companyId }: K
 
           <div className="space-y-2">
             <Label>{t.company.ticker}</Label>
-            <Input
-              placeholder="e.g. VOLV-B"
-              value={localData.ticker || ''}
-              onChange={(e) => handleChange('ticker', e.target.value.toUpperCase())}
-              onBlur={() => handleBlur('ticker')}
-              disabled={readOnly}
-            />
+            <div className="flex gap-2">
+              <Input
+                placeholder="e.g. EXO.AS"
+                value={localData.ticker || ''}
+                onChange={(e) => handleChange('ticker', e.target.value.toUpperCase())}
+                onBlur={() => handleBlur('ticker')}
+                disabled={readOnly}
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setTickerSearchOpen(true)}
+                disabled={readOnly}
+                title="Sök ticker"
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           
           <div className="space-y-2">
