@@ -572,7 +572,42 @@ export default function AnalysisEditor() {
               </CardContent>
             </Card>
 
-            {/* Quarterly toggle */}
+            {/* NAV Discount for investment companies */}
+            {isInvestmentCompany && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Substansrabatt</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Aktuell rabatt/premie (%)</Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      placeholder="T.ex. -15 för 15% rabatt"
+                      value={navDiscount}
+                      onChange={(e) => setNavDiscount(e.target.value)}
+                      className="font-mono"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Negativt = rabatt, positivt = premie. Beräknas som (aktiekurs − substansvärde) / substansvärde.
+                    </p>
+                  </div>
+                  {navDiscount && (
+                    <div className="pt-2 border-t">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Status</span>
+                        <span className={`font-medium ${parseFloat(navDiscount) < 0 ? 'text-emerald-600 dark:text-emerald-400' : parseFloat(navDiscount) > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                          {parseFloat(navDiscount) < 0 ? `${Math.abs(parseFloat(navDiscount)).toFixed(1)}% rabatt` : parseFloat(navDiscount) > 0 ? `${parseFloat(navDiscount).toFixed(1)}% premie` : 'Handlas till substansvärde'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+
             <Card>
               <CardContent className="pt-4 space-y-3">
                 <div className="flex items-center justify-between">
