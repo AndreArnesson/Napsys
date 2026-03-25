@@ -210,7 +210,10 @@ export default function AnalysisEditor() {
         if (isInvestmentType) {
           // Investment holdings stored in adjustments
           setInvestmentHoldings(savedAdjustments.filter((a: any) => a._type === 'investment_holding').map((a: any) => ({ ...a, _type: undefined })));
-          setAdjustments(savedAdjustments.filter((a: any) => a._type !== 'investment_holding'));
+          // Extract nav discount
+          const discountEntry = savedAdjustments.find((a: any) => a._type === 'nav_discount');
+          if (discountEntry) setNavDiscount(String(discountEntry.value ?? ''));
+          setAdjustments(savedAdjustments.filter((a: any) => a._type !== 'investment_holding' && a._type !== 'nav_discount'));
         } else {
           setAdjustments(savedAdjustments);
         }
