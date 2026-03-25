@@ -149,23 +149,52 @@ export function KeyDataEditor({ data, onUpdate, readOnly = false, companyId }: K
           
           <div className="space-y-2">
             <Label>Börs</Label>
-            <Select
-              value={localData.exchange || 'stockholm'}
-              onValueChange={(value) => {
-                handleChange('exchange', value);
-                onUpdate({ exchange: value } as any);
-              }}
-              disabled={readOnly}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {EXCHANGES.map(ex => (
-                  <SelectItem key={ex.value} value={ex.value}>{ex.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {EXCHANGES.some(ex => ex.value === localData.exchange) || !localData.exchange ? (
+              <Select
+                value={localData.exchange || 'stockholm'}
+                onValueChange={(value) => {
+                  if (value === 'other') {
+                    handleChange('exchange', '');
+                    // Don't save yet, let user type
+                  } else {
+                    handleChange('exchange', value);
+                    onUpdate({ exchange: value } as any);
+                  }
+                }}
+                disabled={readOnly}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXCHANGES.map(ex => (
+                    <SelectItem key={ex.value} value={ex.value}>{ex.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  placeholder="T.ex. .XETRA, .JO"
+                  value={localData.exchange || ''}
+                  onChange={(e) => handleChange('exchange', e.target.value)}
+                  onBlur={() => handleBlur('exchange')}
+                  disabled={readOnly}
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    handleChange('exchange', 'stockholm');
+                    onUpdate({ exchange: 'stockholm' } as any);
+                  }}
+                  disabled={readOnly}
+                  title="Välj från lista"
+                >
+                  ✕
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
