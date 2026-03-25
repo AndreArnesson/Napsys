@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Trash2, GripVertical } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 
 export interface InvestmentHolding {
   id: string;
@@ -18,6 +19,13 @@ export interface InvestmentHolding {
   moat?: string;
   profit_comment?: string;
   notes?: string;
+  // Valuation fields
+  is_listed?: boolean;
+  market_cap?: number;
+  pe_ratio?: number;
+  ev_ebit?: number;
+  nav_value?: number;
+  valuation_comment?: string;
 }
 
 interface InvestmentHoldingsProps {
@@ -34,6 +42,7 @@ export function InvestmentHoldings({ holdings, onHoldingsChange, readOnly }: Inv
       id: crypto.randomUUID(),
       name: '',
       conviction: 'medium',
+      is_listed: true,
     };
     onHoldingsChange([...holdings, newHolding]);
     setExpandedId(newHolding.id);
@@ -49,12 +58,6 @@ export function InvestmentHoldings({ holdings, onHoldingsChange, readOnly }: Inv
   };
 
   const totalWeight = holdings.reduce((sum, h) => sum + (h.weight_percent || 0), 0);
-
-  const convictionColor = (c?: string) => {
-    if (c === 'high') return 'text-emerald-600 dark:text-emerald-400';
-    if (c === 'low') return 'text-destructive';
-    return 'text-muted-foreground';
-  };
 
   return (
     <Card>
@@ -75,10 +78,11 @@ export function InvestmentHoldings({ holdings, onHoldingsChange, readOnly }: Inv
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[200px]">Bolag</TableHead>
-                  <TableHead className="w-[100px]">Ticker</TableHead>
-                  <TableHead className="w-[80px] text-right">Andel %</TableHead>
-                  <TableHead className="w-[100px]">Conviction</TableHead>
+                  <TableHead className="w-[180px]">Bolag</TableHead>
+                  <TableHead className="w-[90px]">Ticker</TableHead>
+                  <TableHead className="w-[70px] text-right">Andel %</TableHead>
+                  <TableHead className="w-[80px]">Conviction</TableHead>
+                  <TableHead className="w-[70px] text-center">Noterat</TableHead>
                   <TableHead>Framtidsutsikt</TableHead>
                   <TableHead className="w-[50px]" />
                 </TableRow>
@@ -137,6 +141,11 @@ export function InvestmentHoldings({ holdings, onHoldingsChange, readOnly }: Inv
                         </SelectContent>
                       </Select>
                     </TableCell>
+                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                      <span className={`text-xs font-medium ${holding.is_listed !== false ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                        {holding.is_listed !== false ? 'Noterat' : 'Onoterat'}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       <span className="text-sm text-muted-foreground line-clamp-1">
                         {holding.outlook || '—'}
@@ -169,6 +178,87 @@ export function InvestmentHoldings({ holdings, onHoldingsChange, readOnly }: Inv
             <Card className="border-primary/20 bg-muted/30">
               <CardContent className="pt-4 space-y-4">
                 <p className="text-sm font-medium">{h.name || 'Nytt innehav'} — detaljer</p>
+
+                {/* Listed / Unlisted toggle */}
+                <div className="flex items-center gap-3">
+                  <Label className="text-xs text-muted-foreground">Noterat innehav</Label>
+                  <Switch
+                    checked={h.is_listed !== false}
+                    onCheckedChange={(checked) => updateHolding(h.id, { is_listed: checked })}
+                    disabled={readOnly}
+                  />
+                </div>
+
+                {/* Valuation section */}
+                <div className="rounded-md border bg-background p-3 space-y-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Värdering</p>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {h.is_listed !== false ? (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Börsvärde (Mdr)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={h.market_cap ?? ''}
+                            onChange={(e) => updateHolding(h.id, { market_cap: e.target.value ? parseFloat(e.target.value) : undefined })}
+                            placeholder="—"
+                            className="h-8 font-mono text-xs"
+                            disabled={readOnly}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">P/E</Label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={h.pe_ratio ?? ''}
+                            onChange={(e) => updateHolding(h.id, { pe_ratio: e.target.value ? parseFloat(e.target.value) : undefined })}
+                            placeholder="—"
+                            className="h-8 font-mono text-xs"
+                            disabled={readOnly}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">EV/EBIT</Label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={h.ev_ebit ?? ''}
+                            onChange={(e) => updateHolding(h.id, { ev_ebit: e.target.value ? parseFloat(e.target.value) : undefined })}
+                            placeholder="—"
+                            className="h-8 font-mono text-xs"
+                            disabled={readOnly}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="space-y-1 md:col-span-2">
+                        <Label className="text-xs text-muted-foreground">Uppskattat värde (Mdr)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={h.nav_value ?? ''}
+                          onChange={(e) => updateHolding(h.id, { nav_value: e.target.value ? parseFloat(e.target.value) : undefined })}
+                          placeholder="—"
+                          className="h-8 font-mono text-xs"
+                          disabled={readOnly}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Värderingskommentar</Label>
+                    <Textarea
+                      value={h.valuation_comment || ''}
+                      onChange={(e) => updateHolding(h.id, { valuation_comment: e.target.value })}
+                      placeholder="Kommentar om värdering, multiplar, jämförelser..."
+                      rows={2}
+                      disabled={readOnly}
+                    />
+                  </div>
+                </div>
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Framtidsutsikt / Outlook</Label>

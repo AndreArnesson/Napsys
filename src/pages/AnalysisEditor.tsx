@@ -48,6 +48,7 @@ export default function AnalysisEditor() {
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [isLocked, setIsLocked] = useState(false);
   const [investmentHoldings, setInvestmentHoldings] = useState<InvestmentHolding[]>([]);
+  const [navDiscount, setNavDiscount] = useState<string>('');
 
   // Undo/Redo stacks for projections
   const undoStackRef = useRef<YearlyProjection[][]>([]);
@@ -209,7 +210,10 @@ export default function AnalysisEditor() {
         if (isInvestmentType) {
           // Investment holdings stored in adjustments
           setInvestmentHoldings(savedAdjustments.filter((a: any) => a._type === 'investment_holding').map((a: any) => ({ ...a, _type: undefined })));
-          setAdjustments(savedAdjustments.filter((a: any) => a._type !== 'investment_holding'));
+          // Extract nav discount
+          const discountEntry = savedAdjustments.find((a: any) => a._type === 'nav_discount');
+          if (discountEntry) setNavDiscount(String(discountEntry.value ?? ''));
+          setAdjustments(savedAdjustments.filter((a: any) => a._type !== 'investment_holding' && a._type !== 'nav_discount'));
         } else {
           setAdjustments(savedAdjustments);
         }
@@ -252,7 +256,9 @@ export default function AnalysisEditor() {
           images: analysisImages,
           employees: employees ? parseInt(employees) : null,
           visible_sections: analysisSections,
-          adjustments: adjustments,
+          adjustments: isInvestmentCompany
+            ? [...adjustments, ...(navDiscount ? [{ _type: 'nav_discount', value: parseFloat(navDiscount) }] : [])]
+            : adjustments,
         } as any)
         .eq('id', analysisId);
       if (error) throw error;
@@ -275,7 +281,7 @@ export default function AnalysisEditor() {
       setIsSaving(true);
       saveMutation.mutate();
     }, 3000),
-    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, isLocked, investmentHoldings]
+    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, isLocked, investmentHoldings, navDiscount]
   );
 
   const toggleLock = async () => {
@@ -293,7 +299,7 @@ export default function AnalysisEditor() {
       debouncedSave();
     }
     return () => debouncedSave.cancel();
-  }, [rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, investmentHoldings, debouncedSave]);
+  }, [rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, investmentHoldings, navDiscount, debouncedSave]);
 
   // Handle per-analysis financial import
   const handleAnalysisImport = async (data: ParsedFinancialData[], companyInfo?: ParsedCompanyInfo) => {
@@ -566,7 +572,42 @@ export default function AnalysisEditor() {
               </CardContent>
             </Card>
 
-            {/* Quarterly toggle */}
+            {/* NAV Discount for investment companies */}
+            {isInvestmentCompany && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Substansrabatt</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Aktuell rabatt/premie (%)</Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      placeholder="T.ex. -15 för 15% rabatt"
+                      value={navDiscount}
+                      onChange={(e) => setNavDiscount(e.target.value)}
+                      className="font-mono"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Negativt = rabatt, positivt = premie. Beräknas som (aktiekurs − substansvärde) / substansvärde.
+                    </p>
+                  </div>
+                  {navDiscount && (
+                    <div className="pt-2 border-t">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Status</span>
+                        <span className={`font-medium ${parseFloat(navDiscount) < 0 ? 'text-emerald-600 dark:text-emerald-400' : parseFloat(navDiscount) > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                          {parseFloat(navDiscount) < 0 ? `${Math.abs(parseFloat(navDiscount)).toFixed(1)}% rabatt` : parseFloat(navDiscount) > 0 ? `${parseFloat(navDiscount).toFixed(1)}% premie` : 'Handlas till substansvärde'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+
             <Card>
               <CardContent className="pt-4 space-y-3">
                 <div className="flex items-center justify-between">
