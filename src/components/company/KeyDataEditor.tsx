@@ -109,6 +109,7 @@ export function KeyDataEditor({ data, onUpdate, readOnly = false, companyId }: K
   };
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>Key Data</CardTitle>
