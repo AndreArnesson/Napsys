@@ -12,16 +12,68 @@ const EXCHANGE_SUFFIXES: Record<string, string> = {
   oslo: ".OL",
   frankfurt: ".F",
   london: ".L",
+  paris: ".PA",
+  amsterdam: ".AS",
+  brussels: ".BR",
+  zurich: ".SW",
+  milan: ".MI",
+  madrid: ".MC",
+  toronto: ".TO",
+  sydney: ".AX",
+  tokyo: ".T",
+  hong_kong: ".HK",
+  singapore: ".SI",
+  mumbai: ".NS",
   nasdaq: "",
   nyse: "",
   us: "",
 };
 
+async function fetchPrice(symbol: string) {
+  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d`;
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    },
+  });
+  if (!response.ok) return null;
+  const data = await response.json();
+  return data?.chart?.result?.[0] || null;
+}
+
+async function searchTicker(query: string) {
+  const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=8&newsCount=0&enableFuzzyQuery=true&quotesQueryId=tss_match_phrase_query`;
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    },
+  });
+  if (!response.ok) return [];
+  const data = await response.json();
+  return (data?.quotes || []).map((q: any) => ({
+    symbol: q.symbol,
+    name: q.shortname || q.longname || q.symbol,
+    exchange: q.exchDisp || q.exchange,
+    type: q.quoteType,
+  }));
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { ticker, exchange = "stockholm" } = await req.json();
+    const body = await req.json();
+    
+    // Ticker search mode
+    if (body.search) {
+      const results = await searchTicker(body.search);
+      return new Response(JSON.stringify({ results }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Price fetch mode
+    const { ticker, exchange = "stockholm" } = body;
     if (!ticker) {
       return new Response(JSON.stringify({ error: "Ticker is required" }), {
         status: 400,
@@ -29,29 +81,10 @@ serve(async (req) => {
       });
     }
 
-    const suffix = EXCHANGE_SUFFIXES[exchange.toLowerCase()] ?? ".ST";
+    const suffix = EXCHANGE_SUFFIXES[exchange.toLowerCase()] ?? "";
     const symbol = ticker.includes(".") ? ticker : `${ticker}${suffix}`;
 
-    // Use v8 chart endpoint which is still publicly accessible
-    const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d`;
-    
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      },
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("Yahoo Finance error:", response.status, text);
-      return new Response(JSON.stringify({ error: `Could not fetch stock price for ${symbol}` }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const data = await response.json();
-    const result = data?.chart?.result?.[0];
+    const result = await fetchPrice(symbol);
 
     if (!result) {
       return new Response(JSON.stringify({ error: `No data found for ${symbol}` }), {

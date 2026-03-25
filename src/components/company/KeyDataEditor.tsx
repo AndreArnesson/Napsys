@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
+import { Loader2, RefreshCw, TrendingUp, TrendingDown, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import { TickerSearch } from './TickerSearch';
 
 interface KeyData {
   ticker?: string;
@@ -62,6 +63,7 @@ export function KeyDataEditor({ data, onUpdate, readOnly = false, companyId }: K
   const [localData, setLocalData] = useState<KeyData>(data);
   const [fetchingPrice, setFetchingPrice] = useState(false);
   const [stockResult, setStockResult] = useState<StockPriceResult | null>(null);
+  const [tickerSearchOpen, setTickerSearchOpen] = useState(false);
 
   useEffect(() => {
     setLocalData(data);
@@ -107,6 +109,7 @@ export function KeyDataEditor({ data, onUpdate, readOnly = false, companyId }: K
   };
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>Key Data</CardTitle>
@@ -138,13 +141,24 @@ export function KeyDataEditor({ data, onUpdate, readOnly = false, companyId }: K
 
           <div className="space-y-2">
             <Label>{t.company.ticker}</Label>
-            <Input
-              placeholder="e.g. VOLV-B"
-              value={localData.ticker || ''}
-              onChange={(e) => handleChange('ticker', e.target.value.toUpperCase())}
-              onBlur={() => handleBlur('ticker')}
-              disabled={readOnly}
-            />
+            <div className="flex gap-2">
+              <Input
+                placeholder="e.g. EXO.AS"
+                value={localData.ticker || ''}
+                onChange={(e) => handleChange('ticker', e.target.value.toUpperCase())}
+                onBlur={() => handleBlur('ticker')}
+                disabled={readOnly}
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setTickerSearchOpen(true)}
+                disabled={readOnly}
+                title="Sök ticker"
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           
           <div className="space-y-2">
@@ -284,5 +298,16 @@ export function KeyDataEditor({ data, onUpdate, readOnly = false, companyId }: K
         </div>
       </CardContent>
     </Card>
+
+      <TickerSearch
+        open={tickerSearchOpen}
+        onOpenChange={setTickerSearchOpen}
+        onSelect={(symbol) => {
+          handleChange('ticker', symbol);
+          onUpdate({ ticker: symbol } as any);
+        }}
+        companyName={localData.ticker || ''}
+      />
+    </>
   );
 }
