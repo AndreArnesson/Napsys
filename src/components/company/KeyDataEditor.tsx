@@ -63,6 +63,7 @@ export function KeyDataEditor({ data, onUpdate, readOnly = false, companyId }: K
   const [localData, setLocalData] = useState<KeyData>(data);
   const [fetchingPrice, setFetchingPrice] = useState(false);
   const [stockResult, setStockResult] = useState<StockPriceResult | null>(null);
+  const [tickerSearchOpen, setTickerSearchOpen] = useState(false);
 
   useEffect(() => {
     setLocalData(data);
