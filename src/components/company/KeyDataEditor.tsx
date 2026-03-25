@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
+import { Loader2, RefreshCw, TrendingUp, TrendingDown, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import { TickerSearch } from './TickerSearch';
 
 interface KeyData {
   ticker?: string;
