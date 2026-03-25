@@ -256,7 +256,9 @@ export default function AnalysisEditor() {
           images: analysisImages,
           employees: employees ? parseInt(employees) : null,
           visible_sections: analysisSections,
-          adjustments: adjustments,
+          adjustments: isInvestmentCompany
+            ? [...adjustments, ...(navDiscount ? [{ _type: 'nav_discount', value: parseFloat(navDiscount) }] : [])]
+            : adjustments,
         } as any)
         .eq('id', analysisId);
       if (error) throw error;
