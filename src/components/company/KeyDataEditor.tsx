@@ -297,5 +297,16 @@ export function KeyDataEditor({ data, onUpdate, readOnly = false, companyId }: K
         </div>
       </CardContent>
     </Card>
+
+      <TickerSearch
+        open={tickerSearchOpen}
+        onOpenChange={setTickerSearchOpen}
+        onSelect={(symbol) => {
+          handleChange('ticker', symbol);
+          onUpdate({ ticker: symbol } as any);
+        }}
+        companyName={localData.ticker || ''}
+      />
+    </>
   );
 }
