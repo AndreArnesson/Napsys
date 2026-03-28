@@ -419,11 +419,7 @@ export default function Dashboard() {
                   (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
                 );
                 const latestAnalysis = sortedAnalyses[0];
-                const analysisPriceAtCreation = latestAnalysis?.current_price;
-                const currentPrice = company.current_price;
-                const priceChangeSinceAnalysis = analysisPriceAtCreation && currentPrice
-                  ? ((currentPrice - analysisPriceAtCreation) / analysisPriceAtCreation) * 100
-                  : undefined;
+                const priceChangeSinceAnalysis = getPriceChange(company);
                 return (
                 <CompanyCard
                   key={company.id}
