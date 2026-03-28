@@ -301,16 +301,11 @@ export default function Dashboard() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filteredCompanies.map((company) => {
-                // Find the latest analysis (most recent by created_at)
                 const sortedAnalyses = [...(company.analyses || [])].sort(
                   (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
                 );
                 const latestAnalysis = sortedAnalyses[0];
-                const analysisPriceAtCreation = latestAnalysis?.current_price;
-                const currentPrice = company.current_price;
-                const priceChangeSinceAnalysis = analysisPriceAtCreation && currentPrice
-                  ? ((currentPrice - analysisPriceAtCreation) / analysisPriceAtCreation) * 100
-                  : undefined;
+                const priceChangeSinceAnalysis = getPriceChange(company);
                 return (
                   <div key={company.id} className="relative group">
                     {renamingId === company.id ? (
