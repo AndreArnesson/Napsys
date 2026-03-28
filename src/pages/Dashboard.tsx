@@ -6,14 +6,17 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { CompanyCard } from '@/components/company/CompanyCard';
 import { WatchlistSection } from '@/components/watchlist/WatchlistSection';
-import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, Building2, Loader2, Trash2, Pencil } from 'lucide-react';
+import { Plus, Search, Building2, Loader2, Trash2, Pencil, ArrowUpDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+
+type SortOption = 'latest_analysis' | 'name_asc' | 'name_desc' | 'price_up' | 'price_down' | 'mos_high' | 'mos_low';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -26,6 +29,7 @@ export default function Dashboard() {
   const [creating, setCreating] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [sortBy, setSortBy] = useState<SortOption>('latest_analysis');
 
   // Fetch user's companies with their latest analysis
   const { data: companies, isLoading: companiesLoading, refetch: refetchCompanies } = useQuery({
@@ -130,16 +134,62 @@ export default function Dashboard() {
     }
   };
 
-  // Filter companies based on search
-  const filteredCompanies = companies?.filter(company =>
-    company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    company.ticker?.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  const getPriceChange = (company: any) => {
+    const sorted = [...(company.analyses || [])].sort(
+      (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    const latest = sorted[0];
+    if (!latest?.current_price || !company.current_price) return undefined;
+    return ((company.current_price - latest.current_price) / latest.current_price) * 100;
+  };
 
-  const filteredShared = sharedCompanies?.filter(company =>
+  const getLatestAnalysisDate = (company: any) => {
+    const sorted = [...(company.analyses || [])].sort(
+      (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    return sorted[0]?.created_at ? new Date(sorted[0].created_at).getTime() : 0;
+  };
+
+  const getLatestMOS = (company: any) => {
+    const sorted = [...(company.analyses || [])].sort(
+      (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    return sorted[0]?.margin_of_safety ?? null;
+  };
+
+  const sortCompanies = (list: any[]) => {
+    return [...list].sort((a, b) => {
+      switch (sortBy) {
+        case 'latest_analysis':
+          return getLatestAnalysisDate(b) - getLatestAnalysisDate(a);
+        case 'name_asc':
+          return a.name.localeCompare(b.name, 'sv');
+        case 'name_desc':
+          return b.name.localeCompare(a.name, 'sv');
+        case 'price_up':
+          return (getPriceChange(b) ?? -Infinity) - (getPriceChange(a) ?? -Infinity);
+        case 'price_down':
+          return (getPriceChange(a) ?? Infinity) - (getPriceChange(b) ?? Infinity);
+        case 'mos_high':
+          return (getLatestMOS(b) ?? -Infinity) - (getLatestMOS(a) ?? -Infinity);
+        case 'mos_low':
+          return (getLatestMOS(a) ?? Infinity) - (getLatestMOS(b) ?? Infinity);
+        default:
+          return 0;
+      }
+    });
+  };
+
+  // Filter companies based on search
+  const filteredCompanies = sortCompanies(companies?.filter(company =>
     company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     company.ticker?.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  ) || []);
+
+  const filteredShared = sortCompanies(sharedCompanies?.filter(company =>
+    company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    company.ticker?.toLowerCase().includes(searchQuery.toLowerCase())
+  ) || []);
 
   return (
     <MainLayout>
@@ -199,15 +249,32 @@ export default function Dashboard() {
           </Dialog>
         </div>
 
-        {/* Search */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder={t.dashboard.searchPlaceholder}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+        {/* Search and Sort */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={t.dashboard.searchPlaceholder}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+            <SelectTrigger className="w-[220px] gap-2">
+              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="latest_analysis">Senaste analys</SelectItem>
+              <SelectItem value="name_asc">Namn A–Ö</SelectItem>
+              <SelectItem value="name_desc">Namn Ö–A</SelectItem>
+              <SelectItem value="price_up">Högst kursökning</SelectItem>
+              <SelectItem value="price_down">Störst kursnedgång</SelectItem>
+              <SelectItem value="mos_high">Högst MOS</SelectItem>
+              <SelectItem value="mos_low">Lägst MOS</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* My Companies */}
