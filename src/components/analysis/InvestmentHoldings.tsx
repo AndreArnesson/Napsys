@@ -82,15 +82,32 @@ export function InvestmentHoldings({ holdings, onHoldingsChange, readOnly }: Inv
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Portföljinnehav</CardTitle>
-        <CardDescription>
-          Investmentbolagets innehav — {holdings.length} poster
-          {totalWeight > 0 && (
-            <span className={`ml-2 font-mono ${Math.abs(totalWeight - 100) < 0.5 ? 'text-emerald-600 dark:text-emerald-400' : 'text-warning'}`}>
-              ({totalWeight.toFixed(1)}%)
-            </span>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Portföljinnehav</CardTitle>
+            <CardDescription>
+              Investmentbolagets innehav — {holdings.length} poster
+              {totalWeight > 0 && (
+                <span className={`ml-2 font-mono ${Math.abs(totalWeight - 100) < 0.5 ? 'text-emerald-600 dark:text-emerald-400' : 'text-warning'}`}>
+                  ({totalWeight.toFixed(1)}%)
+                </span>
+              )}
+            </CardDescription>
+          </div>
+          {holdings.length > 1 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs gap-1.5"
+              onClick={() => {
+                const sorted = [...holdings].sort((a, b) => (b.weight_percent || 0) - (a.weight_percent || 0));
+                onHoldingsChange(sorted);
+              }}
+            >
+              <ArrowDown className="h-3 w-3" />Sortera på andel
+            </Button>
           )}
-        </CardDescription>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {holdings.length > 0 && (
