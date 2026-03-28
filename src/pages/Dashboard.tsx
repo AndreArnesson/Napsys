@@ -75,7 +75,8 @@ export default function Dashboard() {
             margin_of_safety,
             updated_at,
             created_at,
-            imported
+            imported,
+            current_price
           )
         `)
         .in('id', companyIds)
@@ -352,7 +353,15 @@ export default function Dashboard() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filteredShared.map((company) => {
-                const latestAnalysis = company.analyses?.[0];
+                const sortedAnalyses = [...(company.analyses || [])].sort(
+                  (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                );
+                const latestAnalysis = sortedAnalyses[0];
+                const analysisPriceAtCreation = latestAnalysis?.current_price;
+                const currentPrice = company.current_price;
+                const priceChangeSinceAnalysis = analysisPriceAtCreation && currentPrice
+                  ? ((currentPrice - analysisPriceAtCreation) / analysisPriceAtCreation) * 100
+                  : undefined;
                 return (
                 <CompanyCard
                   key={company.id}
@@ -362,6 +371,7 @@ export default function Dashboard() {
                     margin_of_safety: latestAnalysis.margin_of_safety,
                     created_at: latestAnalysis.created_at,
                   } : null}
+                  priceChange={priceChangeSinceAnalysis}
                   onlyImported={company.analyses?.length > 0 && company.analyses.every((a: any) => a.imported)}
                   isShared
                 />
