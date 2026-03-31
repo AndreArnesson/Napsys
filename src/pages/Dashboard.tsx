@@ -308,7 +308,35 @@ export default function Dashboard() {
           </Select>
         </div>
 
-        {/* My Companies */}
+        {/* Price Fetch Error Notifications */}
+        {priceErrors && priceErrors.length > 0 && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-destructive font-medium">
+                <AlertTriangle className="h-4 w-4" />
+                <span>Misslyckade kurshämtningar ({priceErrors.length})</span>
+              </div>
+              <Button variant="ghost" size="sm" onClick={dismissAllErrors} className="text-xs text-muted-foreground">
+                Markera alla som lösta
+              </Button>
+            </div>
+            <div className="space-y-1">
+              {priceErrors.map((err) => (
+                <div key={err.id} className="flex items-center justify-between text-sm">
+                  <span>
+                    <span className="font-mono font-medium">{err.ticker}</span>
+                    <span className="text-muted-foreground ml-2">{err.error_message}</span>
+                  </span>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => dismissError(err.id)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">{t.dashboard.myCompanies}</h2>
           {companiesLoading ? (
