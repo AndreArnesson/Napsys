@@ -511,6 +511,41 @@ export type Database = {
         }
         Relationships: []
       }
+      price_fetch_errors: {
+        Row: {
+          company_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          resolved: boolean
+          ticker: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          resolved?: boolean
+          ticker: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          resolved?: boolean
+          ticker?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_fetch_errors_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string

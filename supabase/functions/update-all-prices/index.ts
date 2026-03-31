@@ -13,24 +13,64 @@ const EXCHANGE_SUFFIXES: Record<string, string> = {
   oslo: ".OL",
   frankfurt: ".F",
   london: ".L",
+  paris: ".PA",
+  amsterdam: ".AS",
+  brussels: ".BR",
+  zurich: ".SW",
+  milan: ".MI",
+  madrid: ".MC",
+  toronto: ".TO",
+  sydney: ".AX",
+  tokyo: ".T",
+  hong_kong: ".HK",
+  singapore: ".SI",
+  mumbai: ".NS",
   us: "",
 };
 
-async function fetchPrice(ticker: string, exchange: string): Promise<number | null> {
+async function fetchPriceWithRetry(ticker: string, exchange: string, maxRetries = 3): Promise<{ price: number | null; error: string | null }> {
   const suffix = EXCHANGE_SUFFIXES[exchange.toLowerCase()] ?? ".ST";
   const symbol = ticker.includes(".") ? ticker : `${ticker}${suffix}`;
   const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=1d`;
 
-  try {
-    const response = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
-    });
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data?.chart?.result?.[0]?.meta?.regularMarketPrice ?? null;
-  } catch {
-    return null;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        if (attempt < maxRetries) {
+          const delay = attempt * 2000; // 2s, 4s, 6s
+          console.log(`Attempt ${attempt}/${maxRetries} failed for ${symbol} (HTTP ${response.status}), retrying in ${delay}ms...`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        return { price: null, error: `HTTP ${response.status}: ${text.substring(0, 200)}` };
+      }
+      const data = await response.json();
+      const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice ?? null;
+      if (price === null) {
+        if (attempt < maxRetries) {
+          const delay = attempt * 2000;
+          console.log(`Attempt ${attempt}/${maxRetries}: no price in response for ${symbol}, retrying in ${delay}ms...`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        return { price: null, error: "No price data in response" };
+      }
+      return { price, error: null };
+    } catch (e) {
+      if (attempt < maxRetries) {
+        const delay = attempt * 2000;
+        console.log(`Attempt ${attempt}/${maxRetries} error for ${symbol}: ${e}, retrying in ${delay}ms...`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      return { price: null, error: e instanceof Error ? e.message : "Unknown fetch error" };
+    }
   }
+  return { price: null, error: "Max retries exceeded" };
 }
 
 serve(async (req) => {
@@ -41,10 +81,9 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get all companies with tickers
     const { data: companies, error } = await supabase
       .from("companies")
-      .select("id, ticker")
+      .select("id, ticker, exchange")
       .not("ticker", "is", null)
       .neq("ticker", "");
 
@@ -56,36 +95,51 @@ serve(async (req) => {
     }
 
     let updated = 0;
-    const errors: string[] = [];
+    const failures: { companyId: string; ticker: string; error: string }[] = [];
 
     for (const company of companies) {
-      // Small delay to avoid rate limiting
-      if (updated > 0) await new Promise(r => setTimeout(r, 500));
+      if (updated > 0 || failures.length > 0) await new Promise(r => setTimeout(r, 500));
 
-      const price = await fetchPrice(company.ticker!, "stockholm");
+      const exchange = company.exchange || "stockholm";
+      const { price, error: fetchError } = await fetchPriceWithRetry(company.ticker!, exchange);
+
       if (price !== null) {
         const { error: updateError } = await supabase
           .from("companies")
           .update({ current_price: price })
           .eq("id", company.id);
-        
+
         if (updateError) {
-          errors.push(`${company.ticker}: ${updateError.message}`);
+          failures.push({ companyId: company.id, ticker: company.ticker!, error: `DB update: ${updateError.message}` });
         } else {
           updated++;
         }
       } else {
-        errors.push(`${company.ticker}: could not fetch price`);
+        failures.push({ companyId: company.id, ticker: company.ticker!, error: fetchError || "Unknown error" });
       }
     }
 
-    console.log(`Updated ${updated}/${companies.length} prices. Errors: ${errors.length}`);
+    // Log failures to price_fetch_errors table
+    if (failures.length > 0) {
+      const errorRows = failures.map(f => ({
+        company_id: f.companyId,
+        ticker: f.ticker,
+        error_message: f.error,
+      }));
+      const { error: insertError } = await supabase.from("price_fetch_errors").insert(errorRows);
+      if (insertError) {
+        console.error("Failed to insert error records:", insertError);
+      }
+    }
 
-    return new Response(JSON.stringify({ 
+    console.log(`Updated ${updated}/${companies.length} prices. Failures: ${failures.length}`);
+
+    return new Response(JSON.stringify({
       message: `Updated ${updated}/${companies.length} prices`,
       updated,
       total: companies.length,
-      errors: errors.length > 0 ? errors : undefined,
+      failures: failures.length,
+      errors: failures.length > 0 ? failures.map(f => `${f.ticker}: ${f.error}`) : undefined,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

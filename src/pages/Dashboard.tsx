@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, Building2, Loader2, Trash2, Pencil, ArrowUpDown } from 'lucide-react';
+import { Plus, Search, Building2, Loader2, Trash2, Pencil, ArrowUpDown, AlertTriangle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
@@ -91,6 +91,37 @@ export default function Dashboard() {
     },
     enabled: !!user,
   });
+
+  // Fetch unresolved price fetch errors
+  const { data: priceErrors, refetch: refetchErrors } = useQuery({
+    queryKey: ['price-fetch-errors', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('price_fetch_errors')
+        .select('id, ticker, error_message, created_at, company_id')
+        .eq('resolved', false)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const dismissError = async (errorId: string) => {
+    await supabase.from('price_fetch_errors').update({ resolved: true } as any).eq('id', errorId);
+    refetchErrors();
+  };
+
+  const dismissAllErrors = async () => {
+    if (!priceErrors?.length) return;
+    const ids = priceErrors.map(e => e.id);
+    for (const id of ids) {
+      await supabase.from('price_fetch_errors').update({ resolved: true } as any).eq('id', id);
+    }
+    refetchErrors();
+    toast.success('Alla felnotiser markerade som lösta');
+  };
 
   const handleCreateCompany = async () => {
     if (!newCompanyName.trim()) {
@@ -277,7 +308,35 @@ export default function Dashboard() {
           </Select>
         </div>
 
-        {/* My Companies */}
+        {/* Price Fetch Error Notifications */}
+        {priceErrors && priceErrors.length > 0 && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-destructive font-medium">
+                <AlertTriangle className="h-4 w-4" />
+                <span>Misslyckade kurshämtningar ({priceErrors.length})</span>
+              </div>
+              <Button variant="ghost" size="sm" onClick={dismissAllErrors} className="text-xs text-muted-foreground">
+                Markera alla som lösta
+              </Button>
+            </div>
+            <div className="space-y-1">
+              {priceErrors.map((err) => (
+                <div key={err.id} className="flex items-center justify-between text-sm">
+                  <span>
+                    <span className="font-mono font-medium">{err.ticker}</span>
+                    <span className="text-muted-foreground ml-2">{err.error_message}</span>
+                  </span>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => dismissError(err.id)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">{t.dashboard.myCompanies}</h2>
           {companiesLoading ? (
