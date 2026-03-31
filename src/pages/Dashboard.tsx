@@ -92,6 +92,37 @@ export default function Dashboard() {
     enabled: !!user,
   });
 
+  // Fetch unresolved price fetch errors
+  const { data: priceErrors, refetch: refetchErrors } = useQuery({
+    queryKey: ['price-fetch-errors', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('price_fetch_errors')
+        .select('id, ticker, error_message, created_at, company_id')
+        .eq('resolved', false)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const dismissError = async (errorId: string) => {
+    await supabase.from('price_fetch_errors').update({ resolved: true } as any).eq('id', errorId);
+    refetchErrors();
+  };
+
+  const dismissAllErrors = async () => {
+    if (!priceErrors?.length) return;
+    const ids = priceErrors.map(e => e.id);
+    for (const id of ids) {
+      await supabase.from('price_fetch_errors').update({ resolved: true } as any).eq('id', id);
+    }
+    refetchErrors();
+    toast.success('Alla felnotiser markerade som lösta');
+  };
+
   const handleCreateCompany = async () => {
     if (!newCompanyName.trim()) {
       toast.error('Company name is required');
