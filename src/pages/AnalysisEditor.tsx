@@ -719,6 +719,7 @@ export default function AnalysisEditor() {
                   holdings={investmentHoldings}
                   onHoldingsChange={setInvestmentHoldings}
                   readOnly={isLocked}
+                  companyName={company?.name}
                 />
                 {/* Rating & Notes for investment company */}
                 <Card>
