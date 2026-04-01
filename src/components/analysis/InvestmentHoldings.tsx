@@ -47,7 +47,11 @@ interface InvestmentHoldingsProps {
 
 export function InvestmentHoldings({ holdings, onHoldingsChange, readOnly }: InvestmentHoldingsProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
+  const handleImport = (imported: InvestmentHolding[]) => {
+    onHoldingsChange([...holdings, ...imported]);
+  };
   const addHolding = () => {
     const newHolding: InvestmentHolding = {
       id: crypto.randomUUID(),
