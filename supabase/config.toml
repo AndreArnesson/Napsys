@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.parse-portfolio-import]
 verify_jwt = false
+
+[functions.parse-investment-holdings]
+verify_jwt = false
