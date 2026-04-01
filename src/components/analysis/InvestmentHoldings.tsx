@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
+import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical, ClipboardPaste } from 'lucide-react';
+import { InvestmentHoldingsImport } from './InvestmentHoldingsImport';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 
@@ -46,7 +47,11 @@ interface InvestmentHoldingsProps {
 
 export function InvestmentHoldings({ holdings, onHoldingsChange, readOnly }: InvestmentHoldingsProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
+  const handleImport = (imported: InvestmentHolding[]) => {
+    onHoldingsChange([...holdings, ...imported]);
+  };
   const addHolding = () => {
     const newHolding: InvestmentHolding = {
       id: crypto.randomUUID(),
@@ -394,10 +399,21 @@ export function InvestmentHoldings({ holdings, onHoldingsChange, readOnly }: Inv
         })()}
 
         {!readOnly && (
-          <Button variant="outline" size="sm" onClick={addHolding} className="gap-1.5">
-            <Plus className="h-4 w-4" />Lägg till post
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={addHolding} className="gap-1.5">
+              <Plus className="h-4 w-4" />Lägg till post
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="gap-1.5">
+              <ClipboardPaste className="h-4 w-4" />Importera med AI
+            </Button>
+          </div>
         )}
+
+        <InvestmentHoldingsImport
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          onImport={handleImport}
+        />
       </CardContent>
     </Card>
   );
