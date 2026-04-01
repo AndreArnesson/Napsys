@@ -399,10 +399,21 @@ export function InvestmentHoldings({ holdings, onHoldingsChange, readOnly }: Inv
         })()}
 
         {!readOnly && (
-          <Button variant="outline" size="sm" onClick={addHolding} className="gap-1.5">
-            <Plus className="h-4 w-4" />Lägg till post
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={addHolding} className="gap-1.5">
+              <Plus className="h-4 w-4" />Lägg till post
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="gap-1.5">
+              <ClipboardPaste className="h-4 w-4" />Importera med AI
+            </Button>
+          </div>
         )}
+
+        <InvestmentHoldingsImport
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          onImport={handleImport}
+        />
       </CardContent>
     </Card>
   );
