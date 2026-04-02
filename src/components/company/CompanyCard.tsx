@@ -110,7 +110,6 @@ export function CompanyCard({ company, analysis, priceChange, isShared, onlyImpo
               </div>
             </div>
           )}
-          </div>
 
           {/* Last analysis */}
           {lastAnalysisDate && (
