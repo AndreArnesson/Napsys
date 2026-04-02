@@ -77,28 +77,39 @@ export function CompanyCard({ company, analysis, priceChange, isShared, onlyImpo
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Rating and MOS */}
+          {/* Rating and Price */}
           <div className="flex items-center justify-between">
             <RatingBadge rating={analysis?.rating as 'buy' | 'hold' | 'sell' | null} />
-            <MOSBadge value={analysis?.margin_of_safety} size="sm" showLabel={false} />
-          </div>
-
-          {/* Price and trend */}
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">
+            <span className="text-sm text-muted-foreground">
               {company.current_price 
                 ? `${company.current_price.toFixed(2)} SEK`
                 : '—'
               }
             </span>
-            {priceChange !== undefined && (
+          </div>
+
+          {/* MOS Badge */}
+          {analysis?.margin_of_safety !== null && analysis?.margin_of_safety !== undefined && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">MOS</span>
+              <MOSBadge value={analysis.margin_of_safety} size="sm" showLabel={true} />
+            </div>
+          )}
+
+          {/* Price change since analysis */}
+          {priceChange !== undefined && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">
+                {language === 'sv' ? 'Sedan analys' : 'Since analysis'}
+              </span>
               <div className={`flex items-center gap-1 ${priceColor}`}>
                 <PriceIcon className="h-3 w-3" />
-                <span className="text-xs">
+                <span className="text-xs font-medium">
                   {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(1)}%
                 </span>
               </div>
-            )}
+            </div>
+          )}
           </div>
 
           {/* Last analysis */}
