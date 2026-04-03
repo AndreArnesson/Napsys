@@ -81,7 +81,8 @@ export default function Dashboard() {
             updated_at,
             created_at,
             imported,
-            current_price
+            current_price,
+            projections
           )
         `)
         .in('id', companyIds)
