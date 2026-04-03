@@ -45,7 +45,8 @@ export default function Dashboard() {
             updated_at,
             created_at,
             imported,
-            current_price
+            current_price,
+            projections
           )
         `)
         .eq('user_id', user!.id)
@@ -80,7 +81,8 @@ export default function Dashboard() {
             updated_at,
             created_at,
             imported,
-            current_price
+            current_price,
+            projections
           )
         `)
         .in('id', companyIds)
@@ -392,6 +394,8 @@ export default function Dashboard() {
                             rating: latestAnalysis.rating as 'buy' | 'hold' | 'sell' | null,
                             margin_of_safety: latestAnalysis.margin_of_safety,
                             created_at: latestAnalysis.created_at,
+                            projections: latestAnalysis.projections as any[],
+                            analysis_price: latestAnalysis.current_price,
                           } : null}
                           priceChange={priceChangeSinceAnalysis}
                           onlyImported={company.analyses?.length > 0 && company.analyses.every((a: any) => a.imported)}
@@ -487,6 +491,8 @@ export default function Dashboard() {
                     rating: latestAnalysis.rating as 'buy' | 'hold' | 'sell' | null,
                     margin_of_safety: latestAnalysis.margin_of_safety,
                     created_at: latestAnalysis.created_at,
+                    projections: latestAnalysis.projections as any[],
+                    analysis_price: latestAnalysis.current_price,
                   } : null}
                   priceChange={priceChangeSinceAnalysis}
                   onlyImported={company.analyses?.length > 0 && company.analyses.every((a: any) => a.imported)}
