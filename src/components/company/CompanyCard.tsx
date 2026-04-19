@@ -130,7 +130,7 @@ export function CompanyCard({ company, analysis, priceChange, isShared, onlyImpo
             <RatingBadge rating={analysis?.rating as 'buy' | 'hold' | 'sell' | null} />
             <span className="text-sm text-muted-foreground">
               {company.current_price 
-                ? `${company.current_price.toFixed(2)} SEK`
+                ? `${company.current_price.toFixed(2)} ${company.trading_currency || 'SEK'}`
                 : '—'
               }
             </span>
