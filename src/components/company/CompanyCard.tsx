@@ -22,6 +22,7 @@ interface CompanyCardProps {
     ticker: string | null;
     current_price: number | null;
     updated_at: string;
+    trading_currency?: string | null;
   };
   analysis?: {
     rating: 'buy' | 'hold' | 'sell' | null;
