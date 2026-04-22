@@ -28,7 +28,7 @@ const EXCHANGE_SUFFIXES: Record<string, string> = {
   us: "",
 };
 
-async function fetchPriceWithRetry(ticker: string, exchange: string, maxRetries = 3): Promise<{ price: number | null; error: string | null }> {
+async function fetchPriceWithRetry(ticker: string, exchange: string, maxRetries = 2): Promise<{ price: number | null; error: string | null }> {
   const suffix = EXCHANGE_SUFFIXES[exchange.toLowerCase()] ?? ".ST";
   // Normalize ticker: Yahoo uses dashes for share classes (e.g. "LATO-B"), not spaces
   const normalizedTicker = ticker.trim().replace(/\s+/g, "-").toUpperCase();
@@ -37,15 +37,18 @@ async function fetchPriceWithRetry(ticker: string, exchange: string, maxRetries 
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
+      // Per-request timeout to prevent hanging on slow Yahoo responses
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
       const response = await fetch(url, {
         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       if (!response.ok) {
         const text = await response.text();
         if (attempt < maxRetries) {
-          const delay = attempt * 2000; // 2s, 4s, 6s
-          console.log(`Attempt ${attempt}/${maxRetries} failed for ${symbol} (HTTP ${response.status}), retrying in ${delay}ms...`);
-          await new Promise(r => setTimeout(r, delay));
+          await new Promise(r => setTimeout(r, 1000));
           continue;
         }
         return { price: null, error: `HTTP ${response.status}: ${text.substring(0, 200)}` };
@@ -54,9 +57,7 @@ async function fetchPriceWithRetry(ticker: string, exchange: string, maxRetries 
       const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice ?? null;
       if (price === null) {
         if (attempt < maxRetries) {
-          const delay = attempt * 2000;
-          console.log(`Attempt ${attempt}/${maxRetries}: no price in response for ${symbol}, retrying in ${delay}ms...`);
-          await new Promise(r => setTimeout(r, delay));
+          await new Promise(r => setTimeout(r, 1000));
           continue;
         }
         return { price: null, error: "No price data in response" };
@@ -64,9 +65,7 @@ async function fetchPriceWithRetry(ticker: string, exchange: string, maxRetries 
       return { price, error: null };
     } catch (e) {
       if (attempt < maxRetries) {
-        const delay = attempt * 2000;
-        console.log(`Attempt ${attempt}/${maxRetries} error for ${symbol}: ${e}, retrying in ${delay}ms...`);
-        await new Promise(r => setTimeout(r, delay));
+        await new Promise(r => setTimeout(r, 1000));
         continue;
       }
       return { price: null, error: e instanceof Error ? e.message : "Unknown fetch error" };
