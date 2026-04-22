@@ -82,8 +82,9 @@ serve(async (req) => {
     }
 
     const suffix = EXCHANGE_SUFFIXES[exchange.toLowerCase()] ?? "";
-    // Normalize ticker: Yahoo uses dashes for share classes (e.g. "LATO-B", "ERIC-B"), not spaces
-    const normalizedTicker = ticker.trim().replace(/\s+/g, "-").toUpperCase();
+    // Normalize: strip exchange prefixes (STO:, CPH: etc), spaces → dashes for share classes
+    const cleaned = ticker.trim().replace(/^[A-Za-z]+:/, "").trim();
+    const normalizedTicker = cleaned.replace(/\s+/g, "-").toUpperCase();
     const symbol = normalizedTicker.includes(".") ? normalizedTicker : `${normalizedTicker}${suffix}`;
 
     const result = await fetchPrice(symbol);
