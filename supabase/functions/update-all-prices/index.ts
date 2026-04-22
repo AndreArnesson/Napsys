@@ -30,8 +30,10 @@ const EXCHANGE_SUFFIXES: Record<string, string> = {
 
 async function fetchPriceWithRetry(ticker: string, exchange: string, maxRetries = 2): Promise<{ price: number | null; error: string | null }> {
   const suffix = EXCHANGE_SUFFIXES[exchange.toLowerCase()] ?? ".ST";
-  // Normalize ticker: Yahoo uses dashes for share classes (e.g. "LATO-B"), not spaces
-  const normalizedTicker = ticker.trim().replace(/\s+/g, "-").toUpperCase();
+  // Normalize ticker: strip exchange prefixes (STO:, CPH:, NGM:, Nasdaq:, ETR:, FRA:),
+  // then replace spaces with dashes (Yahoo uses dashes for share classes, e.g. "LATO-B")
+  const cleaned = ticker.trim().replace(/^[A-Za-z]+:/, "").trim();
+  const normalizedTicker = cleaned.replace(/\s+/g, "-").toUpperCase();
   const symbol = normalizedTicker.includes(".") ? normalizedTicker : `${normalizedTicker}${suffix}`;
   const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=1d`;
 
