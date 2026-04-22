@@ -99,25 +99,31 @@ serve(async (req) => {
     let updated = 0;
     const failures: { companyId: string; ticker: string; error: string }[] = [];
 
-    for (const company of companies) {
-      if (updated > 0 || failures.length > 0) await new Promise(r => setTimeout(r, 500));
+    // Process in parallel batches of 10 to stay under the 150s edge function timeout
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < companies.length; i += BATCH_SIZE) {
+      const batch = companies.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(batch.map(async (company) => {
+        const exchange = company.exchange || "stockholm";
+        const { price, error: fetchError } = await fetchPriceWithRetry(company.ticker!, exchange);
+        return { company, price, fetchError };
+      }));
 
-      const exchange = company.exchange || "stockholm";
-      const { price, error: fetchError } = await fetchPriceWithRetry(company.ticker!, exchange);
+      for (const { company, price, fetchError } of results) {
+        if (price !== null) {
+          const { error: updateError } = await supabase
+            .from("companies")
+            .update({ current_price: price })
+            .eq("id", company.id);
 
-      if (price !== null) {
-        const { error: updateError } = await supabase
-          .from("companies")
-          .update({ current_price: price })
-          .eq("id", company.id);
-
-        if (updateError) {
-          failures.push({ companyId: company.id, ticker: company.ticker!, error: `DB update: ${updateError.message}` });
+          if (updateError) {
+            failures.push({ companyId: company.id, ticker: company.ticker!, error: `DB update: ${updateError.message}` });
+          } else {
+            updated++;
+          }
         } else {
-          updated++;
+          failures.push({ companyId: company.id, ticker: company.ticker!, error: fetchError || "Unknown error" });
         }
-      } else {
-        failures.push({ companyId: company.id, ticker: company.ticker!, error: fetchError || "Unknown error" });
       }
     }
 
