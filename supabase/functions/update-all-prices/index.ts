@@ -28,24 +28,29 @@ const EXCHANGE_SUFFIXES: Record<string, string> = {
   us: "",
 };
 
-async function fetchPriceWithRetry(ticker: string, exchange: string, maxRetries = 3): Promise<{ price: number | null; error: string | null }> {
+async function fetchPriceWithRetry(ticker: string, exchange: string, maxRetries = 2): Promise<{ price: number | null; error: string | null }> {
   const suffix = EXCHANGE_SUFFIXES[exchange.toLowerCase()] ?? ".ST";
-  // Normalize ticker: Yahoo uses dashes for share classes (e.g. "LATO-B"), not spaces
-  const normalizedTicker = ticker.trim().replace(/\s+/g, "-").toUpperCase();
+  // Normalize ticker: strip exchange prefixes (STO:, CPH:, NGM:, Nasdaq:, ETR:, FRA:),
+  // then replace spaces with dashes (Yahoo uses dashes for share classes, e.g. "LATO-B")
+  const cleaned = ticker.trim().replace(/^[A-Za-z]+:/, "").trim();
+  const normalizedTicker = cleaned.replace(/\s+/g, "-").toUpperCase();
   const symbol = normalizedTicker.includes(".") ? normalizedTicker : `${normalizedTicker}${suffix}`;
   const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=1d`;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
+      // Per-request timeout to prevent hanging on slow Yahoo responses
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
       const response = await fetch(url, {
         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       if (!response.ok) {
         const text = await response.text();
         if (attempt < maxRetries) {
-          const delay = attempt * 2000; // 2s, 4s, 6s
-          console.log(`Attempt ${attempt}/${maxRetries} failed for ${symbol} (HTTP ${response.status}), retrying in ${delay}ms...`);
-          await new Promise(r => setTimeout(r, delay));
+          await new Promise(r => setTimeout(r, 1000));
           continue;
         }
         return { price: null, error: `HTTP ${response.status}: ${text.substring(0, 200)}` };
@@ -54,9 +59,7 @@ async function fetchPriceWithRetry(ticker: string, exchange: string, maxRetries 
       const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice ?? null;
       if (price === null) {
         if (attempt < maxRetries) {
-          const delay = attempt * 2000;
-          console.log(`Attempt ${attempt}/${maxRetries}: no price in response for ${symbol}, retrying in ${delay}ms...`);
-          await new Promise(r => setTimeout(r, delay));
+          await new Promise(r => setTimeout(r, 1000));
           continue;
         }
         return { price: null, error: "No price data in response" };
@@ -64,9 +67,7 @@ async function fetchPriceWithRetry(ticker: string, exchange: string, maxRetries 
       return { price, error: null };
     } catch (e) {
       if (attempt < maxRetries) {
-        const delay = attempt * 2000;
-        console.log(`Attempt ${attempt}/${maxRetries} error for ${symbol}: ${e}, retrying in ${delay}ms...`);
-        await new Promise(r => setTimeout(r, delay));
+        await new Promise(r => setTimeout(r, 1000));
         continue;
       }
       return { price: null, error: e instanceof Error ? e.message : "Unknown fetch error" };
@@ -99,25 +100,31 @@ serve(async (req) => {
     let updated = 0;
     const failures: { companyId: string; ticker: string; error: string }[] = [];
 
-    for (const company of companies) {
-      if (updated > 0 || failures.length > 0) await new Promise(r => setTimeout(r, 500));
+    // Process in parallel batches of 10 to stay under the 150s edge function timeout
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < companies.length; i += BATCH_SIZE) {
+      const batch = companies.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(batch.map(async (company) => {
+        const exchange = company.exchange || "stockholm";
+        const { price, error: fetchError } = await fetchPriceWithRetry(company.ticker!, exchange);
+        return { company, price, fetchError };
+      }));
 
-      const exchange = company.exchange || "stockholm";
-      const { price, error: fetchError } = await fetchPriceWithRetry(company.ticker!, exchange);
+      for (const { company, price, fetchError } of results) {
+        if (price !== null) {
+          const { error: updateError } = await supabase
+            .from("companies")
+            .update({ current_price: price })
+            .eq("id", company.id);
 
-      if (price !== null) {
-        const { error: updateError } = await supabase
-          .from("companies")
-          .update({ current_price: price })
-          .eq("id", company.id);
-
-        if (updateError) {
-          failures.push({ companyId: company.id, ticker: company.ticker!, error: `DB update: ${updateError.message}` });
+          if (updateError) {
+            failures.push({ companyId: company.id, ticker: company.ticker!, error: `DB update: ${updateError.message}` });
+          } else {
+            updated++;
+          }
         } else {
-          updated++;
+          failures.push({ companyId: company.id, ticker: company.ticker!, error: fetchError || "Unknown error" });
         }
-      } else {
-        failures.push({ companyId: company.id, ticker: company.ticker!, error: fetchError || "Unknown error" });
       }
     }
 
