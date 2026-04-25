@@ -204,7 +204,12 @@ export default function AnalysisEditor() {
       setAnalysisImages(((currentAnalysis as any).images as string[]) || []);
       setEmployees((currentAnalysis as any).employees?.toString() || '');
       const defaultSections = { debt: true, images: true, employees: false };
-      setAnalysisSections({ ...defaultSections, ...((currentAnalysis as any).visible_sections || {}) });
+      const loadedSections = (currentAnalysis as any).visible_sections || {};
+      setAnalysisSections({ ...defaultSections, ...loadedSections });
+      setNapkinMode(loadedSections.napkin_mode === true);
+      if (Array.isArray(loadedSections.napkin_assumptions)) {
+        setNapkinAssumptions(loadedSections.napkin_assumptions);
+      }
       // Load adjustments
       const savedAdjustments = (currentAnalysis as any).adjustments;
       if (Array.isArray(savedAdjustments)) {
