@@ -514,10 +514,12 @@ export function SpreadsheetAnalysis({
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Calculator className="h-5 w-5" />
-                Estimat
+                {napkinMode ? '🧻 Servettkalkyl' : 'Estimat'}
               </CardTitle>
               <CardDescription>
-                {analysisDate ? `Analysis date: ${analysisDate}` : 'Skriv in dina estimat'}
+                {napkinMode
+                  ? 'Snabb värdering: Omsättning × Vinstmarginal × P/E'
+                  : (analysisDate ? `Analysis date: ${analysisDate}` : 'Skriv in dina estimat')}
               </CardDescription>
             </div>
             <div className="flex items-center gap-4 flex-wrap">
