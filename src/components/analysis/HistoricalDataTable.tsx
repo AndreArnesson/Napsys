@@ -75,6 +75,10 @@ interface HistoricalDataTableProps {
   currentPrice?: number;
   onRowClick?: (year: number) => void;
   adjustments?: Adjustment[];
+  /** When provided, locks visible columns to this list and hides the column picker. Useful for "Servettkalkyl" mode. */
+  forcedColumns?: ColumnKey[];
+  /** Optional title override (e.g. "Historisk data – enkelt läge") */
+  title?: string;
 }
 
 function computeCAGR(startVal: number, endVal: number, years: number): number | undefined {
@@ -164,10 +168,14 @@ export function HistoricalDataTable({
   currentPrice,
   onRowClick,
   adjustments = [],
+  forcedColumns,
+  title,
 }: HistoricalDataTableProps) {
   const { language } = useLanguage();
   const [perShare, setPerShare] = useState(false);
-  const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(DEFAULT_COLUMNS);
+  const [visibleColumnsState, setVisibleColumnsState] = useState<ColumnKey[]>(DEFAULT_COLUMNS);
+  const visibleColumns = forcedColumns ?? visibleColumnsState;
+  const setVisibleColumns = setVisibleColumnsState;
   const [growthMode, setGrowthMode] = useState<'yoy' | 'sequential'>('yoy');
 
   const canToggle = !!sharesOutstanding && sharesOutstanding > 0;
