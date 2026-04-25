@@ -50,6 +50,8 @@ export default function AnalysisEditor() {
   const [isLocked, setIsLocked] = useState(false);
   const [investmentHoldings, setInvestmentHoldings] = useState<InvestmentHolding[]>([]);
   const [navDiscount, setNavDiscount] = useState<string>('');
+  const [napkinMode, setNapkinMode] = useState<boolean>(false);
+  const [napkinAssumptions, setNapkinAssumptions] = useState<NapkinAssumption[]>([]);
 
   // Undo/Redo stacks for projections
   const undoStackRef = useRef<YearlyProjection[][]>([]);
