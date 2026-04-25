@@ -14,6 +14,7 @@ import { AdjustmentsEditor, Adjustment } from '@/components/analysis/Adjustments
 import { ImageUpload } from '@/components/company/ImageUpload';
 import { ReportAnalyzer } from '@/components/analysis/ReportAnalyzer';
 import { InvestmentHoldings, InvestmentHolding } from '@/components/analysis/InvestmentHoldings';
+import { NapkinCalculation, NapkinAssumption } from '@/components/analysis/NapkinCalculation';
 import { FileImportDialog, ParsedFinancialData, ParsedCompanyInfo } from '@/components/company/FileImportDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
