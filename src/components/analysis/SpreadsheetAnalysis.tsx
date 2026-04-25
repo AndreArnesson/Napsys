@@ -523,13 +523,15 @@ export function SpreadsheetAnalysis({
               </CardDescription>
             </div>
             <div className="flex items-center gap-4 flex-wrap">
-              <Tabs value={mode} onValueChange={(v) => setMode(v as 'yearly' | 'quarterly')}>
-                <TabsList className="h-8">
-                  <TabsTrigger value="yearly" className="text-xs px-3 h-7">Helår</TabsTrigger>
-                  <TabsTrigger value="quarterly" className="text-xs px-3 h-7">Kvartal</TabsTrigger>
-                </TabsList>
-              </Tabs>
-              {mode === 'quarterly' && (
+              {!napkinMode && (
+                <Tabs value={mode} onValueChange={(v) => setMode(v as 'yearly' | 'quarterly')}>
+                  <TabsList className="h-8">
+                    <TabsTrigger value="yearly" className="text-xs px-3 h-7">Helår</TabsTrigger>
+                    <TabsTrigger value="quarterly" className="text-xs px-3 h-7">Kvartal</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              )}
+              {!napkinMode && mode === 'quarterly' && (
                 <Tabs value={qGrowthMode} onValueChange={(v) => setQGrowthMode(v as 'yoy' | 'sequential')}>
                   <TabsList className="h-8">
                     <TabsTrigger value="yoy" className="text-xs px-3 h-7">YoY</TabsTrigger>
@@ -537,7 +539,7 @@ export function SpreadsheetAnalysis({
                   </TabsList>
                 </Tabs>
               )}
-              {mode === 'quarterly' && yearsWithFullQuarters.length > 0 && (
+              {!napkinMode && mode === 'quarterly' && yearsWithFullQuarters.length > 0 && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -548,46 +550,50 @@ export function SpreadsheetAnalysis({
                   Översätt kvartal till helårsbasis
                 </Button>
               )}
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground">Per aktie</Label>
-                <Switch checked={perShare} onCheckedChange={setPerShare} />
-              </div>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 text-xs gap-1">
-                    <SlidersHorizontal className="h-3.5 w-3.5" />
-                    Rader
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-3" align="end">
-                  <div className="space-y-3">
-                    {Object.entries(
-                      ALL_ESTIMATE_ROWS.reduce((acc, row) => {
-                        if (!acc[row.group]) acc[row.group] = [];
-                        acc[row.group].push(row);
-                        return acc;
-                      }, {} as Record<string, typeof ALL_ESTIMATE_ROWS>)
-                    ).map(([group, groupRows]) => (
-                      <div key={group}>
-                        <p className="text-xs font-semibold text-muted-foreground mb-1">{group}</p>
-                        {groupRows.map(row => (
-                          <label key={row.key} className="flex items-center gap-2 py-0.5 cursor-pointer">
-                            <Checkbox
-                              checked={visibleRows.includes(row.key)}
-                              onCheckedChange={(checked) => {
-                                setVisibleRows(prev =>
-                                  checked ? [...prev, row.key] : prev.filter(k => k !== row.key)
-                                );
-                              }}
-                            />
-                            <span className="text-xs">{row.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+              {!napkinMode && (
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground">Per aktie</Label>
+                  <Switch checked={perShare} onCheckedChange={setPerShare} />
+                </div>
+              )}
+              {!napkinMode && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 text-xs gap-1">
+                      <SlidersHorizontal className="h-3.5 w-3.5" />
+                      Rader
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-3" align="end">
+                    <div className="space-y-3">
+                      {Object.entries(
+                        ALL_ESTIMATE_ROWS.reduce((acc, row) => {
+                          if (!acc[row.group]) acc[row.group] = [];
+                          acc[row.group].push(row);
+                          return acc;
+                        }, {} as Record<string, typeof ALL_ESTIMATE_ROWS>)
+                      ).map(([group, groupRows]) => (
+                        <div key={group}>
+                          <p className="text-xs font-semibold text-muted-foreground mb-1">{group}</p>
+                          {groupRows.map(row => (
+                            <label key={row.key} className="flex items-center gap-2 py-0.5 cursor-pointer">
+                              <Checkbox
+                                checked={visibleRows.includes(row.key)}
+                                onCheckedChange={(checked) => {
+                                  setVisibleRows(prev =>
+                                    checked ? [...prev, row.key] : prev.filter(k => k !== row.key)
+                                  );
+                                }}
+                              />
+                              <span className="text-xs">{row.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Target P/E:</span>
                 <Input
