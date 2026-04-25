@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Loader2, Save, CheckCircle, Settings2, Trash2, LayoutDashboard, BarChart3, FileText, Lock, Unlock } from 'lucide-react';
+import { ArrowLeft, Loader2, Save, CheckCircle, Settings2, Trash2, LayoutDashboard, BarChart3, FileText, Lock, Unlock, Calculator } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import debounce from 'lodash/debounce';
