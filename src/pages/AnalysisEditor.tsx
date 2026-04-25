@@ -289,7 +289,7 @@ export default function AnalysisEditor() {
       setIsSaving(true);
       saveMutation.mutate();
     }, 3000),
-    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, isLocked, investmentHoldings, navDiscount]
+    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, isLocked, investmentHoldings, navDiscount, napkinMode, napkinAssumptions]
   );
 
   const toggleLock = async () => {
