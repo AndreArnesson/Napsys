@@ -771,41 +771,34 @@ export default function AnalysisEditor() {
               </>
             ) : napkinMode ? (
               <>
-                <NapkinCalculation
+                <HistoricalDataTable
+                  data={displayData}
+                  currency={company?.reporting_currency}
+                  sharesOutstanding={sharesNum}
+                  currentPrice={priceNum}
+                  adjustments={adjustments}
+                  forcedColumns={['revenue', 'growth', 'net_margin', 'eps', 'eps_growth']}
+                  title="Historisk data – enkelt läge"
+                />
+                <SpreadsheetAnalysis
+                  analysisDate={currentAnalysis?.created_at?.split('T')[0]}
                   currentPrice={priceNum}
                   sharesOutstanding={sharesNum}
-                  currency={company?.trading_currency}
-                  latestRevenue={(incomeData?.[incomeData.length - 1] as any)?.revenue}
-                  latestNetMargin={(incomeData?.[incomeData.length - 1] as any)?.net_margin}
-                  assumptions={napkinAssumptions}
-                  onAssumptionsChange={setNapkinAssumptions}
+                  historicalData={historicalData.map(h => ({
+                    year: h.fiscal_year,
+                    revenue: h.revenue || 0,
+                    netIncome: h.net_income || 0,
+                  }))}
+                  projections={projections}
+                  onProjectionsChange={handleProjectionsChange}
+                  rating={rating}
+                  onRatingChange={setRating}
+                  notes={notes}
+                  onNotesChange={setNotes}
+                  currency={company?.reporting_currency}
+                  showQuarterly={false}
+                  napkinMode
                 />
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Betyg & Kommentar</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex gap-2">
-                      {(['buy', 'hold', 'sell'] as const).map((r) => (
-                        <Button
-                          key={r}
-                          variant={rating === r ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setRating(r)}
-                          className={rating === r ? (r === 'buy' ? 'bg-emerald-600 hover:bg-emerald-700' : r === 'sell' ? 'bg-destructive hover:bg-destructive/90' : '') : ''}
-                        >
-                          {r === 'buy' ? 'Köp' : r === 'hold' ? 'Behåll' : 'Sälj'}
-                        </Button>
-                      ))}
-                    </div>
-                    <Textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Snabb tanke om värderingen..."
-                      rows={4}
-                    />
-                  </CardContent>
-                </Card>
               </>
             ) : (
               <>
