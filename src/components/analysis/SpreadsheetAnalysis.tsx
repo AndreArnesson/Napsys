@@ -403,10 +403,14 @@ export function SpreadsheetAnalysis({
   const updateProjection = (col: ColumnDef, field: keyof YearlyProjection, value: number) => {
     const existingIndex = projections.findIndex(p => p.year === col.year && (p.quarter || undefined) === col.quarter);
     const newProjections = [...projections];
+    // Mutual exclusivity for dividend / dividendYield: the latest input wins
+    const patch: Partial<YearlyProjection> = { [field]: value } as Partial<YearlyProjection>;
+    if (field === 'dividendYield') (patch as any).dividend = undefined;
+    if (field === 'dividend') (patch as any).dividendYield = undefined;
     if (existingIndex >= 0) {
-      newProjections[existingIndex] = { ...newProjections[existingIndex], [field]: value };
+      newProjections[existingIndex] = { ...newProjections[existingIndex], ...patch };
     } else {
-      newProjections.push({ year: col.year, quarter: col.quarter, [field]: value });
+      newProjections.push({ year: col.year, quarter: col.quarter, ...patch });
     }
     onProjectionsChange(newProjections);
   };
