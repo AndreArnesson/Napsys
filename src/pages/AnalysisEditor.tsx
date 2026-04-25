@@ -481,6 +481,18 @@ export default function AnalysisEditor() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {!isLocked && !isInvestmentCompany && (
+              <Button
+                variant={napkinMode ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setNapkinMode(m => !m)}
+                className="gap-1.5"
+                title="Servettkalkyl: snabb värdering med bara omsättning, marginal och P/E"
+              >
+                <span className="text-base leading-none">🧻</span>
+                Servettkalkyl
+              </Button>
+            )}
             {!isLocked && <FileImportDialog companyId={id!} onImportFinancials={handleAnalysisImport} onImportInsiders={async () => {}} />}
             {!isLocked && (isSaving ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
