@@ -14,6 +14,7 @@ import { AdjustmentsEditor, Adjustment } from '@/components/analysis/Adjustments
 import { ImageUpload } from '@/components/company/ImageUpload';
 import { ReportAnalyzer } from '@/components/analysis/ReportAnalyzer';
 import { InvestmentHoldings, InvestmentHolding } from '@/components/analysis/InvestmentHoldings';
+import { NapkinCalculation, NapkinAssumption } from '@/components/analysis/NapkinCalculation';
 import { FileImportDialog, ParsedFinancialData, ParsedCompanyInfo } from '@/components/company/FileImportDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Loader2, Save, CheckCircle, Settings2, Trash2, LayoutDashboard, BarChart3, FileText, Lock, Unlock } from 'lucide-react';
+import { ArrowLeft, Loader2, Save, CheckCircle, Settings2, Trash2, LayoutDashboard, BarChart3, FileText, Lock, Unlock, Calculator } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import debounce from 'lodash/debounce';
@@ -49,6 +50,8 @@ export default function AnalysisEditor() {
   const [isLocked, setIsLocked] = useState(false);
   const [investmentHoldings, setInvestmentHoldings] = useState<InvestmentHolding[]>([]);
   const [navDiscount, setNavDiscount] = useState<string>('');
+  const [napkinMode, setNapkinMode] = useState<boolean>(false);
+  const [napkinAssumptions, setNapkinAssumptions] = useState<NapkinAssumption[]>([]);
 
   // Undo/Redo stacks for projections
   const undoStackRef = useRef<YearlyProjection[][]>([]);
@@ -201,7 +204,12 @@ export default function AnalysisEditor() {
       setAnalysisImages(((currentAnalysis as any).images as string[]) || []);
       setEmployees((currentAnalysis as any).employees?.toString() || '');
       const defaultSections = { debt: true, images: true, employees: false };
-      setAnalysisSections({ ...defaultSections, ...((currentAnalysis as any).visible_sections || {}) });
+      const loadedSections = (currentAnalysis as any).visible_sections || {};
+      setAnalysisSections({ ...defaultSections, ...loadedSections });
+      setNapkinMode(loadedSections.napkin_mode === true);
+      if (Array.isArray(loadedSections.napkin_assumptions)) {
+        setNapkinAssumptions(loadedSections.napkin_assumptions);
+      }
       // Load adjustments
       const savedAdjustments = (currentAnalysis as any).adjustments;
       if (Array.isArray(savedAdjustments)) {
@@ -255,7 +263,7 @@ export default function AnalysisEditor() {
           name: analysisName || null,
           images: analysisImages,
           employees: employees ? parseInt(employees) : null,
-          visible_sections: analysisSections,
+          visible_sections: { ...analysisSections, napkin_mode: napkinMode, napkin_assumptions: napkinAssumptions },
           adjustments: isInvestmentCompany
             ? [...adjustments, ...(navDiscount ? [{ _type: 'nav_discount', value: parseFloat(navDiscount) }] : [])]
             : adjustments,
@@ -281,7 +289,7 @@ export default function AnalysisEditor() {
       setIsSaving(true);
       saveMutation.mutate();
     }, 3000),
-    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, isLocked, investmentHoldings, navDiscount]
+    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, isLocked, investmentHoldings, navDiscount, napkinMode, napkinAssumptions]
   );
 
   const toggleLock = async () => {
@@ -299,7 +307,7 @@ export default function AnalysisEditor() {
       debouncedSave();
     }
     return () => debouncedSave.cancel();
-  }, [rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, investmentHoldings, navDiscount, debouncedSave]);
+  }, [rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, investmentHoldings, navDiscount, napkinMode, napkinAssumptions, debouncedSave]);
 
   // Handle per-analysis financial import
   const handleAnalysisImport = async (data: ParsedFinancialData[], companyInfo?: ParsedCompanyInfo) => {
@@ -473,6 +481,18 @@ export default function AnalysisEditor() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {!isLocked && !isInvestmentCompany && (
+              <Button
+                variant={napkinMode ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setNapkinMode(m => !m)}
+                className="gap-1.5"
+                title="Servettkalkyl: snabb värdering med bara omsättning, marginal och P/E"
+              >
+                <span className="text-base leading-none">🧻</span>
+                Servettkalkyl
+              </Button>
+            )}
             {!isLocked && <FileImportDialog companyId={id!} onImportFinancials={handleAnalysisImport} onImportInsiders={async () => {}} />}
             {!isLocked && (isSaving ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -744,6 +764,44 @@ export default function AnalysisEditor() {
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                       placeholder="Övergripande kommentar om investmentbolaget..."
+                      rows={4}
+                    />
+                  </CardContent>
+                </Card>
+              </>
+            ) : napkinMode ? (
+              <>
+                <NapkinCalculation
+                  currentPrice={priceNum}
+                  sharesOutstanding={sharesNum}
+                  currency={company?.trading_currency}
+                  latestRevenue={(incomeData?.[incomeData.length - 1] as any)?.revenue}
+                  latestNetMargin={(incomeData?.[incomeData.length - 1] as any)?.net_margin}
+                  assumptions={napkinAssumptions}
+                  onAssumptionsChange={setNapkinAssumptions}
+                />
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Betyg & Kommentar</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex gap-2">
+                      {(['buy', 'hold', 'sell'] as const).map((r) => (
+                        <Button
+                          key={r}
+                          variant={rating === r ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setRating(r)}
+                          className={rating === r ? (r === 'buy' ? 'bg-emerald-600 hover:bg-emerald-700' : r === 'sell' ? 'bg-destructive hover:bg-destructive/90' : '') : ''}
+                        >
+                          {r === 'buy' ? 'Köp' : r === 'hold' ? 'Behåll' : 'Sälj'}
+                        </Button>
+                      ))}
+                    </div>
+                    <Textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Snabb tanke om värderingen..."
                       rows={4}
                     />
                   </CardContent>
