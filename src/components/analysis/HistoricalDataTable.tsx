@@ -75,6 +75,10 @@ interface HistoricalDataTableProps {
   currentPrice?: number;
   onRowClick?: (year: number) => void;
   adjustments?: Adjustment[];
+  /** When provided, locks visible columns to this list and hides the column picker. Useful for "Servettkalkyl" mode. */
+  forcedColumns?: ColumnKey[];
+  /** Optional title override (e.g. "Historisk data – enkelt läge") */
+  title?: string;
 }
 
 function computeCAGR(startVal: number, endVal: number, years: number): number | undefined {
@@ -164,10 +168,14 @@ export function HistoricalDataTable({
   currentPrice,
   onRowClick,
   adjustments = [],
+  forcedColumns,
+  title,
 }: HistoricalDataTableProps) {
   const { language } = useLanguage();
   const [perShare, setPerShare] = useState(false);
-  const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(DEFAULT_COLUMNS);
+  const [visibleColumnsState, setVisibleColumnsState] = useState<ColumnKey[]>(DEFAULT_COLUMNS);
+  const visibleColumns = forcedColumns ?? visibleColumnsState;
+  const setVisibleColumns = setVisibleColumnsState;
   const [growthMode, setGrowthMode] = useState<'yoy' | 'sequential'>('yoy');
 
   const canToggle = !!sharesOutstanding && sharesOutstanding > 0;
@@ -314,32 +322,34 @@ export function HistoricalDataTable({
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2 text-lg"><BarChart3 className="h-5 w-5" />Historisk Data</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-lg"><BarChart3 className="h-5 w-5" />{title ?? 'Historisk Data'}</CardTitle>
             <CardDescription>
               {sortedData.length} {isQuarterly ? 'kvartal' : 'år'} · Klicka på kolumnrubrik för CAGR
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1"><Settings2 className="h-3.5 w-3.5" />Kolumner</Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-56" align="end">
-                <div className="space-y-3">
-                  {['Resultat', 'Marginaler', 'Värdering', 'Tillväxt', 'Skuld'].map(group => (
-                    <div key={group}>
-                      <p className="text-xs font-medium text-muted-foreground mb-1.5">{group}</p>
-                      {ALL_COLUMNS.filter(c => c.group === group).map(col => (
-                        <label key={col.key} className="flex items-center gap-2 py-1 cursor-pointer">
-                          <Checkbox checked={isVisible(col.key)} onCheckedChange={() => toggleColumn(col.key)} />
-                          <span className="text-sm">{col.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
+            {!forcedColumns && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1"><Settings2 className="h-3.5 w-3.5" />Kolumner</Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56" align="end">
+                  <div className="space-y-3">
+                    {['Resultat', 'Marginaler', 'Värdering', 'Tillväxt', 'Skuld'].map(group => (
+                      <div key={group}>
+                        <p className="text-xs font-medium text-muted-foreground mb-1.5">{group}</p>
+                        {ALL_COLUMNS.filter(c => c.group === group).map(col => (
+                          <label key={col.key} className="flex items-center gap-2 py-1 cursor-pointer">
+                            <Checkbox checked={isVisible(col.key)} onCheckedChange={() => toggleColumn(col.key)} />
+                            <span className="text-sm">{col.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
             <Tabs value={growthMode} onValueChange={(v) => setGrowthMode(v as 'yoy' | 'sequential')}>
               <TabsList className="h-8">
                 <TabsTrigger value="yoy" className="text-xs px-2 h-6">YoY</TabsTrigger>
