@@ -307,7 +307,7 @@ export default function AnalysisEditor() {
       debouncedSave();
     }
     return () => debouncedSave.cancel();
-  }, [rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, investmentHoldings, navDiscount, debouncedSave]);
+  }, [rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, investmentHoldings, navDiscount, napkinMode, napkinAssumptions, debouncedSave]);
 
   // Handle per-analysis financial import
   const handleAnalysisImport = async (data: ParsedFinancialData[], companyInfo?: ParsedCompanyInfo) => {
