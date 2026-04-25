@@ -97,7 +97,12 @@ interface SpreadsheetAnalysisProps {
   showQuarterly?: boolean;
   netDebt?: number;
   adjustments?: Adjustment[];
+  /** Servettkalkyl: only show the most basic rows (revenue, net margin, EPS, P/E, MOS). */
+  napkinMode?: boolean;
 }
+
+// Rows kept when napkinMode is on — keep it ultra-basic
+const NAPKIN_ROWS = ['price', 'revenueGrowth', 'revenue', 'netMargin', 'earningsPerShare', 'pe', 'targetPE', 'estimatedPrice', 'mos'];
 
 interface ColumnDef {
   year: number;
@@ -122,12 +127,13 @@ export function SpreadsheetAnalysis({
   quarterlyHistoricalData = [],
   netDebt = 0,
   adjustments = [],
+  napkinMode = false,
 }: SpreadsheetAnalysisProps) {
   const { t, language } = useLanguage();
   const [targetPE, setTargetPE] = useState(15);
   const [mode, setMode] = useState<'yearly' | 'quarterly'>(showQuarterly ? 'quarterly' : 'yearly');
   const [perShare, setPerShare] = useState(false);
-  const [visibleRows, setVisibleRows] = useState<string[]>(DEFAULT_ESTIMATE_ROWS);
+  const [visibleRows, setVisibleRows] = useState<string[]>(napkinMode ? NAPKIN_ROWS : DEFAULT_ESTIMATE_ROWS);
   const [qGrowthMode, setQGrowthMode] = useState<'yoy' | 'sequential'>('yoy');
 
   const currentYear = new Date().getFullYear();
