@@ -263,7 +263,7 @@ export default function AnalysisEditor() {
           name: analysisName || null,
           images: analysisImages,
           employees: employees ? parseInt(employees) : null,
-          visible_sections: analysisSections,
+          visible_sections: { ...analysisSections, napkin_mode: napkinMode, napkin_assumptions: napkinAssumptions },
           adjustments: isInvestmentCompany
             ? [...adjustments, ...(navDiscount ? [{ _type: 'nav_discount', value: parseFloat(navDiscount) }] : [])]
             : adjustments,
