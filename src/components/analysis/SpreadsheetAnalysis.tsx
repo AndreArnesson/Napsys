@@ -336,8 +336,14 @@ export function SpreadsheetAnalysis({
         }
       }
 
-      const dividend = proj.dividend;
-      const dividendYield = (dividend && price && price > 0) ? (dividend / price) * 100 : undefined;
+      // Dividend / yield: yield wins if explicitly set, otherwise derive yield from dividend
+      let dividend = proj.dividend;
+      let dividendYield = proj.dividendYield;
+      if (dividendYield !== undefined && dividend === undefined && price && price > 0) {
+        dividend = (dividendYield / 100) * price;
+      } else if (dividendYield === undefined) {
+        dividendYield = (dividend && price && price > 0) ? (dividend / price) * 100 : undefined;
+      }
 
       // Adjusted values from one-time adjustments
       const getAdjSum = (metric: string) => {
@@ -420,7 +426,7 @@ export function SpreadsheetAnalysis({
       { label: `Vinst/aktie (${currency})`, key: 'earningsPerShare', editable: true, bg: true },
       { label: 'VPA-tillväxt (%)', key: 'epsGrowth', editable: false },
       { label: `Utdelning (${currency})`, key: 'dividend', editable: true },
-      { label: 'Direktavkastning (%)', key: 'dividendYield', editable: false },
+      { label: 'Direktavkastning (%)', key: 'dividendYield', editable: true },
       { label: 'P/E', key: 'pe', editable: false },
       { label: `EV (M${currency})`, key: 'ev', editable: true, bg: true },
       { label: 'EV/EBIT', key: 'evEbit', editable: false },
