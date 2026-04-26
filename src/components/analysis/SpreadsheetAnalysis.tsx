@@ -373,7 +373,7 @@ export function SpreadsheetAnalysis({
 
       const adjustedEbit = ebit !== undefined ? ebit + ebitAdj : (ebitAdj !== 0 ? ebitAdj : undefined);
       const adjustedEbitda = ebitda !== undefined ? ebitda + ebitdaAdj : (ebitdaAdj !== 0 ? ebitdaAdj : undefined);
-      const netIncome = effectiveRevenue * (netMargin / 100);
+      const netIncome = effectiveRevenue * (effectiveNetMargin / 100);
       const adjustedNetIncome = netIncome + netIncomeAdj;
       const adjustedEbitMargin = (adjustedEbit !== undefined && effectiveRevenue > 0) ? (adjustedEbit / effectiveRevenue) * 100 : undefined;
       const adjustedEvEbit = (adjustedEbit && adjustedEbit > 0 && ev > 0) ? ev / adjustedEbit : undefined;
@@ -381,11 +381,16 @@ export function SpreadsheetAnalysis({
 
       const hasAnyAdj = ebitAdj !== 0 || ebitdaAdj !== 0 || netIncomeAdj !== 0;
 
+      // Compute display margins from absolute (which themselves may have come from margin input)
+      const displayEbitMargin = (ebit !== undefined && effectiveRevenue) ? (ebit / effectiveRevenue) * 100 : proj.ebitMargin;
+      const displayEbitdaMargin = (ebitda !== undefined && effectiveRevenue) ? (ebitda / effectiveRevenue) * 100 : proj.ebitdaMargin;
+
       results.push({
         ...proj,
         ...col,
         price,
         revenue,
+        ebit,
         ebitda,
         calculatedRevenue: revenue,
         calculatedEbit: ebit,
@@ -393,6 +398,8 @@ export function SpreadsheetAnalysis({
         revenueGrowth: actualGrowth ?? growth ?? 0,
         revenuePerShare,
         netMargin,
+        ebitMargin: displayEbitMargin,
+        ebitdaMargin: displayEbitdaMargin,
         earningsPerShare,
         epsGrowth,
         targetPE: peToUse,
