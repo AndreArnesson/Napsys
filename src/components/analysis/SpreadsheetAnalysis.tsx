@@ -298,12 +298,28 @@ export function SpreadsheetAnalysis({
 
       let ebit = proj.ebit;
       let ebitda = proj.ebitda;
-      const netMargin = proj.netMargin || 0;
-      
       const effectiveRevenue = revenue || 0;
+
+      // Derive EBIT from margin × revenue if margin entered but absolute not
+      if (ebit === undefined && proj.ebitMargin !== undefined && effectiveRevenue) {
+        ebit = effectiveRevenue * (proj.ebitMargin / 100);
+      }
+      // Derive EBITDA from margin × revenue if margin entered but absolute not
+      if (ebitda === undefined && proj.ebitdaMargin !== undefined && effectiveRevenue) {
+        ebitda = effectiveRevenue * (proj.ebitdaMargin / 100);
+      }
+
+      // Net margin: use stored, or derive from EPS × shares / revenue if user entered EPS instead
+      let netMargin = proj.netMargin;
+      if (netMargin === undefined && proj.earningsPerShare !== undefined && effectiveRevenue && sharesOutstanding > 0) {
+        const ni = (proj.earningsPerShare * sharesOutstanding) / 1_000_000;
+        netMargin = (ni / effectiveRevenue) * 100;
+      }
+      const effectiveNetMargin = netMargin || 0;
+
       const revenuePerShare = sharesOutstanding > 0 ? (effectiveRevenue * 1_000_000) / sharesOutstanding : 0;
       // Use manually entered EPS if provided, otherwise calculate from revenue/margin/shares
-      const calculatedEpsFromRevenue = revenuePerShare * (netMargin / 100);
+      const calculatedEpsFromRevenue = revenuePerShare * (effectiveNetMargin / 100);
       const earningsPerShare = proj.earningsPerShare !== undefined ? proj.earningsPerShare : calculatedEpsFromRevenue;
       const peToUse = proj.targetPE || targetPE;
       const estimatedPrice = earningsPerShare * peToUse;
@@ -357,7 +373,7 @@ export function SpreadsheetAnalysis({
 
       const adjustedEbit = ebit !== undefined ? ebit + ebitAdj : (ebitAdj !== 0 ? ebitAdj : undefined);
       const adjustedEbitda = ebitda !== undefined ? ebitda + ebitdaAdj : (ebitdaAdj !== 0 ? ebitdaAdj : undefined);
-      const netIncome = effectiveRevenue * (netMargin / 100);
+      const netIncome = effectiveRevenue * (effectiveNetMargin / 100);
       const adjustedNetIncome = netIncome + netIncomeAdj;
       const adjustedEbitMargin = (adjustedEbit !== undefined && effectiveRevenue > 0) ? (adjustedEbit / effectiveRevenue) * 100 : undefined;
       const adjustedEvEbit = (adjustedEbit && adjustedEbit > 0 && ev > 0) ? ev / adjustedEbit : undefined;
@@ -365,11 +381,16 @@ export function SpreadsheetAnalysis({
 
       const hasAnyAdj = ebitAdj !== 0 || ebitdaAdj !== 0 || netIncomeAdj !== 0;
 
+      // Compute display margins from absolute (which themselves may have come from margin input)
+      const displayEbitMargin = (ebit !== undefined && effectiveRevenue) ? (ebit / effectiveRevenue) * 100 : proj.ebitMargin;
+      const displayEbitdaMargin = (ebitda !== undefined && effectiveRevenue) ? (ebitda / effectiveRevenue) * 100 : proj.ebitdaMargin;
+
       results.push({
         ...proj,
         ...col,
         price,
         revenue,
+        ebit,
         ebitda,
         calculatedRevenue: revenue,
         calculatedEbit: ebit,
@@ -377,6 +398,8 @@ export function SpreadsheetAnalysis({
         revenueGrowth: actualGrowth ?? growth ?? 0,
         revenuePerShare,
         netMargin,
+        ebitMargin: displayEbitMargin,
+        ebitdaMargin: displayEbitdaMargin,
         earningsPerShare,
         epsGrowth,
         targetPE: peToUse,
@@ -403,10 +426,17 @@ export function SpreadsheetAnalysis({
   const updateProjection = (col: ColumnDef, field: keyof YearlyProjection, value: number) => {
     const existingIndex = projections.findIndex(p => p.year === col.year && (p.quarter || undefined) === col.quarter);
     const newProjections = [...projections];
-    // Mutual exclusivity for dividend / dividendYield: the latest input wins
+    // Mutual exclusivity: latest input wins for paired fields (absolute ↔ percentage)
     const patch: Partial<YearlyProjection> = { [field]: value } as Partial<YearlyProjection>;
     if (field === 'dividendYield') (patch as any).dividend = undefined;
     if (field === 'dividend') (patch as any).dividendYield = undefined;
+    if (field === 'ebitMargin') (patch as any).ebit = undefined;
+    if (field === 'ebit') (patch as any).ebitMargin = undefined;
+    if (field === 'ebitdaMargin') (patch as any).ebitda = undefined;
+    if (field === 'ebitda') (patch as any).ebitdaMargin = undefined;
+    // Net income: entering margin clears EPS override; entering EPS clears netMargin
+    if (field === 'netMargin') (patch as any).earningsPerShare = undefined;
+    if (field === 'earningsPerShare') (patch as any).netMargin = undefined;
     if (existingIndex >= 0) {
       newProjections[existingIndex] = { ...newProjections[existingIndex], ...patch };
     } else {
