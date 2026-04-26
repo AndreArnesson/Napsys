@@ -298,12 +298,28 @@ export function SpreadsheetAnalysis({
 
       let ebit = proj.ebit;
       let ebitda = proj.ebitda;
-      const netMargin = proj.netMargin || 0;
-      
       const effectiveRevenue = revenue || 0;
+
+      // Derive EBIT from margin × revenue if margin entered but absolute not
+      if (ebit === undefined && proj.ebitMargin !== undefined && effectiveRevenue) {
+        ebit = effectiveRevenue * (proj.ebitMargin / 100);
+      }
+      // Derive EBITDA from margin × revenue if margin entered but absolute not
+      if (ebitda === undefined && proj.ebitdaMargin !== undefined && effectiveRevenue) {
+        ebitda = effectiveRevenue * (proj.ebitdaMargin / 100);
+      }
+
+      // Net margin: use stored, or derive from EPS × shares / revenue if user entered EPS instead
+      let netMargin = proj.netMargin;
+      if (netMargin === undefined && proj.earningsPerShare !== undefined && effectiveRevenue && sharesOutstanding > 0) {
+        const ni = (proj.earningsPerShare * sharesOutstanding) / 1_000_000;
+        netMargin = (ni / effectiveRevenue) * 100;
+      }
+      const effectiveNetMargin = netMargin || 0;
+
       const revenuePerShare = sharesOutstanding > 0 ? (effectiveRevenue * 1_000_000) / sharesOutstanding : 0;
       // Use manually entered EPS if provided, otherwise calculate from revenue/margin/shares
-      const calculatedEpsFromRevenue = revenuePerShare * (netMargin / 100);
+      const calculatedEpsFromRevenue = revenuePerShare * (effectiveNetMargin / 100);
       const earningsPerShare = proj.earningsPerShare !== undefined ? proj.earningsPerShare : calculatedEpsFromRevenue;
       const peToUse = proj.targetPE || targetPE;
       const estimatedPrice = earningsPerShare * peToUse;
