@@ -205,7 +205,7 @@ export default function CompanyDetail() {
   const { data: allAnalyses } = useQuery({
     queryKey: ['all-analyses', id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('analyses').select('*').eq('company_id', id).order('updated_at', { ascending: false });
+      const { data, error } = await supabase.from('analyses').select('*').eq('company_id', id).order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
