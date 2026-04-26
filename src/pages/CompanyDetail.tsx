@@ -29,7 +29,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { sv, enUS } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar } from 'recharts';
 import { Pencil } from 'lucide-react';
@@ -77,7 +77,7 @@ function AnalysisListItem({ analysis, companyId, locale, onDelete, onRename }: {
             )}
             <MOSBadge value={analysis.margin_of_safety} size="sm" />
             <span className="text-sm text-muted-foreground">
-              {formatDistanceToNow(new Date(analysis.updated_at), { addSuffix: true, locale })}
+              {format(new Date(analysis.created_at), 'yyyy-MM-dd', { locale })}
             </span>
             {analysis.is_draft && <span className="text-xs bg-muted px-2 py-0.5 rounded">Draft</span>}
           </Link>
@@ -205,7 +205,7 @@ export default function CompanyDetail() {
   const { data: allAnalyses } = useQuery({
     queryKey: ['all-analyses', id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('analyses').select('*').eq('company_id', id).order('updated_at', { ascending: false });
+      const { data, error } = await supabase.from('analyses').select('*').eq('company_id', id).order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
