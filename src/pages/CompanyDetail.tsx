@@ -77,7 +77,7 @@ function AnalysisListItem({ analysis, companyId, locale, onDelete, onRename }: {
             )}
             <MOSBadge value={analysis.margin_of_safety} size="sm" />
             <span className="text-sm text-muted-foreground">
-              {formatDistanceToNow(new Date(analysis.updated_at), { addSuffix: true, locale })}
+              {format(new Date(analysis.created_at), 'yyyy-MM-dd', { locale })}
             </span>
             {analysis.is_draft && <span className="text-xs bg-muted px-2 py-0.5 rounded">Draft</span>}
           </Link>
