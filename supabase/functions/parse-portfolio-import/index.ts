@@ -38,10 +38,7 @@ serve(async (req) => {
           textContent += XLSX.utils.sheet_to_csv(ws) + "\n\n";
         }
       } else if (fileType === "pdf") {
-        const pdfParse = (await import("npm:pdf-parse@1.1.1")).default;
-        const buffer = bytes.buffer;
-        const parsed = await pdfParse(new Uint8Array(buffer));
-        textContent = parsed.text;
+        throw new Error("PDF-import stöds inte just nu. Kopiera in texten manuellt i fritextfältet.");
       } else {
         throw new Error(`Unsupported file type: ${fileType}`);
       }
@@ -142,7 +139,7 @@ ${truncated}`,
     });
   } catch (error) {
     console.error("Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
