@@ -294,7 +294,8 @@ export default function CompanyDetail() {
       }
     } catch (e: any) {
       console.error('Financial summary error:', e);
-      toast.error(e?.message || 'Kunde inte generera sammanfattning');
+      const msg = e?.context ? ((await e.context.json().catch(() => null))?.error) : null;
+      toast.error(msg || e?.message || 'Kunde inte generera sammanfattning');
     } finally {
       setGeneratingFinSummary(false);
     }
@@ -323,7 +324,8 @@ export default function CompanyDetail() {
       }
     } catch (e: any) {
       console.error('Insider summary error:', e);
-      toast.error(e?.message || 'Kunde inte generera sammanfattning');
+      const msg = e?.context ? ((await e.context.json().catch(() => null))?.error) : null;
+      toast.error(msg || e?.message || 'Kunde inte generera sammanfattning');
     } finally {
       setGeneratingInsiderSummary(false);
     }
@@ -352,7 +354,8 @@ export default function CompanyDetail() {
       }
     } catch (e: any) {
       console.error('Balance summary error:', e);
-      toast.error(e?.message || 'Kunde inte generera sammanfattning');
+      const msg = e?.context ? ((await e.context.json().catch(() => null))?.error) : null;
+      toast.error(msg || e?.message || 'Kunde inte generera sammanfattning');
     } finally {
       setGeneratingBalanceSummary(false);
     }
