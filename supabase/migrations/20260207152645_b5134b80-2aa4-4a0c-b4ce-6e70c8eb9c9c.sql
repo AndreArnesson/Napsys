@@ -1,5 +1,5 @@
 -- Create profiles table for user settings and preferences
-CREATE TABLE public.profiles (
+CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT,
@@ -28,7 +28,7 @@ ON public.profiles FOR UPDATE
 USING (auth.uid() = user_id);
 
 -- Create companies table
-CREATE TABLE public.companies (
+CREATE TABLE IF NOT EXISTS public.companies (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -66,7 +66,7 @@ ON public.companies FOR DELETE
 USING (auth.uid() = user_id);
 
 -- Create analyses table
-CREATE TABLE public.analyses (
+CREATE TABLE IF NOT EXISTS public.analyses (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   company_id UUID NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -108,7 +108,7 @@ ON public.analyses FOR DELETE
 USING (auth.uid() = user_id);
 
 -- Create quarterly_estimates table for detailed mode
-CREATE TABLE public.quarterly_estimates (
+CREATE TABLE IF NOT EXISTS public.quarterly_estimates (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   analysis_id UUID NOT NULL REFERENCES public.analyses(id) ON DELETE CASCADE,
   year INTEGER NOT NULL,
@@ -155,7 +155,7 @@ USING (EXISTS (
 ));
 
 -- Create timeline_events table
-CREATE TABLE public.timeline_events (
+CREATE TABLE IF NOT EXISTS public.timeline_events (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   company_id UUID NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -189,7 +189,7 @@ ON public.timeline_events FOR DELETE
 USING (auth.uid() = user_id);
 
 -- Create income_statement table
-CREATE TABLE public.income_statement (
+CREATE TABLE IF NOT EXISTS public.income_statement (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   company_id UUID NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
   fiscal_year INTEGER NOT NULL,
@@ -241,7 +241,7 @@ USING (EXISTS (
 ));
 
 -- Create balance_sheet table
-CREATE TABLE public.balance_sheet (
+CREATE TABLE IF NOT EXISTS public.balance_sheet (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   company_id UUID NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
   fiscal_year INTEGER NOT NULL,
@@ -298,7 +298,7 @@ USING (EXISTS (
 ));
 
 -- Create shares table for sharing analyses
-CREATE TABLE public.shares (
+CREATE TABLE IF NOT EXISTS public.shares (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   company_id UUID NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
   owner_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -407,12 +407,13 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Create trigger to auto-create profile
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- Create storage bucket for company images
-INSERT INTO storage.buckets (id, name, public) VALUES ('company-assets', 'company-assets', true);
+INSERT INTO storage.buckets (id, name, public) VALUES ('company-assets', 'company-assets', true) ON CONFLICT (id) DO NOTHING;
 
 -- Storage policies for company assets
 CREATE POLICY "Users can view all company assets" 

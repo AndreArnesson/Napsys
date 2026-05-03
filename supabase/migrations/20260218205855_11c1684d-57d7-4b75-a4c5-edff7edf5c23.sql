@@ -1,1 +1,1 @@
-ALTER TABLE public.companies ADD COLUMN exchange text DEFAULT 'stockholm';
+ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS exchange text DEFAULT 'stockholm';

@@ -1,1 +1,1 @@
-ALTER TABLE public.watchlist ADD COLUMN custom_columns JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE public.watchlist ADD COLUMN IF NOT EXISTS custom_columns JSONB DEFAULT '{}'::jsonb;

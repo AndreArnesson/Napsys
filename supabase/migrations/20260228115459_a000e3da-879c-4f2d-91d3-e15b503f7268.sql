@@ -1,1 +1,1 @@
-ALTER TABLE public.analyses ADD COLUMN adjustments JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.analyses ADD COLUMN IF NOT EXISTS adjustments JSONB DEFAULT '[]'::jsonb;

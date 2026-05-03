@@ -1,6 +1,6 @@
 
 -- Create report_documents table
-CREATE TABLE public.report_documents (
+CREATE TABLE IF NOT EXISTS public.report_documents (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   company_id UUID NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
   analysis_id UUID REFERENCES public.analyses(id) ON DELETE SET NULL,

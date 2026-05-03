@@ -1,6 +1,6 @@
 
 -- Create insider_trades table
-CREATE TABLE public.insider_trades (
+CREATE TABLE IF NOT EXISTS public.insider_trades (
   id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
   date text NOT NULL,

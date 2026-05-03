@@ -1,1 +1,1 @@
-ALTER TABLE public.companies ADD COLUMN company_type text NOT NULL DEFAULT 'stock';
+ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS company_type text NOT NULL DEFAULT 'stock';

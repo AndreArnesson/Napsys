@@ -1,5 +1,5 @@
 
-CREATE TABLE public.watchlist (
+CREATE TABLE IF NOT EXISTS public.watchlist (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL,
   ticker TEXT NOT NULL,

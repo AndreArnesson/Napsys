@@ -1,1 +1,1 @@
-ALTER TABLE public.analyses ADD COLUMN projections jsonb DEFAULT '[]'::jsonb;
+ALTER TABLE public.analyses ADD COLUMN IF NOT EXISTS projections jsonb DEFAULT '[]'::jsonb;

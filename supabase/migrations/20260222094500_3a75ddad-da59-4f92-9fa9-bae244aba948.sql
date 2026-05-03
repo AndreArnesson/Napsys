@@ -1,1 +1,1 @@
-ALTER TABLE public.companies ADD COLUMN balance_sheet_summary text;
+ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS balance_sheet_summary text;

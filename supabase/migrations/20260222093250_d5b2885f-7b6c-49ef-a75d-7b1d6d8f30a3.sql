@@ -1,1 +1,1 @@
-ALTER TABLE public.companies ADD COLUMN insider_ownership jsonb DEFAULT '[]'::jsonb;
+ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS insider_ownership jsonb DEFAULT '[]'::jsonb;

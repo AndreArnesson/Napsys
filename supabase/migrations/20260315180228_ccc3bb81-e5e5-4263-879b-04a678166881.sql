@@ -1,6 +1,6 @@
 
 -- Create portfolios table
-CREATE TABLE public.portfolios (
+CREATE TABLE IF NOT EXISTS public.portfolios (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   name text NOT NULL,
@@ -16,7 +16,7 @@ CREATE POLICY "Users can update own portfolios" ON public.portfolios FOR UPDATE 
 CREATE POLICY "Users can delete own portfolios" ON public.portfolios FOR DELETE USING (auth.uid() = user_id);
 
 -- Create portfolio_snapshots table
-CREATE TABLE public.portfolio_snapshots (
+CREATE TABLE IF NOT EXISTS public.portfolio_snapshots (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   portfolio_id uuid NOT NULL REFERENCES public.portfolios(id) ON DELETE CASCADE,
   snapshot_date date NOT NULL DEFAULT CURRENT_DATE,
@@ -40,7 +40,7 @@ CREATE POLICY "Users can delete own snapshots" ON public.portfolio_snapshots FOR
 );
 
 -- Create portfolio_holdings table
-CREATE TABLE public.portfolio_holdings (
+CREATE TABLE IF NOT EXISTS public.portfolio_holdings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   snapshot_id uuid NOT NULL REFERENCES public.portfolio_snapshots(id) ON DELETE CASCADE,
   company_name text,

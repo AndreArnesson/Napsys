@@ -1,4 +1,4 @@
-CREATE TABLE public.price_fetch_errors (
+CREATE TABLE IF NOT EXISTS public.price_fetch_errors (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
   ticker text NOT NULL,
