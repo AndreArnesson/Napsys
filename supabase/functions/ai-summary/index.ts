@@ -79,7 +79,7 @@ Var konkret med siffror. Håll dig under 300 ord. Returnera BARA HTML-innehåll,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
