@@ -48,19 +48,18 @@ jobs:
             -H "Content-Type: application/gzip" \
             --data-binary @"${{ env.BACKUP_FILE }}"
 
-      - name: Prune old backups (keep last 7)
+      - name: Prune old backups (keep last 90)
         env:
           SUPABASE_URL: https://ymwrlclbovmipkwgvqgw.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          # List all objects in bucket, sorted by created_at ascending
           FILES=$(curl -sf -X POST "$SUPABASE_URL/storage/v1/object/list/db-backups" \
             -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
             -H "Content-Type: application/json" \
-            -d '{"prefix":"","limit":100,"sortBy":{"column":"created_at","order":"asc"}}')
+            -d '{"prefix":"","limit":200,"sortBy":{"column":"created_at","order":"asc"}}')
 
           TOTAL=$(echo "$FILES" | jq 'length')
-          DELETE_COUNT=$((TOTAL - 7))
+          DELETE_COUNT=$((TOTAL - 90))
 
           if [ "$DELETE_COUNT" -gt 0 ]; then
             TO_DELETE=$(echo "$FILES" | jq -r --argjson n "$DELETE_COUNT" '.[0:$n][].name')
@@ -78,4 +77,4 @@ jobs:
         with:
           name: db-backup-${{ env.TIMESTAMP }}
           path: ${{ env.BACKUP_FILE }}
-          retention-days: 30
+          retention-days: 90
