@@ -1,0 +1,74 @@
+name: Database Backup
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install PostgreSQL client
+        run: sudo apt-get install -y postgresql-client jq
+
+      - name: Create backup
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
+          FILENAME="napsys-${TIMESTAMP}.sql"
+          pg_dump "$DATABASE_URL" --no-owner --no-acl -f "$FILENAME"
+          gzip "$FILENAME"
+          echo "BACKUP_FILE=${FILENAME}.gz" >> $GITHUB_ENV
+          echo "TIMESTAMP=${TIMESTAMP}" >> $GITHUB_ENV
+
+      - name: Upload to Supabase Storage
+        env:
+          SUPABASE_URL: https://ymwrlclbovmipkwgvqgw.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          # Create bucket if it doesn't exist (ignore error if already exists)
+          curl -s -X POST "$SUPABASE_URL/storage/v1/bucket" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"id":"db-backups","name":"db-backups","public":false}' || true
+
+          # Upload backup
+          curl -sf -X POST "$SUPABASE_URL/storage/v1/object/db-backups/${{ env.BACKUP_FILE }}" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/gzip" \
+            --data-binary @"${{ env.BACKUP_FILE }}"
+
+      - name: Prune old backups (keep last 7)
+        env:
+          SUPABASE_URL: https://ymwrlclbovmipkwgvqgw.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          # List all objects in bucket, sorted by created_at ascending
+          FILES=$(curl -sf -X POST "$SUPABASE_URL/storage/v1/object/list/db-backups" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"prefix":"","limit":100,"sortBy":{"column":"created_at","order":"asc"}}')
+
+          TOTAL=$(echo "$FILES" | jq 'length')
+          DELETE_COUNT=$((TOTAL - 7))
+
+          if [ "$DELETE_COUNT" -gt 0 ]; then
+            TO_DELETE=$(echo "$FILES" | jq -r --argjson n "$DELETE_COUNT" '.[0:$n][].name')
+            while IFS= read -r name; do
+              curl -sf -X DELETE "$SUPABASE_URL/storage/v1/object/db-backups/$name" \
+                -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" || true
+              echo "Deleted: $name"
+            done <<< "$TO_DELETE"
+          else
+            echo "No old backups to prune (total: $TOTAL)"
+          fi
+
+      - name: Upload as GitHub artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ env.TIMESTAMP }}
+          path: ${{ env.BACKUP_FILE }}
+          retention-days: 30
