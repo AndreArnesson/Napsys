@@ -11,7 +11,9 @@ jobs:
 
     steps:
       - name: Install PostgreSQL client
-        run: sudo apt-get install -y postgresql-client jq
+        run: |
+          sudo apt-get install -y postgresql-client-16 jq
+          echo "/usr/lib/postgresql/16/bin" >> $GITHUB_PATH
 
       - name: Create backup
         env:
