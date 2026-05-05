@@ -15,11 +15,13 @@ jobs:
 
       - name: Create backup
         env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
           FILENAME="napsys-${TIMESTAMP}.sql"
-          pg_dump "$DATABASE_URL" --no-owner --no-acl -f "$FILENAME"
+          pg_dump -h aws-0-eu-west-1.pooler.supabase.com -p 5432 \
+            -U postgres.ymwrlclbovmipkwgvqgw -d postgres \
+            --no-owner --no-acl -f "$FILENAME"
           gzip "$FILENAME"
           echo "BACKUP_FILE=${FILENAME}.gz" >> $GITHUB_ENV
           echo "TIMESTAMP=${TIMESTAMP}" >> $GITHUB_ENV
