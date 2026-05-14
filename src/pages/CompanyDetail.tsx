@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import debounce from 'lodash/debounce';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -188,47 +189,37 @@ export default function CompanyDetail() {
     enabled: !!id,
   });
 
-  const localDescriptionRef = useRef(localDescription);
-  const localMoatsRef = useRef(localMoats);
-  const localBusinessModelRef = useRef(localBusinessModel);
-  const localCompetitionRef = useRef(localCompetition);
-  const companyRef = useRef(company);
-  useEffect(() => { localDescriptionRef.current = localDescription; }, [localDescription]);
-  useEffect(() => { localMoatsRef.current = localMoats; }, [localMoats]);
-  useEffect(() => { localBusinessModelRef.current = localBusinessModel; }, [localBusinessModel]);
-  useEffect(() => { localCompetitionRef.current = localCompetition; }, [localCompetition]);
-  useEffect(() => { companyRef.current = company; }, [company]);
-
-  // Save any unsaved text fields when navigating away
+  // Init rich text values when company loads, preferring any unsaved localStorage draft
   useEffect(() => {
-    return () => {
-      const c = companyRef.current;
-      if (!c) return;
-      const updates: Record<string, any> = {};
-      if (localDescriptionRef.current !== (c.description || '')) updates.description = localDescriptionRef.current;
-      if (localMoatsRef.current !== ((c as any).moats || '')) updates.moats = localMoatsRef.current;
-      if (localBusinessModelRef.current !== ((c as any).business_model || '')) updates.business_model = localBusinessModelRef.current;
-      if (localCompetitionRef.current !== ((c as any).competition || '')) updates.competition = localCompetitionRef.current;
-      if (Object.keys(updates).length > 0) {
-        supabase.from('companies').update(updates).eq('id', c.id).then();
+    if (!company || richTextInited) return;
+    try {
+      const draft = JSON.parse(localStorage.getItem(draftKey) || 'null');
+      setLocalDescription(draft?.description ?? company.description ?? '');
+      setLocalMoats(draft?.moats ?? company.moats ?? '');
+      setLocalBusinessModel(draft?.business_model ?? (company as any)?.business_model ?? '');
+      setLocalCompetition(draft?.competition ?? (company as any)?.competition ?? '');
+      if (draft && Object.keys(draft).length > 0) {
+        supabase.from('companies').update(draft).eq('id', company.id).then(
+          () => { try { localStorage.removeItem(draftKey); } catch {} },
+          () => {}
+        );
       }
-    };
-  }, []);
-
-  // Init rich text values when company loads
-  if (company && !richTextInited) {
-    setLocalDescription(company.description || '');
-    setLocalMoats(company.moats || '');
-    setLocalBusinessModel((company as any)?.business_model || '');
-    setLocalCompetition((company as any)?.competition || '');
+    } catch {
+      setLocalDescription(company.description || '');
+      setLocalMoats(company.moats || '');
+      setLocalBusinessModel((company as any)?.business_model || '');
+      setLocalCompetition((company as any)?.competition || '');
+    }
     setRichTextInited(true);
-  }
-  if (company && !finSummaryInited) {
+  }, [company]);
+
+  useEffect(() => {
+    if (!company || finSummaryInited) return;
     setLocalFinSummary((company as any)?.financial_summary || '');
     setLocalInsiderSummary((company as any)?.insider_summary || '');
     setLocalBalanceSummary((company as any)?.balance_sheet_summary || '');
     setFinSummaryInited(true);
-  }
+  }, [company]);
 
   const { data: allAnalyses } = useQuery({
     queryKey: ['all-analyses', id],
@@ -273,6 +264,38 @@ export default function CompanyDetail() {
     },
     onError: () => toast.error(t.common.error),
   });
+
+  const draftKey = `company-draft-${id}`;
+
+  const saveFieldDraft = useCallback((field: string, value: string) => {
+    try {
+      const existing = JSON.parse(localStorage.getItem(draftKey) || '{}');
+      localStorage.setItem(draftKey, JSON.stringify({ ...existing, [field]: value }));
+    } catch {}
+  }, [draftKey]);
+
+  const debouncedRemoteSave = useCallback(
+    debounce(() => {
+      try {
+        const raw = localStorage.getItem(`company-draft-${id}`);
+        if (!raw) return;
+        const draft = JSON.parse(raw);
+        updateCompany.mutate(draft, {
+          onSuccess: () => { try { localStorage.removeItem(`company-draft-${id}`); } catch {} },
+        });
+      } catch {}
+    }, 1500),
+    [id]
+  );
+
+  const handleTextChange = useCallback((field: string, value: string, setter: (v: string) => void) => {
+    setter(value);
+    saveFieldDraft(field, value);
+    queryClient.setQueryData(['company', id], (old: any) => old ? { ...old, [field]: value } : old);
+    debouncedRemoteSave();
+  }, [saveFieldDraft, debouncedRemoteSave, id, queryClient]);
+
+  useEffect(() => () => { debouncedRemoteSave.flush(); }, [debouncedRemoteSave]);
 
   const ceoData: CEOData = company?.management
     ? (typeof company.management === 'object' ? (company.management as unknown as CEOData) : { name: String(company.management) })
@@ -658,8 +681,7 @@ export default function CompanyDetail() {
                       <CardContent>
                         <RichTextEditor
                           value={localBusinessModel}
-                          onChange={setLocalBusinessModel}
-                          onBlur={() => { if (localBusinessModel !== ((company as any)?.business_model || '')) updateCompany.mutate({ business_model: localBusinessModel } as any); }}
+                          onChange={(val) => handleTextChange('business_model', val, setLocalBusinessModel)}
                           placeholder="Beskriv bolagets affärsmodell..."
                           minHeight="150px"
                         />
@@ -679,7 +701,7 @@ export default function CompanyDetail() {
                           </CardHeader>
                           <CollapsibleContent>
                             <CardContent>
-                              <RichTextEditor value={localDescription} onChange={setLocalDescription} onBlur={() => { if (localDescription !== (company.description || '')) updateCompany.mutate({ description: localDescription }); }} placeholder="Add a detailed description..." minHeight="200px" />
+                              <RichTextEditor value={localDescription} onChange={(val) => handleTextChange('description', val, setLocalDescription)} placeholder="Add a detailed description..." minHeight="200px" />
                             </CardContent>
                           </CollapsibleContent>
                         </Card>
@@ -697,7 +719,7 @@ export default function CompanyDetail() {
                           </CardHeader>
                           <CollapsibleContent>
                             <CardContent>
-                              <RichTextEditor value={localMoats} onChange={setLocalMoats} onBlur={() => { if (localMoats !== (company.moats || '')) updateCompany.mutate({ moats: localMoats }); }} placeholder="Describe the company's moats..." minHeight="200px" />
+                              <RichTextEditor value={localMoats} onChange={(val) => handleTextChange('moats', val, setLocalMoats)} placeholder="Describe the company's moats..." minHeight="200px" />
                             </CardContent>
                           </CollapsibleContent>
                         </Card>
@@ -711,8 +733,7 @@ export default function CompanyDetail() {
                       <CardContent>
                         <RichTextEditor
                           value={localCompetition}
-                          onChange={setLocalCompetition}
-                          onBlur={() => { if (localCompetition !== ((company as any)?.competition || '')) updateCompany.mutate({ competition: localCompetition } as any); }}
+                          onChange={(val) => handleTextChange('competition', val, setLocalCompetition)}
                           placeholder="Beskriv konkurrenslandskapet, huvudkonkurrenter, marknadsposition..."
                           minHeight="150px"
                         />

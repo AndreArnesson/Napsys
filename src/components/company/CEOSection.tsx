@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -25,33 +26,31 @@ interface CEOSectionProps {
 
 export function CEOSection({ ceo, onUpdate, companyId, readOnly = false }: CEOSectionProps) {
   const { t } = useLanguage();
+  const queryClient = useQueryClient();
+  const hasEditedRef = useRef(false);
+
   const [localCeo, setLocalCeo] = useState<CEOData>(ceo);
 
-  const localCeoRef = useRef(localCeo);
-  const ceoRef = useRef(ceo);
-  useEffect(() => { localCeoRef.current = localCeo; }, [localCeo]);
-  useEffect(() => { ceoRef.current = ceo; }, [ceo]);
+  // Sync from server only until user starts editing (handles async initial load from React Query)
   useEffect(() => {
-    return () => {
-      if (JSON.stringify(localCeoRef.current) !== JSON.stringify(ceoRef.current)) {
-        supabase
-          .from('companies')
-          .update({ management: JSON.stringify(localCeoRef.current) })
-          .eq('id', companyId)
-          .then();
-      }
-    };
-  }, []);
+    if (!hasEditedRef.current) {
+      setLocalCeo(ceo);
+    }
+  }, [ceo]);
 
   const handleChange = (field: keyof CEOData, value: string) => {
+    hasEditedRef.current = true;
     const updated = { ...localCeo, [field]: value };
     setLocalCeo(updated);
-  };
-
-  const handleBlur = () => {
-    if (JSON.stringify(localCeo) !== JSON.stringify(ceo)) {
-      onUpdate(localCeo);
-    }
+    // Update React Query cache immediately so remounts see fresh data
+    queryClient.setQueryData(['company', companyId], (old: any) =>
+      old ? { ...old, management: updated } : old
+    );
+    // Persist to database
+    supabase.from('companies')
+      .update({ management: updated })
+      .eq('id', companyId)
+      .then(() => {}, () => {});
   };
 
   const getInitials = (name: string) => {
@@ -74,11 +73,11 @@ export function CEOSection({ ceo, onUpdate, companyId, readOnly = false }: CEOSe
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Name</Label>
-              <Input placeholder="CEO name" value={localCeo.name} onChange={(e) => handleChange('name', e.target.value)} onBlur={handleBlur} disabled={readOnly} />
+              <Input placeholder="CEO name" value={localCeo.name} onChange={(e) => handleChange('name', e.target.value)} disabled={readOnly} />
             </div>
             <div className="space-y-2">
               <Label>CEO since</Label>
-              <Input placeholder="e.g. 2020" value={localCeo.since || ''} onChange={(e) => handleChange('since', e.target.value)} onBlur={handleBlur} disabled={readOnly} />
+              <Input placeholder="e.g. 2020" value={localCeo.since || ''} onChange={(e) => handleChange('since', e.target.value)} disabled={readOnly} />
             </div>
           </div>
         </div>
@@ -87,11 +86,11 @@ export function CEOSection({ ceo, onUpdate, companyId, readOnly = false }: CEOSe
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Ownership (%)</Label>
-          <Input placeholder="e.g. 5.2%" value={localCeo.ownership || ''} onChange={(e) => handleChange('ownership', e.target.value)} onBlur={handleBlur} disabled={readOnly} />
+          <Input placeholder="e.g. 5.2%" value={localCeo.ownership || ''} onChange={(e) => handleChange('ownership', e.target.value)} disabled={readOnly} />
         </div>
         <div className="space-y-2">
           <Label>Compensation (yearly)</Label>
-          <Input placeholder="e.g. 3 500 000 SEK" value={localCeo.compensation || ''} onChange={(e) => handleChange('compensation', e.target.value)} onBlur={handleBlur} disabled={readOnly} />
+          <Input placeholder="e.g. 3 500 000 SEK" value={localCeo.compensation || ''} onChange={(e) => handleChange('compensation', e.target.value)} disabled={readOnly} />
         </div>
       </div>
 
@@ -100,7 +99,6 @@ export function CEOSection({ ceo, onUpdate, companyId, readOnly = false }: CEOSe
         <RichTextEditor
           value={localCeo.background || ''}
           onChange={(val) => handleChange('background', val)}
-          onBlur={handleBlur}
           placeholder="Previous roles, education, experience..."
           minHeight="80px"
           disabled={readOnly}
@@ -112,7 +110,6 @@ export function CEOSection({ ceo, onUpdate, companyId, readOnly = false }: CEOSe
         <RichTextEditor
           value={localCeo.notes || ''}
           onChange={(val) => handleChange('notes', val)}
-          onBlur={handleBlur}
           placeholder="Your notes about the CEO..."
           minHeight="60px"
           disabled={readOnly}

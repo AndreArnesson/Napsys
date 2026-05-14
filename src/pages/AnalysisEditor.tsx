@@ -271,6 +271,26 @@ export default function AnalysisEditor() {
         .eq('id', analysisId);
       if (error) throw error;
     },
+    onMutate: () => {
+      // Update cache synchronously so remounts see fresh data even before the network request completes
+      queryClient.setQueryData(['analysis', analysisId], (old: any) => old ? {
+        ...old,
+        rating: rating || null,
+        summary_comment: notes,
+        margin_of_safety: currentMOS ?? null,
+        is_draft: !rating,
+        projections: isInvestmentCompany ? investmentHoldings : projections,
+        current_price: currentPrice ? parseFloat(currentPrice) : null,
+        shares_outstanding: sharesOutstanding ? parseInt(sharesOutstanding) : null,
+        name: analysisName || null,
+        images: analysisImages,
+        employees: employees ? parseInt(employees) : null,
+        visible_sections: { ...analysisSections, napkin_mode: napkinMode, napkin_assumptions: napkinAssumptions },
+        adjustments: isInvestmentCompany
+          ? [...adjustments, ...(navDiscount ? [{ _type: 'nav_discount', value: parseFloat(navDiscount) }] : [])]
+          : adjustments,
+      } : old);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-analyses', id] });
       queryClient.invalidateQueries({ queryKey: ['analysis', analysisId] });
