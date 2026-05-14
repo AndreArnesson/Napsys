@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ChevronDown, ChevronRight, History, Trash2, Plus, ArrowUpDown, Save, Loader2, Bookmark, Briefcase } from 'lucide-react';
+import { ChevronDown, ChevronRight, History, Trash2, Plus, ArrowUpDown, Save, Loader2, Bookmark, Briefcase, Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { format, parseISO } from 'date-fns';
@@ -275,6 +276,21 @@ export function EconomySnapshotHistory({ currentEntries }: Props) {
       <div className="flex items-center gap-2 font-semibold text-base">
         <History className="h-5 w-5" />
         {sv ? 'Historik & ögonblicksbilder' : 'History & Snapshots'}
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-[260px]">
+              <p className="font-semibold mb-1">{sv ? 'Hur fungerar det?' : 'How it works'}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {sv
+                  ? 'Klicka "Spara ögonblicksbild" för att frysa nuläget — ekonomiposter och portföljinnehav sparas tillsammans. Expandera en bild för att se vad du ägde vid tillfället. Grafen visar hur ditt nettovärde förändrats.'
+                  : 'Click "Record snapshot" to freeze the current state — economy entries and portfolio holdings are saved together. Expand a snapshot to see what you owned at that point. The chart tracks your net worth over time.'}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {/* Record snapshot bar */}
@@ -315,7 +331,7 @@ export function EconomySnapshotHistory({ currentEntries }: Props) {
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="date" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${formatNum(v)}`} width={70} />
-              <Tooltip formatter={(v: number) => [`${formatNum(v)} kr`, sv ? 'Nettovärde' : 'Net Worth']} />
+              <RechartsTooltip formatter={(v: number) => [`${formatNum(v)} kr`, sv ? 'Nettovärde' : 'Net Worth']} />
               <Line type="monotone" dataKey="nw" stroke="hsl(var(--primary))" strokeWidth={2}
                 dot={{ r: 4, fill: 'hsl(var(--primary))' }} activeDot={{ r: 5 }} />
             </LineChart>

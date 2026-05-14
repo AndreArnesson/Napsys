@@ -9,9 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Briefcase, ChevronRight, Trash2, Wallet } from 'lucide-react';
+import { Plus, Briefcase, ChevronRight, Trash2, Wallet, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { PortfolioOverview } from '@/components/portfolio/PortfolioOverview';
 import { EconomyOverview } from '@/components/economy/EconomyOverview';
 
@@ -19,6 +19,7 @@ export default function Portfolio() {
   const { user } = useAuth();
   const { t, language } = useLanguage();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const sv = language === 'sv';
@@ -88,12 +89,18 @@ export default function Portfolio() {
               {portfolios && portfolios.length > 0 && (
                 <PortfolioOverview portfolios={portfolios.map(p => ({ id: p.id, name: p.name }))} />
               )}
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <h2 className="text-xl font-bold">{sv ? 'Portföljer' : 'Portfolios'}</h2>
-                <Button onClick={() => setShowCreate(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t.portfolio.createPortfolio}
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => navigate('/portfolio/update')}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    {sv ? 'Uppdatera portföljer' : 'Update portfolios'}
+                  </Button>
+                  <Button onClick={() => setShowCreate(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t.portfolio.createPortfolio}
+                  </Button>
+                </div>
               </div>
 
               {isLoading ? (
