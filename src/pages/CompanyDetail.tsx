@@ -14,6 +14,7 @@ import { PilotskolanSection } from '@/components/company/PilotskolanSection';
 import { KeyDataEditor } from '@/components/company/KeyDataEditor';
 import { InsiderTable, InsiderTrade } from '@/components/company/InsiderTable';
 import { InsiderOwnership, OwnershipEntry } from '@/components/company/InsiderOwnership';
+import { InsiderOwnershipHistory } from '@/components/company/InsiderOwnershipHistory';
 import { FileImportDialog, ParsedFinancialData, ParsedInsiderTrade, ParsedCompanyInfo } from '@/components/company/FileImportDialog';
 import { ImageUpload } from '@/components/company/ImageUpload';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -753,7 +754,8 @@ export default function CompanyDetail() {
                           value={(company as any)?.pilotskolan || ''}
                           onUpdate={(val) => updateCompany.mutate({ pilotskolan: val } as any)}
                         />
-                        <InsiderOwnership data={ownershipData} onUpdate={handleOwnershipUpdate} currentPrice={company?.current_price} tradingCurrency={(company as any)?.trading_currency || 'SEK'} />
+                        <InsiderOwnership data={ownershipData} onUpdate={handleOwnershipUpdate} currentPrice={company?.current_price} tradingCurrency={(company as any)?.trading_currency || 'SEK'} companyId={id!} />
+                        <InsiderOwnershipHistory companyId={id!} />
                         
                         {/* Ägarbild */}
                         <div className="space-y-2">

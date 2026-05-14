@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PieChart as RechartsPie, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { PieChart, Plus, Trash2, Sparkles, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { PieChart, Plus, Trash2, Sparkles, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Bookmark } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 
 export interface OwnershipEntry {
   name: string;
@@ -20,6 +22,7 @@ interface InsiderOwnershipProps {
   onUpdate: (data: OwnershipEntry[]) => void;
   currentPrice?: number | null;
   tradingCurrency?: string;
+  companyId?: string;
 }
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--accent))'];
@@ -27,12 +30,16 @@ const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning
 type SortKey = 'name' | 'role' | 'shares' | 'percentage' | 'value';
 type SortDir = 'asc' | 'desc';
 
-export function InsiderOwnership({ data, onUpdate, currentPrice, tradingCurrency = 'SEK' }: InsiderOwnershipProps) {
+export function InsiderOwnership({ data, onUpdate, currentPrice, tradingCurrency = 'SEK', companyId }: InsiderOwnershipProps) {
+  const queryClient = useQueryClient();
   const [pasteText, setPasteText] = useState('');
   const [parsing, setParsing] = useState(false);
   const [showPaste, setShowPaste] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [snapshotDate, setSnapshotDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [snapshotNote, setSnapshotNote] = useState('');
+  const [savingSnapshot, setSavingSnapshot] = useState(false);
 
   // Local copy of data for snappy typing — sync when parent data changes externally
   const [localData, setLocalData] = useState<OwnershipEntry[]>(data);
@@ -97,6 +104,27 @@ export function InsiderOwnership({ data, onUpdate, currentPrice, tradingCurrency
       toast.error('Failed to parse text');
     } finally {
       setParsing(false);
+    }
+  };
+
+  const recordSnapshot = async () => {
+    if (!companyId || !snapshotDate) return;
+    setSavingSnapshot(true);
+    try {
+      const { error } = await supabase
+        .from('insider_ownership_history')
+        .upsert(
+          { company_id: companyId, recorded_date: snapshotDate, entries: localData, note: snapshotNote || null },
+          { onConflict: 'company_id,recorded_date' }
+        );
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['insider_ownership_history', companyId] });
+      toast.success('Snapshot saved');
+      setSnapshotNote('');
+    } catch (e) {
+      toast.error('Failed to save snapshot');
+    } finally {
+      setSavingSnapshot(false);
     }
   };
 
@@ -263,6 +291,28 @@ export function InsiderOwnership({ data, onUpdate, currentPrice, tradingCurrency
         <p className="text-sm text-muted-foreground text-center py-4">
           No ownership data. Click "Add" or use "Smart Paste" to add entries.
         </p>
+      )}
+
+      {companyId && localData.length > 0 && (
+        <div className="flex items-center gap-2 pt-2 border-t flex-wrap">
+          <Bookmark className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <input
+            type="date"
+            value={snapshotDate}
+            onChange={e => setSnapshotDate(e.target.value)}
+            className="h-8 rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          <Input
+            placeholder="Note (optional)"
+            value={snapshotNote}
+            onChange={e => setSnapshotNote(e.target.value)}
+            className="h-8 flex-1 min-w-[120px] max-w-[200px]"
+          />
+          <Button size="sm" variant="outline" onClick={recordSnapshot} disabled={savingSnapshot || !snapshotDate} className="gap-1 shrink-0">
+            {savingSnapshot ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bookmark className="h-3 w-3" />}
+            Record snapshot
+          </Button>
+        </div>
       )}
     </div>
   );

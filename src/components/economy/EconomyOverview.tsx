@@ -9,10 +9,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2, Landmark, PiggyBank, CreditCard, Building2 } from 'lucide-react';
+import { Plus, Trash2, Landmark, PiggyBank, CreditCard, Building2, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { EconomySnapshotHistory } from './EconomySnapshotHistory';
 
 const CATEGORIES = [
   { value: 'bank_account', labelSv: 'Bankkonto', labelEn: 'Bank Account', icon: Building2, color: 'hsl(var(--primary))' },
@@ -27,10 +29,21 @@ export function EconomyOverview() {
   const { user } = useAuth();
   const { language } = useLanguage();
   const queryClient = useQueryClient();
-  const [showAdd, setShowAdd] = useState(false);
+  const [showAdd, setShowAdd] = useState<string | false>(false);
   const [newEntry, setNewEntry] = useState({ label: '', category: 'bank_account', amount: '', notes: '', entry_date: new Date().toISOString().split('T')[0] });
 
+  const openAdd = (category = 'bank_account') => {
+    setNewEntry({ label: '', category, amount: '', notes: '', entry_date: new Date().toISOString().split('T')[0] });
+    setShowAdd(category);
+  };
+
   const sv = language === 'sv';
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set(CATEGORIES.map(c => c.value)));
+  const toggleSection = (val: string) => setOpenSections(prev => {
+    const next = new Set(prev);
+    next.has(val) ? next.delete(val) : next.add(val);
+    return next;
+  });
 
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ['economy_entries'],
@@ -115,7 +128,7 @@ export function EconomyOverview() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold">{sv ? 'Ekonomisk översikt' : 'Economy Overview'}</h2>
-        <Button onClick={() => setShowAdd(true)}>
+        <Button onClick={() => openAdd()}>
           <Plus className="h-4 w-4 mr-2" />
           {sv ? 'Lägg till post' : 'Add entry'}
         </Button>
@@ -221,7 +234,7 @@ export function EconomyOverview() {
         </Card>
       )}
 
-      {/* Entries table */}
+      {/* Grouped entries by category */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -229,50 +242,81 @@ export function EconomyOverview() {
             {latestDate && <span className="text-sm font-normal text-muted-foreground ml-2">({sv ? 'senaste:' : 'latest:'} {latestDate})</span>}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-2">
           {isLoading ? (
             <p className="text-muted-foreground">{sv ? 'Laddar...' : 'Loading...'}</p>
           ) : entries.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">{sv ? 'Inga poster ännu. Lägg till dina konton, sparande och skulder.' : 'No entries yet. Add your accounts, savings and debts.'}</p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{sv ? 'Datum' : 'Date'}</TableHead>
-                    <TableHead>{sv ? 'Kategori' : 'Category'}</TableHead>
-                    <TableHead>{sv ? 'Namn' : 'Name'}</TableHead>
-                    <TableHead className="text-right">{sv ? 'Belopp' : 'Amount'}</TableHead>
-                    <TableHead>{sv ? 'Anteckning' : 'Note'}</TableHead>
-                    <TableHead className="w-10"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {entries.map(entry => (
-                    <TableRow key={entry.id}>
-                      <TableCell className="font-mono text-sm">{entry.entry_date}</TableCell>
-                      <TableCell>{getCatLabel(entry.category)}</TableCell>
-                      <TableCell className="font-medium">{entry.label}</TableCell>
-                      <TableCell className={`text-right font-mono ${entry.category === 'debt' ? 'text-destructive' : ''}`}>
-                        {entry.category === 'debt' ? '-' : ''}{formatNum(Number(entry.amount))} kr
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{entry.notes || '—'}</TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteEntry.mutate(entry.id)}>
-                          <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            CATEGORIES.map(cat => {
+              const catEntries = entries.filter(e => e.category === cat.value);
+              const subtotal = catEntries.reduce((s, e) => s + Number(e.amount), 0);
+              const Icon = cat.icon;
+              const isOpen = openSections.has(cat.value);
+              return (
+                <Collapsible key={cat.value} open={isOpen} onOpenChange={() => toggleSection(cat.value)}>
+                  <CollapsibleTrigger asChild>
+                    <button className="w-full flex items-center gap-2 px-2 py-2 rounded-md hover:bg-muted/50 text-sm">
+                      {isOpen ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
+                      <Icon className="h-4 w-4 shrink-0" style={{ color: cat.color }} />
+                      <span className="font-medium flex-1 text-left">{sv ? cat.labelSv : cat.labelEn}</span>
+                      <span className={`font-mono text-xs ${cat.value === 'debt' ? 'text-destructive' : 'text-muted-foreground'}`}>
+                        {cat.value === 'debt' && subtotal > 0 ? '−' : ''}{formatNum(subtotal)} kr
+                      </span>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 ml-1 shrink-0"
+                        onClick={e => { e.stopPropagation(); openAdd(cat.value); }}>
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    {catEntries.length === 0 ? (
+                      <p className="text-xs text-muted-foreground px-8 py-2">{sv ? 'Inga poster' : 'No entries'}</p>
+                    ) : (
+                      <div className="ml-6 mb-1 rounded-md border overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="py-1.5">{sv ? 'Datum' : 'Date'}</TableHead>
+                              <TableHead className="py-1.5">{sv ? 'Namn' : 'Name'}</TableHead>
+                              <TableHead className="text-right py-1.5">{sv ? 'Belopp' : 'Amount'}</TableHead>
+                              <TableHead className="py-1.5">{sv ? 'Not' : 'Note'}</TableHead>
+                              <TableHead className="w-8" />
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {catEntries.map(entry => (
+                              <TableRow key={entry.id}>
+                                <TableCell className="py-1.5 font-mono text-xs text-muted-foreground">{entry.entry_date}</TableCell>
+                                <TableCell className="py-1.5 font-medium">{entry.label}</TableCell>
+                                <TableCell className={`py-1.5 text-right font-mono text-sm ${entry.category === 'debt' ? 'text-destructive' : ''}`}>
+                                  {entry.category === 'debt' ? '−' : ''}{formatNum(Number(entry.amount))} kr
+                                </TableCell>
+                                <TableCell className="py-1.5 text-xs text-muted-foreground max-w-[160px] truncate">{entry.notes || '—'}</TableCell>
+                                <TableCell className="py-1.5">
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteEntry.mutate(entry.id)}>
+                                    <Trash2 className="h-3 w-3 text-muted-foreground" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              );
+            })
           )}
         </CardContent>
       </Card>
 
+      {/* Snapshot history */}
+      <EconomySnapshotHistory currentEntries={entries} />
+
       {/* Add entry dialog */}
-      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+      <Dialog open={!!showAdd} onOpenChange={v => !v && setShowAdd(false)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{sv ? 'Lägg till ekonomipost' : 'Add Economy Entry'}</DialogTitle>
