@@ -292,6 +292,10 @@ export default function AnalysisEditor() {
     [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, isLocked, investmentHoldings, navDiscount, napkinMode, napkinAssumptions]
   );
 
+  const debouncedSaveRef = useRef(debouncedSave);
+  useEffect(() => { debouncedSaveRef.current = debouncedSave; }, [debouncedSave]);
+  useEffect(() => () => { debouncedSaveRef.current.flush(); }, []);
+
   const toggleLock = async () => {
     if (!analysisId) return;
     const newLocked = !isLocked;

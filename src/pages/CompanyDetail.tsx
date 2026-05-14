@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -169,6 +169,7 @@ export default function CompanyDetail() {
   const [localBusinessModel, setLocalBusinessModel] = useState('');
   const [localCompetition, setLocalCompetition] = useState('');
   const [richTextInited, setRichTextInited] = useState(false);
+
   const [generatingFinSummary, setGeneratingFinSummary] = useState(false);
   const [generatingInsiderSummary, setGeneratingInsiderSummary] = useState(false);
   const [generatingBalanceSummary, setGeneratingBalanceSummary] = useState(false);
@@ -186,6 +187,33 @@ export default function CompanyDetail() {
     },
     enabled: !!id,
   });
+
+  const localDescriptionRef = useRef(localDescription);
+  const localMoatsRef = useRef(localMoats);
+  const localBusinessModelRef = useRef(localBusinessModel);
+  const localCompetitionRef = useRef(localCompetition);
+  const companyRef = useRef(company);
+  useEffect(() => { localDescriptionRef.current = localDescription; }, [localDescription]);
+  useEffect(() => { localMoatsRef.current = localMoats; }, [localMoats]);
+  useEffect(() => { localBusinessModelRef.current = localBusinessModel; }, [localBusinessModel]);
+  useEffect(() => { localCompetitionRef.current = localCompetition; }, [localCompetition]);
+  useEffect(() => { companyRef.current = company; }, [company]);
+
+  // Save any unsaved text fields when navigating away
+  useEffect(() => {
+    return () => {
+      const c = companyRef.current;
+      if (!c) return;
+      const updates: Record<string, any> = {};
+      if (localDescriptionRef.current !== (c.description || '')) updates.description = localDescriptionRef.current;
+      if (localMoatsRef.current !== ((c as any).moats || '')) updates.moats = localMoatsRef.current;
+      if (localBusinessModelRef.current !== ((c as any).business_model || '')) updates.business_model = localBusinessModelRef.current;
+      if (localCompetitionRef.current !== ((c as any).competition || '')) updates.competition = localCompetitionRef.current;
+      if (Object.keys(updates).length > 0) {
+        supabase.from('companies').update(updates).eq('id', c.id).then();
+      }
+    };
+  }, []);
 
   // Init rich text values when company loads
   if (company && !richTextInited) {
@@ -699,7 +727,7 @@ export default function CompanyDetail() {
                         <CardDescription>VD, insiders och ägande</CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-6">
-                        <CEOSection ceo={ceoData} onUpdate={handleCEOUpdate} />
+                        <CEOSection ceo={ceoData} onUpdate={handleCEOUpdate} companyId={id!} />
                         <PilotskolanSection
                           value={(company as any)?.pilotskolan || ''}
                           onUpdate={(val) => updateCompany.mutate({ pilotskolan: val } as any)}

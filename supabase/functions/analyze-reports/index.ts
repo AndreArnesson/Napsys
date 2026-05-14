@@ -41,7 +41,7 @@ serve(async (req) => {
     // Download each PDF and prepare as inline base64 attachment for Gemini
     type ContentPart =
       | { type: "text"; text: string }
-      | { type: "file"; file: { filename: string; file_data: string } };
+      | { type: "image_url"; image_url: { url: string } };
 
     const userParts: ContentPart[] = [];
     const failedFiles: string[] = [];
@@ -59,11 +59,8 @@ serve(async (req) => {
         const base64 = arrayBufferToBase64(arrayBuffer);
         const filename = filePath.split("/").pop() || "report.pdf";
         userParts.push({
-          type: "file",
-          file: {
-            filename,
-            file_data: `data:application/pdf;base64,${base64}`,
-          },
+          type: "image_url",
+          image_url: { url: `data:application/pdf;base64,${base64}` },
         });
         userParts.push({
           type: "text",

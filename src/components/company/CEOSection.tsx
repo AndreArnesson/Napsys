@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { User } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CEOData {
   name: string;
@@ -18,12 +19,29 @@ interface CEOData {
 interface CEOSectionProps {
   ceo: CEOData;
   onUpdate: (ceo: CEOData) => void;
+  companyId: string;
   readOnly?: boolean;
 }
 
-export function CEOSection({ ceo, onUpdate, readOnly = false }: CEOSectionProps) {
+export function CEOSection({ ceo, onUpdate, companyId, readOnly = false }: CEOSectionProps) {
   const { t } = useLanguage();
   const [localCeo, setLocalCeo] = useState<CEOData>(ceo);
+
+  const localCeoRef = useRef(localCeo);
+  const ceoRef = useRef(ceo);
+  useEffect(() => { localCeoRef.current = localCeo; }, [localCeo]);
+  useEffect(() => { ceoRef.current = ceo; }, [ceo]);
+  useEffect(() => {
+    return () => {
+      if (JSON.stringify(localCeoRef.current) !== JSON.stringify(ceoRef.current)) {
+        supabase
+          .from('companies')
+          .update({ management: JSON.stringify(localCeoRef.current) })
+          .eq('id', companyId)
+          .then();
+      }
+    };
+  }, []);
 
   const handleChange = (field: keyof CEOData, value: string) => {
     const updated = { ...localCeo, [field]: value };

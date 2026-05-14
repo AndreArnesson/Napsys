@@ -23,7 +23,7 @@ export function RichTextEditor({
   disabled = false,
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
-  const isInternalChange = useRef(false);
+  const isFocusedRef = useRef(false);
   const initializedRef = useRef(false);
 
   // Set initial value once on mount
@@ -34,19 +34,17 @@ export function RichTextEditor({
     }
   }, []);
 
-  // Sync only external value changes (not from typing)
+  // Sync external value changes only when the editor is not focused
   useEffect(() => {
-    if (editorRef.current && !isInternalChange.current && initializedRef.current) {
+    if (editorRef.current && !isFocusedRef.current && initializedRef.current) {
       if (editorRef.current.innerHTML !== value) {
         editorRef.current.innerHTML = value || '';
       }
     }
-    isInternalChange.current = false;
   }, [value]);
 
   const handleInput = useCallback(() => {
     if (editorRef.current) {
-      isInternalChange.current = true;
       onChange(editorRef.current.innerHTML);
     }
   }, [onChange]);
@@ -119,7 +117,8 @@ export function RichTextEditor({
           ref={editorRef}
           contentEditable={!disabled}
           onInput={handleInput}
-          onBlur={onBlur}
+          onFocus={() => { isFocusedRef.current = true; }}
+          onBlur={(e) => { isFocusedRef.current = false; onBlur?.(); }}
           onKeyDown={handleKeyDown}
           className={cn(
             'px-3 py-2 text-sm outline-none prose prose-sm max-w-none',
