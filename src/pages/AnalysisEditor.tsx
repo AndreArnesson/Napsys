@@ -851,6 +851,13 @@ export default function AnalysisEditor() {
                     quarter: h.quarter || 1,
                     revenue: h.revenue || 0,
                     netIncome: h.net_income || 0,
+                    ebit: h.ebit ?? undefined,
+                    ebitda: h.ebitda ?? undefined,
+                    earningsPerShare: h.earnings_per_share ?? undefined,
+                    netMargin: h.net_margin ?? undefined,
+                    ebitMargin: h.operating_margin ?? undefined,
+                    ebitdaMargin: undefined,
+                    dividend: h.dividend ?? undefined,
                   }))}
                   projections={projections}
                   onProjectionsChange={handleProjectionsChange}

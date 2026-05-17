@@ -86,7 +86,19 @@ interface SpreadsheetAnalysisProps {
   currentPrice: number;
   sharesOutstanding: number;
   historicalData?: { year: number; revenue: number; netIncome: number }[];
-  quarterlyHistoricalData?: { year: number; quarter: number; revenue: number; netIncome: number }[];
+  quarterlyHistoricalData?: {
+    year: number;
+    quarter: number;
+    revenue: number;
+    netIncome: number;
+    ebit?: number;
+    ebitda?: number;
+    earningsPerShare?: number;
+    netMargin?: number;
+    ebitMargin?: number;
+    ebitdaMargin?: number;
+    dividend?: number;
+  }[];
   projections: YearlyProjection[];
   onProjectionsChange: (projections: YearlyProjection[]) => void;
   rating?: 'buy' | 'hold' | 'sell';
@@ -109,6 +121,7 @@ interface ColumnDef {
   quarter?: number;
   label: string;
   sublabel: string;
+  isActual?: boolean;
 }
 
 export function SpreadsheetAnalysis({
@@ -137,6 +150,7 @@ export function SpreadsheetAnalysis({
   const [qGrowthMode, setQGrowthMode] = useState<'yoy' | 'sequential'>('yoy');
 
   const currentYear = new Date().getFullYear();
+  const currentQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
   const defaultYears = [currentYear, currentYear + 1];
   
   // Derive initial estimateYears from saved projections if they exist
@@ -167,11 +181,14 @@ export function SpreadsheetAnalysis({
       const cols: ColumnDef[] = [];
       for (const y of sortedYears) {
         for (let q = 1; q <= 4; q++) {
+          const isPast = y < currentYear || (y === currentYear && q < currentQuarter);
+          const isCurrent = y === currentYear && q === currentQuarter;
           cols.push({
             year: y,
             quarter: q,
             label: `${y} Q${q}`,
-            sublabel: y === currentYear && q === 1 ? 'Nu' : '',
+            sublabel: isCurrent ? 'Nu' : isPast ? 'Utfall' : '',
+            isActual: isPast,
           });
         }
       }
@@ -181,8 +198,9 @@ export function SpreadsheetAnalysis({
       year,
       label: year === currentYear ? `${currentYear} (Nu)` : String(year),
       sublabel: `År ${year - currentYear}`,
+      isActual: year < currentYear,
     }));
-  }, [mode, currentYear, estimateYears]);
+  }, [mode, currentYear, currentQuarter, estimateYears]);
 
   const formatNumber = (value: number | undefined, decimals = 2) => {
     if (value === undefined || isNaN(value)) return '—';
@@ -660,8 +678,9 @@ export function SpreadsheetAnalysis({
                     const maxYear = Math.max(...estimateYears);
                     const showRemove = estimateYears.length > 1 && proj.year === maxYear
                       && (mode === 'yearly' || proj.quarter === 1);
+                    const col = columns[i];
                     return (
-                      <th key={`${proj.year}-${proj.quarter || ''}`} className="text-center py-2 px-3 font-medium min-w-[110px]">
+                      <th key={`${proj.year}-${proj.quarter || ''}`} className={cn("text-center py-2 px-3 font-medium min-w-[110px]", col.isActual && "opacity-60")}>
                         <div className="flex flex-col items-center gap-0.5">
                           <div className="flex items-center gap-1">
                             <span className="text-xs">{proj.label}</span>
@@ -675,7 +694,11 @@ export function SpreadsheetAnalysis({
                               </button>
                             )}
                           </div>
-                          {proj.sublabel && <span className="text-[10px] text-muted-foreground font-normal">{proj.sublabel}</span>}
+                          {proj.sublabel && (
+                            <span className={cn("text-[10px] font-normal", col.isActual ? "text-blue-500" : "text-muted-foreground")}>
+                              {proj.sublabel}
+                            </span>
+                          )}
                         </div>
                       </th>
                     );
@@ -774,6 +797,37 @@ export function SpreadsheetAnalysis({
 
                       // For revenue row: show hint of growth-calculated value
                       const currentVal = (proj as any)[row.key];
+
+                      if (col.isActual) {
+                        const hist = col.quarter
+                          ? quarterlyHistoricalData.find(h => h.year === col.year && h.quarter === col.quarter)
+                          : undefined;
+                        const histVal: number | undefined = hist
+                          ? ({
+                              revenue: hist.revenue,
+                              ebit: hist.ebit,
+                              ebitda: hist.ebitda,
+                              netMargin: hist.netMargin,
+                              ebitMargin: hist.ebitMargin,
+                              ebitdaMargin: hist.ebitdaMargin,
+                              earningsPerShare: hist.earningsPerShare,
+                              dividend: hist.dividend,
+                              revenuePerShare: sharesOutstanding > 0 ? (hist.revenue * 1_000_000) / sharesOutstanding : undefined,
+                            } as any)[row.key]
+                          : undefined;
+                        const displayVal = histVal !== undefined ? histVal : currentVal;
+                        const isPercent = ['netMargin', 'ebitMargin', 'ebitdaMargin'].includes(row.key);
+                        const decimals = row.key === 'earningsPerShare' ? 3 : isPercent ? 2 : 2;
+                        return (
+                          <td key={`${proj.year}-${proj.quarter || ''}`} className="text-center py-2 px-3 opacity-70">
+                            <span className="font-mono text-sm">
+                              {displayVal !== undefined && displayVal !== 0
+                                ? formatNumber(typeof displayVal === 'number' ? displayVal : parseFloat(String(displayVal)), decimals)
+                                : '—'}
+                            </span>
+                          </td>
+                        );
+                      }
 
                       return (
                         <td key={`${proj.year}-${proj.quarter || ''}`} className="text-center py-2 px-3">
