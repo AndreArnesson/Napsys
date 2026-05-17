@@ -803,6 +803,7 @@ export default function AnalysisEditor() {
                   adjustments={adjustments}
                   forcedColumns={['revenue', 'growth', 'net_margin', 'eps', 'eps_growth']}
                   title="Historisk data – enkelt läge"
+                  analysisId={analysisId}
                 />
                 <SpreadsheetAnalysis
                   analysisDate={currentAnalysis?.created_at?.split('T')[0]}
@@ -812,6 +813,13 @@ export default function AnalysisEditor() {
                     year: h.fiscal_year,
                     revenue: h.revenue || 0,
                     netIncome: h.net_income || 0,
+                    ebit: h.ebit ?? undefined,
+                    ebitda: h.ebitda ?? undefined,
+                    earningsPerShare: h.earnings_per_share ?? undefined,
+                    netMargin: h.net_margin ?? undefined,
+                    ebitMargin: h.operating_margin ?? undefined,
+                    revenueGrowth: h.revenue_growth ?? undefined,
+                    dividend: h.dividend ?? undefined,
                   }))}
                   projections={projections}
                   onProjectionsChange={handleProjectionsChange}
@@ -832,6 +840,7 @@ export default function AnalysisEditor() {
                   sharesOutstanding={sharesNum}
                   currentPrice={priceNum}
                   adjustments={adjustments}
+                  analysisId={analysisId}
                 />
                 <AdjustmentsEditor
                   adjustments={adjustments}
@@ -845,6 +854,13 @@ export default function AnalysisEditor() {
                     year: h.fiscal_year,
                     revenue: h.revenue || 0,
                     netIncome: h.net_income || 0,
+                    ebit: h.ebit ?? undefined,
+                    ebitda: h.ebitda ?? undefined,
+                    earningsPerShare: h.earnings_per_share ?? undefined,
+                    netMargin: h.net_margin ?? undefined,
+                    ebitMargin: h.operating_margin ?? undefined,
+                    revenueGrowth: h.revenue_growth ?? undefined,
+                    dividend: h.dividend ?? undefined,
                   }))}
                   quarterlyHistoricalData={quarterlyHistoricalData.map(h => ({
                     year: h.fiscal_year,
@@ -868,6 +884,7 @@ export default function AnalysisEditor() {
                   currency={company?.reporting_currency}
                   showQuarterly={showQuarterly}
                   adjustments={adjustments}
+                  analysisId={analysisId}
                   netDebt={(() => {
                     const latestBalance = balanceData?.[balanceData.length - 1] as any;
                     if (!latestBalance) return 0;

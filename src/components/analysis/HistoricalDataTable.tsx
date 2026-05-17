@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -79,6 +79,7 @@ interface HistoricalDataTableProps {
   forcedColumns?: ColumnKey[];
   /** Optional title override (e.g. "Historisk data – enkelt läge") */
   title?: string;
+  analysisId?: string;
 }
 
 function computeCAGR(startVal: number, endVal: number, years: number): number | undefined {
@@ -170,13 +171,31 @@ export function HistoricalDataTable({
   adjustments = [],
   forcedColumns,
   title,
+  analysisId,
 }: HistoricalDataTableProps) {
   const { language } = useLanguage();
-  const [perShare, setPerShare] = useState(false);
-  const [visibleColumnsState, setVisibleColumnsState] = useState<ColumnKey[]>(DEFAULT_COLUMNS);
+
+  const storageKey = analysisId ? `hdt-settings-${analysisId}` : null;
+  const loadSetting = <T,>(key: string, fallback: T): T => {
+    if (!storageKey) return fallback;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return fallback;
+      const parsed = JSON.parse(raw);
+      return key in parsed ? parsed[key] : fallback;
+    } catch { return fallback; }
+  };
+
+  const [perShare, setPerShare] = useState(() => loadSetting('perShare', false));
+  const [visibleColumnsState, setVisibleColumnsState] = useState<ColumnKey[]>(() => loadSetting('visibleColumns', DEFAULT_COLUMNS));
   const visibleColumns = forcedColumns ?? visibleColumnsState;
   const setVisibleColumns = setVisibleColumnsState;
-  const [growthMode, setGrowthMode] = useState<'yoy' | 'sequential'>('yoy');
+  const [growthMode, setGrowthMode] = useState<'yoy' | 'sequential'>(() => loadSetting('growthMode', 'yoy'));
+
+  useEffect(() => {
+    if (!storageKey) return;
+    localStorage.setItem(storageKey, JSON.stringify({ perShare, visibleColumns: visibleColumnsState, growthMode }));
+  }, [storageKey, perShare, visibleColumnsState, growthMode]);
 
   const canToggle = !!sharesOutstanding && sharesOutstanding > 0;
 
@@ -294,6 +313,19 @@ export function HistoricalDataTable({
     const debt = row.total_debt ?? 0;
     const cash = row.cash ?? 0;
     return marketCapMSEK + debt - cash;
+  };
+
+  // For quarterly rows, sum the 4 quarters ending at this row (TTM)
+  const computeTTM = (row: HistoricalYear, field: 'ebit' | 'ebitda' | 'earnings_per_share'): number | undefined => {
+    if (!row.quarter) return row[field];
+    const sorted = [...data]
+      .filter(d => d.quarter)
+      .sort((a, b) => (b.fiscal_year * 10 + (b.quarter ?? 0)) - (a.fiscal_year * 10 + (a.quarter ?? 0)));
+    const idx = sorted.findIndex(d => d.fiscal_year === row.fiscal_year && d.quarter === row.quarter);
+    if (idx < 0) return row[field];
+    const last4 = sorted.slice(idx, idx + 4);
+    if (last4.length < 4 || last4.some(d => d[field] === undefined)) return row[field];
+    return last4.reduce((s, d) => s + (d[field] ?? 0), 0);
   };
 
   const computeNetDebt = (row: HistoricalYear) => {
@@ -448,9 +480,16 @@ export function HistoricalDataTable({
                   ? (adjNetIncome / row.revenue) * 100 : row.net_margin;
 
                 const ev = computeEV(row);
-                const evEbit = ev && adjEbit && adjEbit > 0 ? ev / adjEbit : undefined;
-                const evEbitda = ev && adjEbitda && adjEbitda > 0 ? ev / adjEbitda : undefined;
-                const pe = currentPrice && row.earnings_per_share && row.earnings_per_share > 0 ? currentPrice / row.earnings_per_share : undefined;
+                const ttmEbit = computeTTM(row, 'ebit');
+                const ttmEbitda = computeTTM(row, 'ebitda');
+                const ttmAdjEbit = ttmEbit !== undefined && row.ebit !== undefined && adjEbit !== undefined
+                  ? ttmEbit - row.ebit + adjEbit : ttmEbit;
+                const ttmAdjEbitda = ttmEbitda !== undefined && row.ebitda !== undefined && adjEbitda !== undefined
+                  ? ttmEbitda - row.ebitda + adjEbitda : ttmEbitda;
+                const evEbit = ev && ttmAdjEbit && ttmAdjEbit > 0 ? ev / ttmAdjEbit : undefined;
+                const evEbitda = ev && ttmAdjEbitda && ttmAdjEbitda > 0 ? ev / ttmAdjEbitda : undefined;
+                const ttmEps = computeTTM(row, 'earnings_per_share');
+                const pe = currentPrice && ttmEps && ttmEps > 0 ? currentPrice / ttmEps : undefined;
                 const netDebt = computeNetDebt(row);
                 const cagr = cagrData[row.fiscal_year];
                 const label = row.quarter ? `${row.fiscal_year} Q${row.quarter}` : String(row.fiscal_year);
