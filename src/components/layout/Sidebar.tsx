@@ -3,9 +3,9 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { 
-  LayoutDashboard, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Settings,
   LogOut,
   TrendingUp,
   Globe,
@@ -36,6 +36,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     return location.pathname.startsWith(href);
   };
 
+
   return (
     <div className="flex h-full flex-col bg-sidebar">
       {/* Logo */}
@@ -45,7 +46,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 p-4">
+      <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
           return (

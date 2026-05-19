@@ -95,8 +95,8 @@ export function CompanyCard({ company, analysis, priceChange, isShared, onlyImpo
   };
 
   return (
-    <Link to={`/company/${company.id}`}>
-      <Card className="transition-all duration-200 hover:shadow-md hover:border-primary/20 cursor-pointer animate-fade-in">
+    <Link to={`/company/${company.id}`} className="block h-full">
+      <Card className="h-full flex flex-col transition-all duration-200 hover:shadow-md hover:border-primary/20 cursor-pointer animate-fade-in">
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between">
             <div>
@@ -124,12 +124,25 @@ export function CompanyCard({ company, analysis, priceChange, isShared, onlyImpo
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="flex-1 flex flex-col justify-between space-y-3">
+          {!analysis ? (
+            <div className="flex flex-col items-center justify-center py-4 gap-1 text-center">
+              <span className="text-sm text-muted-foreground">
+                {language === 'sv' ? 'Ingen analys ännu' : 'No analysis yet'}
+              </span>
+              {company.current_price && (
+                <span className="text-xs text-muted-foreground font-mono">
+                  {company.current_price.toFixed(2)} {company.trading_currency || 'SEK'}
+                </span>
+              )}
+            </div>
+          ) : (
+          <>
           {/* Rating and Price */}
           <div className="flex items-center justify-between">
-            <RatingBadge rating={analysis?.rating as 'buy' | 'hold' | 'sell' | null} />
+            <RatingBadge rating={analysis.rating as 'buy' | 'hold' | 'sell' | null} />
             <span className="text-sm text-muted-foreground">
-              {company.current_price 
+              {company.current_price
                 ? `${company.current_price.toFixed(2)} ${company.trading_currency || 'SEK'}`
                 : '—'
               }
@@ -229,6 +242,8 @@ export function CompanyCard({ company, analysis, priceChange, isShared, onlyImpo
               <Calendar className="h-3 w-3" />
               <span>{t.dashboard.lastAnalysis}: {lastAnalysisDate}</span>
             </div>
+          )}
+          </>
           )}
         </CardContent>
       </Card>

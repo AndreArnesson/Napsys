@@ -19,6 +19,7 @@ export interface Adjustment {
 interface AdjustmentsEditorProps {
   adjustments: Adjustment[];
   onAdjustmentsChange: (adjustments: Adjustment[]) => void;
+  currency?: string;
 }
 
 const METRIC_LABELS: Record<string, string> = {
@@ -27,7 +28,7 @@ const METRIC_LABELS: Record<string, string> = {
   netIncome: 'Nettoresultat',
 };
 
-export function AdjustmentsEditor({ adjustments, onAdjustmentsChange }: AdjustmentsEditorProps) {
+export function AdjustmentsEditor({ adjustments, onAdjustmentsChange, currency = 'SEK' }: AdjustmentsEditorProps) {
   const [isOpen, setIsOpen] = useState(adjustments.length > 0);
 
   const addAdjustment = () => {
@@ -78,7 +79,7 @@ export function AdjustmentsEditor({ adjustments, onAdjustmentsChange }: Adjustme
                   <thead>
                     <tr className="border-b">
                       <th className="text-left py-2 px-2 font-medium text-muted-foreground">Beskrivning</th>
-                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Belopp (MSEK)</th>
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Belopp (M{currency})</th>
                       <th className="text-left py-2 px-2 font-medium text-muted-foreground">Typ</th>
                       <th className="text-left py-2 px-2 font-medium text-muted-foreground">År</th>
                       <th className="text-left py-2 px-2 font-medium text-muted-foreground">Kvartal</th>
@@ -169,7 +170,7 @@ export function AdjustmentsEditor({ adjustments, onAdjustmentsChange }: Adjustme
             </Button>
             {adjustments.length > 0 && (
               <p className="text-xs text-muted-foreground">
-                Positivt belopp = kostnad som justeras bort (läggs tillbaka). T.ex. +12 MSEK på EBIT betyder att en engångskostnad på 12 MSEK tas bort.
+                Positivt belopp = kostnad som justeras bort (läggs tillbaka). T.ex. +12 M{currency} på EBIT betyder att en engångskostnad på 12 M{currency} tas bort.
               </p>
             )}
           </CardContent>

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -12,11 +13,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, Building2, Loader2, Trash2, Pencil, ArrowUpDown, AlertTriangle, X } from 'lucide-react';
+import { Plus, Search, Building2, Loader2, Trash2, Pencil, ArrowUpDown, AlertTriangle, X, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
-type SortOption = 'latest_analysis' | 'name_asc' | 'name_desc' | 'price_up' | 'price_down' | 'mos_high' | 'mos_low';
+type SortOption = 'latest_updated' | 'latest_analysis' | 'name_asc' | 'name_desc' | 'price_up' | 'price_down' | 'mos_high' | 'mos_low';
+type TypeFilter = 'all' | 'stock' | 'investment_company' | 'fund' | 'etf';
+
+const TYPE_FILTERS: { value: TypeFilter; label: string }[] = [
+  { value: 'all', label: 'Alla' },
+  { value: 'stock', label: 'Aktier' },
+  { value: 'investment_company', label: 'Investmentbolag' },
+  { value: 'fund', label: 'Fonder' },
+  { value: 'etf', label: 'ETF' },
+];
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -29,7 +39,8 @@ export default function Dashboard() {
   const [creating, setCreating] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
-  const [sortBy, setSortBy] = useState<SortOption>('latest_analysis');
+  const [sortBy, setSortBy] = useState<SortOption>('latest_updated');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
 
   // Fetch user's companies with their latest analysis
   const { data: companies, isLoading: companiesLoading, refetch: refetchCompanies } = useQuery({
@@ -40,6 +51,7 @@ export default function Dashboard() {
         .select(`
           *,
           analyses (
+            id,
             rating,
             margin_of_safety,
             updated_at,
@@ -76,6 +88,7 @@ export default function Dashboard() {
         .select(`
           *,
           analyses (
+            id,
             rating,
             margin_of_safety,
             updated_at,
@@ -193,6 +206,8 @@ export default function Dashboard() {
   const sortCompanies = (list: any[]) => {
     return [...list].sort((a, b) => {
       switch (sortBy) {
+        case 'latest_updated':
+          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
         case 'latest_analysis':
           return getLatestAnalysisDate(b) - getLatestAnalysisDate(a);
         case 'name_asc':
@@ -213,16 +228,32 @@ export default function Dashboard() {
     });
   };
 
-  // Filter companies based on search
-  const filteredCompanies = sortCompanies(companies?.filter(company =>
-    company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    company.ticker?.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || []);
+  const matchesFilters = (company: any) => {
+    const matchesSearch =
+      company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      company.ticker?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesType =
+      typeFilter === 'all' || (company.company_type || 'stock') === typeFilter;
+    return matchesSearch && matchesType;
+  };
 
-  const filteredShared = sortCompanies(sharedCompanies?.filter(company =>
-    company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    company.ticker?.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || []);
+  const filteredCompanies = sortCompanies(companies?.filter(matchesFilters) || []);
+  const filteredShared = sortCompanies(sharedCompanies?.filter(matchesFilters) || []);
+
+  const unfinishedAnalyses = useMemo(() => {
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    const result: { companyId: string; companyName: string; analysisId: string; createdAt: string }[] = [];
+    for (const company of companies || []) {
+      for (const analysis of company.analyses || []) {
+        if (!analysis.rating && new Date(analysis.created_at) >= oneMonthAgo) {
+          result.push({ companyId: company.id, companyName: company.name, analysisId: analysis.id, createdAt: analysis.created_at });
+        }
+      }
+    }
+    return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [companies]);
+
 
   return (
     <MainLayout>
@@ -283,32 +314,73 @@ export default function Dashboard() {
         </div>
 
         {/* Search and Sort */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={t.dashboard.searchPlaceholder}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder={t.dashboard.searchPlaceholder}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+              <SelectTrigger className="w-[220px] gap-2">
+                <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="latest_updated">Senaste redigerade</SelectItem>
+                <SelectItem value="latest_analysis">Senaste analys</SelectItem>
+                <SelectItem value="name_asc">Namn A–Ö</SelectItem>
+                <SelectItem value="name_desc">Namn Ö–A</SelectItem>
+                <SelectItem value="price_up">Högst kursökning</SelectItem>
+                <SelectItem value="price_down">Störst kursnedgång</SelectItem>
+                <SelectItem value="mos_high">Högst MOS</SelectItem>
+                <SelectItem value="mos_low">Lägst MOS</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-            <SelectTrigger className="w-[220px] gap-2">
-              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="latest_analysis">Senaste analys</SelectItem>
-              <SelectItem value="name_asc">Namn A–Ö</SelectItem>
-              <SelectItem value="name_desc">Namn Ö–A</SelectItem>
-              <SelectItem value="price_up">Högst kursökning</SelectItem>
-              <SelectItem value="price_down">Störst kursnedgång</SelectItem>
-              <SelectItem value="mos_high">Högst MOS</SelectItem>
-              <SelectItem value="mos_low">Lägst MOS</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap gap-2">
+            {TYPE_FILTERS.map((f) => (
+              <Button
+                key={f.value}
+                variant={typeFilter === f.value ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTypeFilter(f.value)}
+                className="h-7 rounded-full px-3 text-xs"
+              >
+                {f.label}
+              </Button>
+            ))}
+          </div>
         </div>
+
+        {/* Unfinished Analyses */}
+        {unfinishedAnalyses.length > 0 && (
+          <div className="rounded-lg border bg-muted/40 p-3">
+            <p className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              Oavslutade analyser
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {unfinishedAnalyses.map((item) => {
+                const daysAgo = Math.floor((Date.now() - new Date(item.createdAt).getTime()) / 86_400_000);
+                return (
+                  <Link
+                    key={item.analysisId}
+                    to={`/company/${item.companyId}/analysis/${item.analysisId}`}
+                    className="inline-flex items-center gap-1.5 rounded-md border bg-background px-2.5 py-1 text-sm hover:bg-accent transition-colors"
+                  >
+                    {item.companyName}
+                    <span className="text-xs text-muted-foreground">{daysAgo === 0 ? 'idag' : `${daysAgo}d`}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Price Fetch Error Notifications */}
         {priceErrors && priceErrors.length > 0 && (

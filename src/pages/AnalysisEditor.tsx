@@ -607,7 +607,7 @@ export default function AnalysisEditor() {
                           {ev !== null && <div className="flex justify-between text-sm"><span className="text-muted-foreground">EV</span><span className="font-mono font-medium">{(ev / 1e3).toFixed(2)} Mdr</span></div>}
                           {ev !== null && ebit && ebit > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">EV/EBIT</span><span className="font-mono font-medium">{(ev / ebit).toFixed(1)}x</span></div>}
                           {ev !== null && ebitda && ebitda > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">EV/EBITDA</span><span className="font-mono font-medium">{(ev / ebitda).toFixed(1)}x</span></div>}
-                          {netDebt !== null && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Nettoskuld</span><span className="font-mono font-medium">{netDebt.toFixed(0)} MSEK</span></div>}
+                          {netDebt !== null && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Nettoskuld</span><span className="font-mono font-medium">{netDebt.toFixed(0)} M{company?.reporting_currency || 'SEK'}</span></div>}
                         </>
                       );
                     })()}
@@ -845,6 +845,7 @@ export default function AnalysisEditor() {
                 <AdjustmentsEditor
                   adjustments={adjustments}
                   onAdjustmentsChange={setAdjustments}
+                  currency={company?.reporting_currency || 'SEK'}
                 />
                 <SpreadsheetAnalysis
                   analysisDate={currentAnalysis?.created_at?.split('T')[0]}
