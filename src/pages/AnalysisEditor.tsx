@@ -504,7 +504,7 @@ export default function AnalysisEditor() {
               {currentMOS !== undefined && <MOSBadge value={currentMOS} size="lg" />}
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {!isLocked && !isInvestmentCompany && (
               <Button
                 variant={napkinMode ? 'default' : 'outline'}
