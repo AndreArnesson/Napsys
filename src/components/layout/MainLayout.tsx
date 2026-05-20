@@ -14,7 +14,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-dvh overflow-hidden bg-background">
       {/* Desktop sidebar */}
       {!isMobile && (
         <aside className="hidden md:flex w-64 flex-shrink-0 border-r border-border">
@@ -25,7 +25,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       {/* Mobile drawer */}
       {isMobile && (
         <Sheet open={open} onOpenChange={setOpen}>
-          <SheetContent side="left" className="w-72 p-0 [&>button]:hidden">
+          <SheetContent side="left" className="w-4/5 max-w-72 p-0 [&>button]:hidden">
             <Sidebar onNavigate={() => setOpen(false)} />
           </SheetContent>
         </Sheet>

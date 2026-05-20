@@ -261,7 +261,7 @@ export default function Dashboard() {
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{t.dashboard.title}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{t.dashboard.title}</h1>
             <p className="text-muted-foreground">
               {companies?.length || 0} {t.dashboard.myCompanies.toLowerCase()}
             </p>
@@ -326,7 +326,7 @@ export default function Dashboard() {
               />
             </div>
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-              <SelectTrigger className="w-[220px] gap-2">
+              <SelectTrigger className="w-full sm:w-[220px] gap-2">
                 <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
                 <SelectValue />
               </SelectTrigger>

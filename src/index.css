@@ -127,6 +127,13 @@
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: pan-y;
+  }
+
+  /* Smooth momentum scrolling on iOS for all scrollable areas */
+  * {
+    -webkit-overflow-scrolling: touch;
   }
 
   h1, h2, h3, h4, h5, h6 {

@@ -43,7 +43,7 @@ function CompanyNameEditor({ name, onSave }: { name: string; onSave: (name: stri
   if (editing) {
     return (
       <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); if (editName.trim()) { onSave(editName.trim()); setEditing(false); } }}>
-        <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="text-3xl font-bold h-auto py-0 border-none shadow-none px-0 focus-visible:ring-0 max-w-md" autoFocus />
+        <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="text-2xl sm:text-3xl font-bold h-auto py-0 border-none shadow-none px-0 focus-visible:ring-0 flex-1 min-w-0" autoFocus />
         <Button type="submit" variant="ghost" size="sm">OK</Button>
         <Button type="button" variant="ghost" size="sm" onClick={() => { setEditName(name); setEditing(false); }}>✕</Button>
       </form>
@@ -52,7 +52,7 @@ function CompanyNameEditor({ name, onSave }: { name: string; onSave: (name: stri
 
   return (
     <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setEditing(true)}>
-      <h1 className="text-3xl font-bold">{name}</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold">{name}</h1>
       <Pencil className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
     </div>
   );
