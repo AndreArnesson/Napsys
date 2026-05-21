@@ -35,7 +35,7 @@ export function InvestmentHoldingsImport({ open, onOpenChange, onImport }: Props
         weight_percent: h.weight_percent ?? undefined,
         category: h.category || 'company',
         conviction: 'medium',
-        is_listed: true,
+        is_listed: h.is_listed !== false,
       }));
       setPreview(holdings);
     } catch (err: any) {
@@ -77,7 +77,7 @@ export function InvestmentHoldingsImport({ open, onOpenChange, onImport }: Props
                 <TableHeader>
                   <TableRow>
                     <TableHead>Namn</TableHead>
-                    <TableHead>Ticker</TableHead>
+                    <TableHead>Noterat</TableHead>
                     <TableHead>Kategori</TableHead>
                     <TableHead className="text-right">Andel %</TableHead>
                   </TableRow>
@@ -86,7 +86,19 @@ export function InvestmentHoldingsImport({ open, onOpenChange, onImport }: Props
                   {preview.map((h) => (
                     <TableRow key={h.id}>
                       <TableCell>{h.name}</TableCell>
-                      <TableCell className="font-mono text-xs">{h.ticker || '—'}</TableCell>
+                      <TableCell>
+                        {h.category === 'cash' || h.category === 'other' ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : (
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            h.is_listed !== false
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
+                              : 'bg-muted text-muted-foreground'
+                          }`}>
+                            {h.is_listed !== false ? 'Noterat' : 'Onoterat'}
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs">{h.category}</TableCell>
                       <TableCell className="text-right font-mono">
                         {h.weight_percent != null ? `${h.weight_percent}%` : '—'}

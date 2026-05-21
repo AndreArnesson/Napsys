@@ -215,11 +215,12 @@ export function KeyDataEditor({ data, onUpdate, readOnly = false, companyId }: K
             <Label>{t.company.currentPrice}</Label>
             <div className="flex gap-2">
               <Input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 placeholder="0.00"
                 value={data.currentPrice ?? ''}
                 onChange={(e) => {
-                  const val = e.target.value ? parseFloat(e.target.value) : null;
+                  const val = e.target.value ? parseFloat(e.target.value.replace(',', '.')) : null;
                   onUpdate({ currentPrice: val } as any);
                 }}
                 disabled={readOnly}

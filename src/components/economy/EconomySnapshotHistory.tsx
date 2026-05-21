@@ -429,7 +429,7 @@ export function EconomySnapshotHistory({ currentEntries }: Props) {
                                     <Input value={e.label} onChange={ev => updateEntry(snap.id, i, 'label', ev.target.value)} className="h-7" placeholder={sv ? 'Namn' : 'Name'} />
                                   </TableCell>
                                   <TableCell className="py-1">
-                                    <Input type="number" value={e.amount || ''} onChange={ev => updateEntry(snap.id, i, 'amount', ev.target.value)} className="h-7 text-right font-mono w-28" />
+                                    <Input type="text" inputMode="decimal" value={e.amount || ''} onChange={ev => updateEntry(snap.id, i, 'amount', ev.target.value.replace(',', '.'))} className="h-7 text-right font-mono w-28" />
                                   </TableCell>
                                   <TableCell className="py-1">
                                     <Input value={e.notes || ''} onChange={ev => updateEntry(snap.id, i, 'notes', ev.target.value)} className="h-7" placeholder="—" />

@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { NumericInput } from '@/components/ui/numeric-input';
 import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical, ClipboardPaste, ArrowUpDown, Sparkles, Loader2 } from 'lucide-react';
 import { InvestmentHoldingsImport } from './InvestmentHoldingsImport';
 import { Label } from '@/components/ui/label';
@@ -207,7 +209,7 @@ export function InvestmentHoldings({ holdings, onHoldingsChange, readOnly, compa
                   {!readOnly && <TableHead className="w-[60px]" />}
                   <SortableHead field="name" className="w-[160px]">Namn</SortableHead>
                   <SortableHead field="category" className="w-[110px]">Kategori</SortableHead>
-                  <TableHead className="w-[80px]">Ticker</TableHead>
+                  <TableHead className="w-[90px]">Noterat</TableHead>
                   <SortableHead field="weight_percent" className="w-[70px] text-right">Andel %</SortableHead>
                   <SortableHead field="conviction" className="w-[80px]">Conviction</SortableHead>
                   <TableHead>Framtidsutsikt</TableHead>
@@ -219,7 +221,7 @@ export function InvestmentHoldings({ holdings, onHoldingsChange, readOnly, compa
                   <TableRow
                     key={holding.id}
                     className="cursor-pointer"
-                    onClick={() => setExpandedId(expandedId === holding.id ? null : holding.id)}
+                    onClick={() => setExpandedId(holding.id)}
                   >
                     {!readOnly && (
                       <TableCell className="px-1" onClick={(e) => e.stopPropagation()}>
@@ -247,15 +249,26 @@ export function InvestmentHoldings({ holdings, onHoldingsChange, readOnly, compa
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       {!isCashOrOther(holding) ? (
-                        <Input value={holding.ticker || ''} onChange={(e) => updateHolding(holding.id, { ticker: e.target.value.toUpperCase() })} onClick={(e) => e.stopPropagation()} placeholder="—" className="border-none shadow-none px-0 h-8 focus-visible:ring-0 font-mono text-xs" disabled={readOnly} />
+                        <button
+                          type="button"
+                          disabled={readOnly}
+                          onClick={() => updateHolding(holding.id, { is_listed: !holding.is_listed })}
+                          className={`text-xs px-2 py-0.5 rounded-full font-medium transition-colors ${
+                            holding.is_listed !== false
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/60'
+                              : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                          } disabled:cursor-default disabled:pointer-events-none`}
+                        >
+                          {holding.is_listed !== false ? 'Noterat' : 'Onoterat'}
+                        </button>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Input type="number" value={holding.weight_percent ?? ''} onChange={(e) => updateHolding(holding.id, { weight_percent: e.target.value ? parseFloat(e.target.value) : undefined })} onClick={(e) => e.stopPropagation()} placeholder="—" className="border-none shadow-none px-0 h-8 focus-visible:ring-0 font-mono text-right text-xs w-16 ml-auto" disabled={readOnly} />
+                      <NumericInput value={holding.weight_percent} onChange={(v) => updateHolding(holding.id, { weight_percent: v })} onClick={(e) => e.stopPropagation()} placeholder="—" className="border-none shadow-none px-0 h-8 focus-visible:ring-0 font-mono text-right text-xs w-16 ml-auto" disabled={readOnly} />
                     </TableCell>
                     <TableCell>
                       {!isCashOrOther(holding) ? (
@@ -290,121 +303,6 @@ export function InvestmentHoldings({ holdings, onHoldingsChange, readOnly, compa
           </div>
         )}
 
-        {/* Expanded detail panel */}
-        {expandedId && (() => {
-          const h = holdings.find(h => h.id === expandedId);
-          if (!h) return null;
-          const showValuation = !isCashOrOther(h);
-          return (
-            <Card className="border-primary/20 bg-muted/30">
-              <CardContent className="pt-4 space-y-4">
-                <p className="text-sm font-medium">
-                  {h.name || 'Ny post'} — {CATEGORY_LABELS[h.category || 'company']}
-                  {companyName && <span className="text-muted-foreground font-normal ml-2">(via {companyName})</span>}
-                </p>
-
-                {/* Description section */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs text-muted-foreground">Beskrivning</Label>
-                    {!readOnly && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs gap-1.5"
-                        onClick={() => fetchDescription(h)}
-                        disabled={fetchingDescriptionId === h.id || !h.name}
-                      >
-                        {fetchingDescriptionId === h.id ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <Sparkles className="h-3 w-3" />
-                        )}
-                        Hämta med AI
-                      </Button>
-                    )}
-                  </div>
-                  <Textarea
-                    value={h.description || ''}
-                    onChange={(e) => updateHolding(h.id, { description: e.target.value })}
-                    placeholder="Kort beskrivning av innehavet..."
-                    rows={3}
-                    disabled={readOnly}
-                  />
-                </div>
-
-                {showValuation && (
-                  <>
-                    <div className="flex items-center gap-3">
-                      <Label className="text-xs text-muted-foreground">Noterat innehav</Label>
-                      <Switch checked={h.is_listed !== false} onCheckedChange={(checked) => updateHolding(h.id, { is_listed: checked })} disabled={readOnly} />
-                    </div>
-
-                    <div className="rounded-md border bg-background p-3 space-y-3">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Värdering</p>
-                      <div className="grid gap-3 md:grid-cols-3">
-                        {h.is_listed !== false ? (
-                          <>
-                            <div className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">Börsvärde (Mdr)</Label>
-                              <Input type="number" step="0.01" value={h.market_cap ?? ''} onChange={(e) => updateHolding(h.id, { market_cap: e.target.value ? parseFloat(e.target.value) : undefined })} placeholder="—" className="h-8 font-mono text-xs" disabled={readOnly} />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">P/E</Label>
-                              <Input type="number" step="0.1" value={h.pe_ratio ?? ''} onChange={(e) => updateHolding(h.id, { pe_ratio: e.target.value ? parseFloat(e.target.value) : undefined })} placeholder="—" className="h-8 font-mono text-xs" disabled={readOnly} />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">EV/EBIT</Label>
-                              <Input type="number" step="0.1" value={h.ev_ebit ?? ''} onChange={(e) => updateHolding(h.id, { ev_ebit: e.target.value ? parseFloat(e.target.value) : undefined })} placeholder="—" className="h-8 font-mono text-xs" disabled={readOnly} />
-                            </div>
-                          </>
-                        ) : (
-                          <div className="space-y-1 md:col-span-2">
-                            <Label className="text-xs text-muted-foreground">Uppskattat värde (Mdr)</Label>
-                            <Input type="number" step="0.01" value={h.nav_value ?? ''} onChange={(e) => updateHolding(h.id, { nav_value: e.target.value ? parseFloat(e.target.value) : undefined })} placeholder="—" className="h-8 font-mono text-xs" disabled={readOnly} />
-                          </div>
-                        )}
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Värderingskommentar</Label>
-                        <Textarea value={h.valuation_comment || ''} onChange={(e) => updateHolding(h.id, { valuation_comment: e.target.value })} placeholder="Kommentar om värdering, multiplar, jämförelser..." rows={2} disabled={readOnly} />
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {isCashOrOther(h) && (
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Anteckningar</Label>
-                    <Textarea value={h.notes || ''} onChange={(e) => updateHolding(h.id, { notes: e.target.value })} placeholder="Beskriv posten..." rows={3} disabled={readOnly} />
-                  </div>
-                )}
-
-                {showValuation && (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Framtidsutsikt / Outlook</Label>
-                      <Textarea value={h.outlook || ''} onChange={(e) => updateHolding(h.id, { outlook: e.target.value })} placeholder="Vad tror du om bolagets framtid?" rows={3} disabled={readOnly} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">MOAT / Konkurrensfördelar</Label>
-                      <Textarea value={h.moat || ''} onChange={(e) => updateHolding(h.id, { moat: e.target.value })} placeholder="Vilka vallgravar har bolaget?" rows={3} disabled={readOnly} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Vinstkommentar</Label>
-                      <Textarea value={h.profit_comment || ''} onChange={(e) => updateHolding(h.id, { profit_comment: e.target.value })} placeholder="Kommentar om vinst, tillväxt, marginaler..." rows={3} disabled={readOnly} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Övrigt</Label>
-                      <Textarea value={h.notes || ''} onChange={(e) => updateHolding(h.id, { notes: e.target.value })} placeholder="Övriga anteckningar..." rows={3} disabled={readOnly} />
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })()}
-
         {!readOnly && (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={addHolding} className="gap-1.5">
@@ -418,6 +316,112 @@ export function InvestmentHoldings({ holdings, onHoldingsChange, readOnly, compa
 
         <InvestmentHoldingsImport open={importOpen} onOpenChange={setImportOpen} onImport={handleImport} />
       </CardContent>
+
+      {/* Detail drawer — slides in from the right, table stays visible */}
+      <Sheet open={!!expandedId} onOpenChange={(o) => { if (!o) setExpandedId(null); }}>
+        <SheetContent side="right" className="w-full sm:w-[480px] overflow-y-auto">
+          {(() => {
+            const h = holdings.find(h => h.id === expandedId);
+            if (!h) return null;
+            const showValuation = !isCashOrOther(h);
+            return (
+              <>
+                <SheetHeader className="mb-4">
+                  <SheetTitle>{h.name || 'Ny post'}</SheetTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {CATEGORY_LABELS[h.category || 'company']}
+                    {companyName && ` — via ${companyName}`}
+                  </p>
+                </SheetHeader>
+
+                <div className="space-y-5">
+                  {/* Description */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-muted-foreground">Beskrivning</Label>
+                      {!readOnly && (
+                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5"
+                          onClick={() => fetchDescription(h)} disabled={fetchingDescriptionId === h.id || !h.name}>
+                          {fetchingDescriptionId === h.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                          Hämta med AI
+                        </Button>
+                      )}
+                    </div>
+                    <Textarea value={h.description || ''} onChange={(e) => updateHolding(h.id, { description: e.target.value })}
+                      placeholder="Kort beskrivning av innehavet..." rows={3} disabled={readOnly} />
+                  </div>
+
+                  {showValuation && (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <Label className="text-xs text-muted-foreground">Noterat innehav</Label>
+                        <Switch checked={h.is_listed !== false} onCheckedChange={(checked) => updateHolding(h.id, { is_listed: checked })} disabled={readOnly} />
+                      </div>
+
+                      <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Värdering</p>
+                        <div className="grid gap-3 grid-cols-3">
+                          {h.is_listed !== false ? (
+                            <>
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Börsvärde (Mdr)</Label>
+                                <NumericInput value={h.market_cap} onChange={(v) => updateHolding(h.id, { market_cap: v })} placeholder="—" className="h-8 font-mono text-xs" disabled={readOnly} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">P/E</Label>
+                                <NumericInput value={h.pe_ratio} onChange={(v) => updateHolding(h.id, { pe_ratio: v })} placeholder="—" className="h-8 font-mono text-xs" disabled={readOnly} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">EV/EBIT</Label>
+                                <NumericInput value={h.ev_ebit} onChange={(v) => updateHolding(h.id, { ev_ebit: v })} placeholder="—" className="h-8 font-mono text-xs" disabled={readOnly} />
+                              </div>
+                            </>
+                          ) : (
+                            <div className="space-y-1 col-span-2">
+                              <Label className="text-xs text-muted-foreground">Uppskattat värde (Mdr)</Label>
+                              <NumericInput value={h.nav_value} onChange={(v) => updateHolding(h.id, { nav_value: v })} placeholder="—" className="h-8 font-mono text-xs" disabled={readOnly} />
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Värderingskommentar</Label>
+                          <Textarea value={h.valuation_comment || ''} onChange={(e) => updateHolding(h.id, { valuation_comment: e.target.value })} placeholder="Kommentar om värdering, multiplar, jämförelser..." rows={2} disabled={readOnly} />
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Framtidsutsikt / Outlook</Label>
+                          <Textarea value={h.outlook || ''} onChange={(e) => updateHolding(h.id, { outlook: e.target.value })} placeholder="Vad tror du om bolagets framtid?" rows={4} disabled={readOnly} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">MOAT / Konkurrensfördelar</Label>
+                          <Textarea value={h.moat || ''} onChange={(e) => updateHolding(h.id, { moat: e.target.value })} placeholder="Vilka vallgravar har bolaget?" rows={4} disabled={readOnly} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Vinstkommentar</Label>
+                          <Textarea value={h.profit_comment || ''} onChange={(e) => updateHolding(h.id, { profit_comment: e.target.value })} placeholder="Kommentar om vinst, tillväxt, marginaler..." rows={4} disabled={readOnly} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Övrigt</Label>
+                          <Textarea value={h.notes || ''} onChange={(e) => updateHolding(h.id, { notes: e.target.value })} placeholder="Övriga anteckningar..." rows={4} disabled={readOnly} />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {isCashOrOther(h) && (
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Anteckningar</Label>
+                      <Textarea value={h.notes || ''} onChange={(e) => updateHolding(h.id, { notes: e.target.value })} placeholder="Beskriv posten..." rows={4} disabled={readOnly} />
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 }

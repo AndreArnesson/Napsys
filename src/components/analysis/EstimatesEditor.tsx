@@ -42,7 +42,7 @@ export function EstimatesEditor({
   };
 
   const parseCurrency = (value: string): number | undefined => {
-    const parsed = parseFloat(value.replace(/[^0-9.-]/g, ''));
+    const parsed = parseFloat(value.replace(',', '.').replace(/[^0-9.-]/g, ''));
     return isNaN(parsed) ? undefined : parsed;
   };
 
@@ -150,7 +150,8 @@ export function EstimatesEditor({
                   {mode === 'quarterly' ? (
                     <div className="flex gap-1">
                       <Input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         value={row.year}
                         onChange={(e) => handleChange(index, 'year', parseInt(e.target.value))}
                         className="w-20 h-8"
@@ -181,7 +182,8 @@ export function EstimatesEditor({
                 </TableCell>
                 <TableCell>
                   <Input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="Revenue"
                     value={row.revenue || ''}
                     onChange={(e) => handleChange(index, 'revenue', parseCurrency(e.target.value))}
@@ -190,7 +192,8 @@ export function EstimatesEditor({
                 </TableCell>
                 <TableCell>
                   <Input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="EBIT"
                     value={row.ebit || ''}
                     onChange={(e) => handleChange(index, 'ebit', parseCurrency(e.target.value))}

@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NumericInput } from '@/components/ui/numeric-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -301,10 +302,10 @@ export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
                     <Input value={h.ticker} onChange={(e) => updateHolding(i, 'ticker', e.target.value)} className="min-w-[80px]" />
                   </TableCell>
                   <TableCell>
-                    <Input type="number" value={h.weight_percent ?? ''} onChange={(e) => updateHolding(i, 'weight_percent', e.target.value ? parseFloat(e.target.value) : null)} className="min-w-[80px]" />
+                    <NumericInput value={h.weight_percent} onChange={(v) => updateHolding(i, 'weight_percent', v ?? null)} className="min-w-[80px]" />
                   </TableCell>
                   <TableCell>
-                    <Input type="number" value={h.value_sek ?? ''} onChange={(e) => updateHolding(i, 'value_sek', e.target.value ? parseFloat(e.target.value) : null)} className="min-w-[100px]" />
+                    <NumericInput value={h.value_sek} onChange={(v) => updateHolding(i, 'value_sek', v ?? null)} className="min-w-[100px]" />
                   </TableCell>
                   <TableCell>
                     <Select value={h.conviction} onValueChange={(v) => updateHolding(i, 'conviction', v)}>
@@ -319,10 +320,10 @@ export function SnapshotEditor({ portfolioId, portfolioName }: Props) {
                     </Select>
                   </TableCell>
                   <TableCell>
-                    <Input type="number" value={h.price ?? ''} onChange={(e) => updateHolding(i, 'price', e.target.value ? parseFloat(e.target.value) : null)} className="min-w-[80px]" />
+                    <NumericInput value={h.price} onChange={(v) => updateHolding(i, 'price', v ?? null)} className="min-w-[80px]" />
                   </TableCell>
                   <TableCell>
-                    <Input type="number" value={h.shares_count ?? ''} onChange={(e) => updateHolding(i, 'shares_count', e.target.value ? parseFloat(e.target.value) : null)} className="min-w-[80px]" />
+                    <NumericInput value={h.shares_count} onChange={(v) => updateHolding(i, 'shares_count', v ?? null)} className="min-w-[80px]" />
                   </TableCell>
                   <TableCell>
                     <Select value={h.future_plan} onValueChange={(v) => updateHolding(i, 'future_plan', v)}>

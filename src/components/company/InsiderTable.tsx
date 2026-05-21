@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TrendingUp, TrendingDown, Search } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 export interface InsiderTrade {
   id?: string;
@@ -85,69 +85,75 @@ export function InsiderTable({ trades }: InsiderTableProps) {
     return new Intl.NumberFormat(language === 'sv' ? 'sv-SE' : 'en-US').format(value);
   };
 
-  // Net buy/sell chart data — group by month, only Förvärv/Avyttring
+  // Buy/sell chart data — group by month, separate buy and sell totals
   const netChartData = useMemo(() => {
-    const monthMap = new Map<string, number>();
+    const monthMap = new Map<string, { buy: number; sell: number }>();
 
     for (const t of mergedTrades) {
       if (!isAcquisition(t.type) && !isDisposal(t.type)) continue;
-      // Extract YYYY-MM
       const month = t.date.substring(0, 7);
-      const value = t.volume * t.price;
-      const signed = isAcquisition(t.type) ? value : -value;
-      monthMap.set(month, (monthMap.get(month) || 0) + signed);
+      const value = Math.round(t.volume * t.price);
+      const entry = monthMap.get(month) ?? { buy: 0, sell: 0 };
+      if (isAcquisition(t.type)) entry.buy += value;
+      else entry.sell += value;
+      monthMap.set(month, entry);
     }
 
     return [...monthMap.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, net]) => ({ month, net: Math.round(net) }));
+      .map(([month, { buy, sell }]) => ({
+        month,
+        buy: buy || undefined,
+        sell: sell || undefined,
+      }));
   }, [mergedTrades]);
 
   return (
     <div className="space-y-4">
-      {/* Net insider trading chart */}
+      {/* Buy / Sell chart */}
       {netChartData.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Nettoköp / Nettosälj</CardTitle>
-            <CardDescription>Månatlig nettosumma (Köp − Sälj)</CardDescription>
+            <CardTitle className="text-base">Köp & Sälj per månad</CardTitle>
+            <CardDescription>Månadsvis handelsvolym uppdelat på köp och sälj</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[200px]">
+            <div className="h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={netChartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-                  <XAxis 
-                    dataKey="month" 
-                    tick={{ fontSize: 11 }} 
+                <BarChart data={netChartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }} barGap={2}>
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 11 }}
                     tickFormatter={(v) => {
                       const [y, m] = v.split('-');
                       return `${m}/${y.slice(2)}`;
                     }}
                   />
-                  <YAxis 
-                    tick={{ fontSize: 11 }} 
+                  <YAxis
+                    scale="log"
+                    domain={[1, 'auto']}
+                    allowDataKey
+                    tick={{ fontSize: 11 }}
                     tickFormatter={(v) => {
-                      if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-                      if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(0)}k`;
+                      if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(0)}M`;
+                      if (v >= 1_000) return `${(v / 1_000).toFixed(0)}k`;
                       return v;
                     }}
                   />
-                  <Tooltip 
-                    formatter={(value: number) => [formatCurrency(value), 'Netto']}
+                  <Tooltip
+                    contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+                    formatter={(value: number, name: string) => [
+                      formatCurrency(value),
+                      name === 'buy' ? 'Köp' : 'Sälj',
+                    ]}
                     labelFormatter={(label) => {
                       const [y, m] = label.split('-');
                       return `${m}/${y}`;
                     }}
                   />
-                  <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
-                  <Bar dataKey="net" radius={[3, 3, 0, 0]}>
-                    {netChartData.map((entry, index) => (
-                      <Cell 
-                        key={index} 
-                        fill={entry.net >= 0 ? 'hsl(var(--primary))' : 'hsl(var(--destructive))'}
-                      />
-                    ))}
-                  </Bar>
+                  <Legend formatter={(value) => value === 'buy' ? 'Köp' : 'Sälj'} />
+                  <Bar dataKey="buy" fill="hsl(var(--success))" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="sell" fill="hsl(var(--destructive))" radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

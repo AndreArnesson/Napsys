@@ -1,4 +1,4 @@
-import { useParams, Link, Navigate } from 'react-router-dom';
+import { useParams, Link, Navigate, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,6 +11,7 @@ export default function PortfolioDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { t } = useLanguage();
+  const navigate = useNavigate();
 
   const { data: portfolio, isLoading } = useQuery({
     queryKey: ['portfolio', id],
@@ -53,12 +54,12 @@ export default function PortfolioDetail() {
     <MainLayout>
       <div className="space-y-6">
         <div className="flex items-center gap-2">
-          <Link
-            to="/portfolio"
+          <button
+            onClick={() => navigate(-1)}
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />{t.common.back}
-          </Link>
+          </button>
           <h1 className="text-2xl font-bold">{portfolio.name}</h1>
         </div>
         <SnapshotEditor portfolioId={portfolio.id} portfolioName={portfolio.name} />

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import type { Adjustment } from './AdjustmentsEditor';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { NumericInput } from '@/components/ui/numeric-input';
 import { Button } from '@/components/ui/button';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { Badge } from '@/components/ui/badge';
@@ -923,11 +924,10 @@ export function SpreadsheetAnalysis({
               )}
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Target P/E:</span>
-                <Input
-                  type="number"
-                  className="w-20 h-8"
+                <NumericInput
                   value={targetPE}
-                  onChange={(e) => setTargetPE(parseFloat(e.target.value) || 15)}
+                  onChange={(v) => setTargetPE(v ?? 15)}
+                  className="w-20 h-8"
                 />
               </div>
             </div>

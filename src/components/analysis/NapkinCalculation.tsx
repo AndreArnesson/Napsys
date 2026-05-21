@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { NumericInput } from '@/components/ui/numeric-input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -119,7 +120,8 @@ export function NapkinCalculation({
             >
               <div className="flex items-center justify-between">
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={row.year}
                   onChange={(e) => updateRow(idx, 'year', parseInt(e.target.value) || currentYear)}
                   className="w-24 h-8 font-mono font-semibold text-base"
@@ -134,33 +136,28 @@ export function NapkinCalculation({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Omsättning (MSEK)</Label>
-                  <Input
-                    type="number"
+                  <NumericInput
+                    value={row.revenue}
+                    onChange={(v) => updateRow(idx, 'revenue', v)}
                     placeholder="t.ex. 1000"
-                    value={row.revenue ?? ''}
-                    onChange={(e) => updateRow(idx, 'revenue', e.target.value ? parseFloat(e.target.value) : undefined)}
                     className="font-mono"
                   />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Vinstmarginal (%)</Label>
-                  <Input
-                    type="number"
-                    step="0.1"
+                  <NumericInput
+                    value={row.netMargin}
+                    onChange={(v) => updateRow(idx, 'netMargin', v)}
                     placeholder="t.ex. 12"
-                    value={row.netMargin ?? ''}
-                    onChange={(e) => updateRow(idx, 'netMargin', e.target.value ? parseFloat(e.target.value) : undefined)}
                     className="font-mono"
                   />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">P/E (mål)</Label>
-                  <Input
-                    type="number"
-                    step="0.5"
+                  <NumericInput
+                    value={row.peTarget}
+                    onChange={(v) => updateRow(idx, 'peTarget', v)}
                     placeholder="t.ex. 15"
-                    value={row.peTarget ?? ''}
-                    onChange={(e) => updateRow(idx, 'peTarget', e.target.value ? parseFloat(e.target.value) : undefined)}
                     className="font-mono"
                   />
                 </div>

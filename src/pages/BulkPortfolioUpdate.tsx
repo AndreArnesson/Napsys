@@ -7,6 +7,7 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NumericInput } from '@/components/ui/numeric-input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Trash2, Upload, Save, Check, Loader2, ArrowLeft } from 'lucide-react';
@@ -272,26 +273,23 @@ export default function BulkPortfolioUpdate() {
                                   />
                                 </TableCell>
                                 <TableCell className="py-1">
-                                  <Input
-                                    type="number"
-                                    value={h.shares_count ?? ''}
-                                    onChange={e => updateHolding(p.id, i, 'shares_count', e.target.value ? parseFloat(e.target.value) : null)}
+                                  <NumericInput
+                                    value={h.shares_count}
+                                    onChange={v => updateHolding(p.id, i, 'shares_count', v ?? null)}
                                     className="h-7 text-right font-mono w-24"
                                   />
                                 </TableCell>
                                 <TableCell className="py-1">
-                                  <Input
-                                    type="number"
-                                    value={h.value_sek ?? ''}
-                                    onChange={e => updateHolding(p.id, i, 'value_sek', e.target.value ? parseFloat(e.target.value) : null)}
+                                  <NumericInput
+                                    value={h.value_sek}
+                                    onChange={v => updateHolding(p.id, i, 'value_sek', v ?? null)}
                                     className="h-7 text-right font-mono w-28"
                                   />
                                 </TableCell>
                                 <TableCell className="py-1">
-                                  <Input
-                                    type="number"
-                                    value={h.price ?? ''}
-                                    onChange={e => updateHolding(p.id, i, 'price', e.target.value ? parseFloat(e.target.value) : null)}
+                                  <NumericInput
+                                    value={h.price}
+                                    onChange={v => updateHolding(p.id, i, 'price', v ?? null)}
                                     className="h-7 text-right font-mono w-24"
                                   />
                                 </TableCell>

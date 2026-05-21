@@ -343,7 +343,7 @@ export function EconomyOverview() {
             </div>
             <div className="space-y-2">
               <Label>{sv ? 'Belopp (kr)' : 'Amount (SEK)'}</Label>
-              <Input type="number" placeholder="0" value={newEntry.amount} onChange={e => setNewEntry(p => ({ ...p, amount: e.target.value }))} />
+              <Input type="text" inputMode="decimal" placeholder="0" value={newEntry.amount} onChange={e => setNewEntry(p => ({ ...p, amount: e.target.value.replace(',', '.') }))} />
             </div>
             <div className="space-y-2">
               <Label>{sv ? 'Anteckning' : 'Note'}</Label>

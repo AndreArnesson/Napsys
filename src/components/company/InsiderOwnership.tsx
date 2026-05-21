@@ -2,9 +2,10 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NumericInput } from '@/components/ui/numeric-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PieChart as RechartsPie, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { PieChart, Plus, Trash2, Sparkles, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Bookmark } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -161,14 +162,15 @@ export function InsiderOwnership({ data, onUpdate, currentPrice, tradingCurrency
     });
   }, [localData, sortKey, sortDir, currentPrice]);
 
-  const pieData = useMemo(
+  const barData = useMemo(
     () =>
       localData
         .filter(d => d.percentage > 0)
         .map(d => ({
           name: d.name || 'Unknown',
           value: Math.round(d.percentage * 10000) / 100,
-        })),
+        }))
+        .sort((a, b) => b.value - a.value),
     [localData],
   );
 
@@ -248,10 +250,10 @@ export function InsiderOwnership({ data, onUpdate, currentPrice, tradingCurrency
                         <Input value={entry.role} onChange={(e) => updateRow(i, 'role', e.target.value)} placeholder="Role" className="h-8" />
                       </TableCell>
                       <TableCell>
-                        <Input type="number" value={entry.shares || ''} onChange={(e) => updateRow(i, 'shares', parseInt(e.target.value) || 0)} className="h-8 text-right font-mono" />
+                        <NumericInput value={entry.shares || undefined} onChange={(v) => updateRow(i, 'shares', Math.round(v ?? 0))} className="h-8 text-right font-mono" />
                       </TableCell>
                       <TableCell>
-                        <Input type="number" step="0.01" value={entry.percentage ? (entry.percentage * 100).toFixed(2) : ''} onChange={(e) => updateRow(i, 'percentage', (parseFloat(e.target.value) || 0) / 100)} className="h-8 text-right font-mono w-20" />
+                        <NumericInput value={entry.percentage ? parseFloat((entry.percentage * 100).toFixed(2)) : undefined} onChange={(v) => updateRow(i, 'percentage', (v ?? 0) / 100)} className="h-8 text-right font-mono w-20" />
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm text-muted-foreground">
                         {entry.shares && currentPrice
@@ -270,17 +272,19 @@ export function InsiderOwnership({ data, onUpdate, currentPrice, tradingCurrency
             </Table>
           </div>
 
-          {pieData.length > 0 && (
-            <div className="h-[200px]">
+          {barData.length > 0 && (
+            <div style={{ height: Math.max(120, barData.length * 36) }}>
               <ResponsiveContainer width="100%" height="100%">
-                <RechartsPie>
-                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="value" label={({ name, value }) => `${name}: ${value}%`}>
-                    {pieData.map((_, index) => (
+                <BarChart data={barData} layout="vertical" margin={{ top: 0, right: 48, left: 8, bottom: 0 }}>
+                  <XAxis type="number" domain={[0, 'dataMax']} tickFormatter={v => `${v}%`} tick={{ fontSize: 11 }} />
+                  <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12 }} />
+                  <Tooltip formatter={(v: number) => [`${v}%`, 'Ownership']} />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                    {barData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
-                  </Pie>
-                  <Tooltip />
-                </RechartsPie>
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             </div>
           )}

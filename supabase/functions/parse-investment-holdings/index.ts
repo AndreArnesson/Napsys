@@ -36,7 +36,7 @@ serve(async (req) => {
           },
           {
             role: "user",
-            content: `Tolka följande text och extrahera alla portföljinnehav. Identifiera bolagsnamn, ticker (om tillgänglig), viktning i procent (om tillgänglig), och kategorisera varje post som en av: company, investment_company, fund, cash, other.
+            content: `Tolka följande text och extrahera alla portföljinnehav. Identifiera bolagsnamn, ticker (om tillgänglig), viktning i procent (om tillgänglig), kategorisera varje post som en av: company, investment_company, fund, cash, other, och avgör om innehavet är noterat (listat på börs) eller onoterat. Om texten indikerar att bolaget är onoterat (t.ex. "onoterat", "unlisted", "privat") sätt is_listed till false, annars true.
 
 Text:
 ${truncated}`,
@@ -64,6 +64,7 @@ ${truncated}`,
                           enum: ["company", "investment_company", "fund", "cash", "other"],
                           description: "Type of holding",
                         },
+                        is_listed: { type: "boolean", description: "Whether the holding is listed on a stock exchange. False if the text indicates it is unlisted/private (onoterat). Default true for companies." },
                       },
                       required: ["name"],
                     },

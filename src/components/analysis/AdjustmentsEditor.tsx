@@ -130,7 +130,8 @@ export function AdjustmentsEditor({ adjustments, onAdjustmentsChange, currency =
                         </td>
                         <td className="py-2 px-2">
                           <Input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             value={adj.year}
                             onChange={e => updateAdjustment(adj.id, 'year', parseInt(e.target.value) || new Date().getFullYear())}
                             className="h-8 text-sm font-mono w-20"

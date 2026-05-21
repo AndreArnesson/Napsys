@@ -582,11 +582,11 @@ export default function AnalysisEditor() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Kurs ({company?.trading_currency})</Label>
-                  <Input type="number" step="0.01" placeholder="0.00" value={currentPrice} onChange={(e) => setCurrentPrice(e.target.value)} className="font-mono" />
+                  <Input type="text" inputMode="decimal" placeholder="0.00" value={currentPrice} onChange={(e) => setCurrentPrice(e.target.value.replace(',', '.'))} className="font-mono" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Antal aktier</Label>
-                  <Input type="number" placeholder="1000000" value={sharesOutstanding} onChange={(e) => setSharesOutstanding(e.target.value)} className="font-mono" />
+                  <Input type="text" inputMode="numeric" value={sharesOutstanding} onChange={(e) => setSharesOutstanding(e.target.value.replace(',', '.'))} className="font-mono" />
                 </div>
                 {priceNum > 0 && sharesNum > 0 && (
                   <div className="pt-2 border-t space-y-1">
@@ -626,11 +626,11 @@ export default function AnalysisEditor() {
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Aktuell rabatt/premie (%)</Label>
                     <Input
-                      type="number"
-                      step="0.1"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="T.ex. -15 för 15% rabatt"
                       value={navDiscount}
-                      onChange={(e) => setNavDiscount(e.target.value)}
+                      onChange={(e) => setNavDiscount(e.target.value.replace(',', '.'))}
                       className="font-mono"
                     />
                     <p className="text-xs text-muted-foreground">
@@ -744,10 +744,11 @@ export default function AnalysisEditor() {
                 </CardHeader>
                 <CardContent>
                   <Input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     placeholder="Antal anställda"
                     value={employees}
-                    onChange={(e) => setEmployees(e.target.value)}
+                    onChange={(e) => setEmployees(e.target.value.replace(',', '.'))}
                     className="font-mono"
                   />
                 </CardContent>

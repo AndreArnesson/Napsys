@@ -298,9 +298,12 @@ export default function CompanyDetail() {
 
   useEffect(() => () => { debouncedRemoteSave.flush(); }, [debouncedRemoteSave]);
 
-  const ceoData: CEOData = company?.management
-    ? (typeof company.management === 'object' ? (company.management as unknown as CEOData) : { name: String(company.management) })
-    : { name: '' };
+  const ceoData: CEOData = (() => {
+    const m = company?.management;
+    if (!m) return { name: '' };
+    if (typeof m === 'object') return m as unknown as CEOData;
+    try { return JSON.parse(m) as CEOData; } catch { return { name: String(m) }; }
+  })();
 
   const handleCEOUpdate = (newCeo: CEOData) => { updateCompany.mutate({ management: JSON.stringify(newCeo) }); };
   const handleKeyDataUpdate = (updates: Record<string, any>) => {
@@ -563,9 +566,9 @@ export default function CompanyDetail() {
         {/* Header */}
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div className="space-y-2">
-            <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="h-4 w-4" />{t.common.back}
-            </Link>
+            </button>
             <CompanyNameEditor name={company.name} onSave={(newName) => updateCompany.mutate({ name: newName })} />
             <div className="flex items-center gap-4">
               {company.ticker && <span className="text-lg font-mono text-muted-foreground">{company.ticker}</span>}
@@ -664,7 +667,8 @@ export default function CompanyDetail() {
                     <div className="flex items-center gap-3">
                       <Label className="text-sm font-medium whitespace-nowrap">Grundat</Label>
                       <Input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         placeholder="t.ex. 1999"
                         defaultValue={(company as any)?.founded_year || ''}
                         onBlur={(e) => {
@@ -755,7 +759,7 @@ export default function CompanyDetail() {
                           onUpdate={(val) => updateCompany.mutate({ pilotskolan: val } as any)}
                         />
                         <InsiderOwnership data={ownershipData} onUpdate={handleOwnershipUpdate} currentPrice={company?.current_price} tradingCurrency={(company as any)?.trading_currency || 'SEK'} companyId={id!} />
-                        <InsiderOwnershipHistory companyId={id!} />
+                        <InsiderOwnershipHistory companyId={id!} currentPrice={company?.current_price} tradingCurrency={(company as any)?.trading_currency || 'SEK'} />
                         
                         {/* Ägarbild */}
                         <div className="space-y-2">

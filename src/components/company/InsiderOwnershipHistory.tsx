@@ -28,7 +28,7 @@ function totalPct(entries: OwnershipEntry[]) {
   return entries.reduce((s, e) => s + (e.percentage || 0), 0) * 100;
 }
 
-export function InsiderOwnershipHistory({ companyId }: { companyId: string }) {
+export function InsiderOwnershipHistory({ companyId, currentPrice, tradingCurrency = 'SEK' }: { companyId: string; currentPrice?: number | null; tradingCurrency?: string }) {
   const queryClient = useQueryClient();
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
   const [editMap, setEditMap] = useState<Record<string, EditState>>({});
@@ -229,6 +229,7 @@ export function InsiderOwnershipHistory({ companyId }: { companyId: string }) {
                           <TableHead>Role</TableHead>
                           <TableHead className="text-right">Shares</TableHead>
                           <TableHead className="text-right">%</TableHead>
+                          {currentPrice && <TableHead className="text-right">Value ({tradingCurrency})</TableHead>}
                           <TableHead className="w-8" />
                         </TableRow>
                       </TableHeader>
@@ -242,11 +243,16 @@ export function InsiderOwnershipHistory({ companyId }: { companyId: string }) {
                               <Input value={e.role} onChange={ev => updateEntry(snap.id, i, 'role', ev.target.value)} placeholder="Role" className="h-7" />
                             </TableCell>
                             <TableCell className="py-1">
-                              <Input type="number" value={e.shares || ''} onChange={ev => updateEntry(snap.id, i, 'shares', ev.target.value)} className="h-7 text-right font-mono w-28" />
+                              <Input type="text" inputMode="numeric" value={e.shares || ''} onChange={ev => updateEntry(snap.id, i, 'shares', ev.target.value.replace(',', '.'))} className="h-7 text-right font-mono w-28" />
                             </TableCell>
                             <TableCell className="py-1">
-                              <Input type="number" step="0.01" value={e.percentage ? (e.percentage * 100).toFixed(2) : ''} onChange={ev => updateEntry(snap.id, i, 'percentage', ev.target.value)} className="h-7 text-right font-mono w-20" />
+                              <Input type="text" inputMode="decimal" value={e.percentage ? (e.percentage * 100).toFixed(2) : ''} onChange={ev => updateEntry(snap.id, i, 'percentage', ev.target.value.replace(',', '.'))} className="h-7 text-right font-mono w-20" />
                             </TableCell>
+                            {currentPrice && (
+                              <TableCell className="py-1 text-right font-mono text-sm text-muted-foreground">
+                                {e.shares ? (e.shares * currentPrice).toLocaleString('sv-SE', { maximumFractionDigits: 0 }) : '—'}
+                              </TableCell>
+                            )}
                             <TableCell className="py-1">
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeEntry(snap.id, i)}>
                                 <Trash2 className="h-3 w-3" />
