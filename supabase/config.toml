@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.parse-investment-holdings]
 verify_jwt = false
+
+[functions.parse-fund-data]
+verify_jwt = false

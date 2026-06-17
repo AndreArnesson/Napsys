@@ -50,6 +50,7 @@ export default function AnalysisEditor() {
   const [isLocked, setIsLocked] = useState(false);
   const [investmentHoldings, setInvestmentHoldings] = useState<InvestmentHolding[]>([]);
   const [navDiscount, setNavDiscount] = useState<string>('');
+  const [priceFxRate, setPriceFxRate] = useState<string>('1');
   const [napkinMode, setNapkinMode] = useState<boolean>(false);
   const [napkinAssumptions, setNapkinAssumptions] = useState<NapkinAssumption[]>([]);
 
@@ -200,6 +201,7 @@ export default function AnalysisEditor() {
       setNotes(currentAnalysis.summary_comment || '');
       setCurrentPrice((currentAnalysis as any).current_price?.toString() || company?.current_price?.toString() || '');
       setSharesOutstanding((currentAnalysis as any).shares_outstanding?.toString() || company?.shares_outstanding?.toString() || '');
+      setPriceFxRate((currentAnalysis as any).price_fx_rate?.toString() || '1');
       setAnalysisName((currentAnalysis as any).name || '');
       setAnalysisImages(((currentAnalysis as any).images as string[]) || []);
       setEmployees((currentAnalysis as any).employees?.toString() || '');
@@ -260,6 +262,7 @@ export default function AnalysisEditor() {
           projections: isInvestmentCompany ? investmentHoldings : projections,
           current_price: currentPrice ? parseFloat(currentPrice) : null,
           shares_outstanding: sharesOutstanding ? parseInt(sharesOutstanding) : null,
+          price_fx_rate: parseFloat(priceFxRate) || 1,
           name: analysisName || null,
           images: analysisImages,
           employees: employees ? parseInt(employees) : null,
@@ -282,6 +285,7 @@ export default function AnalysisEditor() {
         projections: isInvestmentCompany ? investmentHoldings : projections,
         current_price: currentPrice ? parseFloat(currentPrice) : null,
         shares_outstanding: sharesOutstanding ? parseInt(sharesOutstanding) : null,
+        price_fx_rate: parseFloat(priceFxRate) || 1,
         name: analysisName || null,
         images: analysisImages,
         employees: employees ? parseInt(employees) : null,
@@ -309,7 +313,7 @@ export default function AnalysisEditor() {
       setIsSaving(true);
       saveMutation.mutate();
     }, 3000),
-    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, isLocked, investmentHoldings, navDiscount, napkinMode, napkinAssumptions]
+    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, priceFxRate, projections, analysisName, analysisImages, employees, analysisSections, adjustments, isLocked, investmentHoldings, navDiscount, napkinMode, napkinAssumptions]
   );
 
   const debouncedSaveRef = useRef(debouncedSave);
@@ -463,6 +467,8 @@ export default function AnalysisEditor() {
 
   const priceNum = parseFloat(currentPrice) || 0;
   const sharesNum = parseInt(sharesOutstanding) || 0;
+  const fxRateNum = parseFloat(priceFxRate) || 1;
+  const priceForMultiples = priceNum / fxRateNum;
 
   const displayData = showQuarterly && quarterlyHistoricalData.length > 0 ? quarterlyHistoricalData : historicalData;
 
@@ -588,6 +594,15 @@ export default function AnalysisEditor() {
                   <Label className="text-xs text-muted-foreground">Antal aktier</Label>
                   <Input type="text" inputMode="numeric" value={sharesOutstanding} onChange={(e) => setSharesOutstanding(e.target.value.replace(',', '.'))} className="font-mono" />
                 </div>
+                {company?.trading_currency && company?.reporting_currency && company.trading_currency !== company.reporting_currency && (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">
+                      Valutakurs (1 {company.reporting_currency} = ? {company.trading_currency})
+                    </Label>
+                    <Input type="text" inputMode="decimal" placeholder="1.00" value={priceFxRate} onChange={(e) => setPriceFxRate(e.target.value.replace(',', '.'))} className="font-mono" />
+                    <p className="text-xs text-muted-foreground">Används för att omvandla kursen till rapporteringsvaluta vid multipel-beräkningar.</p>
+                  </div>
+                )}
                 {priceNum > 0 && sharesNum > 0 && (
                   <div className="pt-2 border-t space-y-1">
                     <div className="flex justify-between text-sm">
@@ -597,11 +612,11 @@ export default function AnalysisEditor() {
                     {(() => {
                       const latestIncome = incomeData?.[incomeData.length - 1] as any;
                       const latestBalance = balanceData?.[balanceData.length - 1] as any;
-                      const marketCapMSEK = (priceNum * sharesNum) / 1_000_000;
+                      const marketCapMReporting = (priceForMultiples * sharesNum) / 1_000_000;
                       const ebit = latestIncome?.ebit;
                       const ebitda = latestIncome?.ebitda;
                       const netDebt = latestBalance ? ((latestBalance.long_term_debt ?? 0) + (latestBalance.short_term_debt ?? 0) - (latestBalance.cash_equivalents ?? 0)) : null;
-                      const ev = netDebt !== null ? marketCapMSEK + netDebt : null;
+                      const ev = netDebt !== null ? marketCapMReporting + netDebt : null;
                       return (
                         <>
                           {ev !== null && <div className="flex justify-between text-sm"><span className="text-muted-foreground">EV</span><span className="font-mono font-medium">{(ev / 1e3).toFixed(2)} Mdr</span></div>}
@@ -801,6 +816,7 @@ export default function AnalysisEditor() {
                   currency={company?.reporting_currency}
                   sharesOutstanding={sharesNum}
                   currentPrice={priceNum}
+                  priceFxRate={fxRateNum}
                   adjustments={adjustments}
                   forcedColumns={['revenue', 'growth', 'net_margin', 'eps', 'eps_growth']}
                   title="Historisk data – enkelt läge"
@@ -810,6 +826,7 @@ export default function AnalysisEditor() {
                   analysisDate={currentAnalysis?.created_at?.split('T')[0]}
                   currentPrice={priceNum}
                   sharesOutstanding={sharesNum}
+                  priceFxRate={fxRateNum}
                   historicalData={historicalData.map(h => ({
                     year: h.fiscal_year,
                     revenue: h.revenue || 0,
@@ -829,6 +846,7 @@ export default function AnalysisEditor() {
                   notes={notes}
                   onNotesChange={setNotes}
                   currency={company?.reporting_currency}
+                  tradingCurrency={company?.trading_currency}
                   showQuarterly={false}
                   napkinMode
                 />
@@ -840,6 +858,7 @@ export default function AnalysisEditor() {
                   currency={company?.reporting_currency}
                   sharesOutstanding={sharesNum}
                   currentPrice={priceNum}
+                  priceFxRate={fxRateNum}
                   adjustments={adjustments}
                   analysisId={analysisId}
                 />
@@ -852,6 +871,7 @@ export default function AnalysisEditor() {
                   analysisDate={currentAnalysis?.created_at?.split('T')[0]}
                   currentPrice={priceNum}
                   sharesOutstanding={sharesNum}
+                  priceFxRate={fxRateNum}
                   historicalData={historicalData.map(h => ({
                     year: h.fiscal_year,
                     revenue: h.revenue || 0,
@@ -884,6 +904,7 @@ export default function AnalysisEditor() {
                   notes={notes}
                   onNotesChange={setNotes}
                   currency={company?.reporting_currency}
+                  tradingCurrency={company?.trading_currency}
                   showQuarterly={showQuarterly}
                   adjustments={adjustments}
                   analysisId={analysisId}

@@ -80,6 +80,7 @@ interface HistoricalDataTableProps {
   /** Optional title override (e.g. "Historisk data – enkelt läge") */
   title?: string;
   analysisId?: string;
+  priceFxRate?: number;
 }
 
 function computeCAGR(startVal: number, endVal: number, years: number): number | undefined {
@@ -167,6 +168,7 @@ export function HistoricalDataTable({
   currency = 'SEK',
   sharesOutstanding,
   currentPrice,
+  priceFxRate = 1,
   onRowClick,
   adjustments = [],
   forcedColumns,
@@ -309,10 +311,11 @@ export function HistoricalDataTable({
 
   const computeEV = (row: HistoricalYear) => {
     if (!currentPrice || !sharesOutstanding) return undefined;
-    const marketCapMSEK = (currentPrice * sharesOutstanding) / 1_000_000;
+    const priceInReporting = currentPrice / priceFxRate;
+    const marketCap = (priceInReporting * sharesOutstanding) / 1_000_000;
     const debt = row.total_debt ?? 0;
     const cash = row.cash ?? 0;
-    return marketCapMSEK + debt - cash;
+    return marketCap + debt - cash;
   };
 
   // For quarterly rows, sum the 4 quarters ending at this row (TTM)
@@ -489,10 +492,19 @@ export function HistoricalDataTable({
                 const evEbit = ev && ttmAdjEbit && ttmAdjEbit > 0 ? ev / ttmAdjEbit : undefined;
                 const evEbitda = ev && ttmAdjEbitda && ttmAdjEbitda > 0 ? ev / ttmAdjEbitda : undefined;
                 const ttmEps = computeTTM(row, 'earnings_per_share');
-                const pe = currentPrice && ttmEps && ttmEps > 0 ? currentPrice / ttmEps : undefined;
+                const pe = currentPrice && ttmEps && ttmEps > 0 ? (currentPrice / priceFxRate) / ttmEps : undefined;
                 const netDebt = computeNetDebt(row);
                 const cagr = cagrData[row.fiscal_year];
-                const label = row.quarter ? `${row.fiscal_year} Q${row.quarter}` : String(row.fiscal_year);
+                const currentYear = new Date().getFullYear();
+                const latestQForCurrentYear = data
+                  .filter(d => d.fiscal_year === currentYear && d.quarter)
+                  .reduce((max, d) => Math.max(max, d.quarter ?? 0), 0);
+                const isIncomplete = !row.quarter && row.fiscal_year === currentYear && latestQForCurrentYear > 0;
+                const label = row.quarter
+                  ? `${row.fiscal_year} Q${row.quarter}`
+                  : isIncomplete
+                    ? `${row.fiscal_year} (Q${latestQForCurrentYear})`
+                    : String(row.fiscal_year);
 
                 const star = (val: string, isAdj: boolean) => isAdj ? `${val} *` : val;
 

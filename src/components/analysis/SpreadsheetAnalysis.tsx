@@ -121,6 +121,8 @@ interface SpreadsheetAnalysisProps {
   currency?: string;
   showQuarterly?: boolean;
   netDebt?: number;
+  priceFxRate?: number;
+  tradingCurrency?: string;
   adjustments?: Adjustment[];
   /** Servettkalkyl: only show the most basic rows (revenue, net margin, EPS, P/E, MOS). */
   napkinMode?: boolean;
@@ -153,10 +155,13 @@ export function SpreadsheetAnalysis({
   showQuarterly = false,
   quarterlyHistoricalData = [],
   netDebt = 0,
+  priceFxRate = 1,
+  tradingCurrency,
   adjustments = [],
   napkinMode = false,
   analysisId,
 }: SpreadsheetAnalysisProps) {
+  const priceCurrency = tradingCurrency ?? currency;
   const { t, language } = useLanguage();
 
   const storageKey = analysisId ? `ss-settings-${analysisId}` : null;
@@ -192,48 +197,75 @@ export function SpreadsheetAnalysis({
     return defaultYears;
   });
 
+  // Derive initial estimateQuarters for quarterly mode: localStorage > projections > default (expand defaultYears)
+  const [estimateQuarters, setEstimateQuarters] = useState<{year: number, quarter: number}[]>(() => {
+    const fromStorage = loadSetting<{year: number, quarter: number}[] | null>('estimateQuarters', null);
+    if (fromStorage && fromStorage.length > 0) return fromStorage;
+    if (projections.length > 0) {
+      const qs = [...new Set(projections.filter(p => p.quarter !== undefined).map(p => `${p.year}-${p.quarter}`))]
+        .map(k => { const [y, q] = k.split('-'); return { year: Number(y), quarter: Number(q) }; })
+        .sort((a, b) => (a.year * 10 + a.quarter) - (b.year * 10 + b.quarter));
+      if (qs.length > 0) return qs;
+    }
+    const qs: {year: number, quarter: number}[] = [];
+    for (const y of defaultYears) {
+      for (let q = 1; q <= 4; q++) qs.push({ year: y, quarter: q });
+    }
+    return qs;
+  });
+
   // Persist display settings to localStorage
   useEffect(() => {
     if (!storageKey) return;
-    localStorage.setItem(storageKey, JSON.stringify({ targetPE, mode, perShare, visibleRows, qGrowthMode, historyCount, estimateYears }));
-  }, [storageKey, targetPE, mode, perShare, visibleRows, qGrowthMode, historyCount, estimateYears]);
+    localStorage.setItem(storageKey, JSON.stringify({ targetPE, mode, perShare, visibleRows, qGrowthMode, historyCount, estimateYears, estimateQuarters }));
+  }, [storageKey, targetPE, mode, perShare, visibleRows, qGrowthMode, historyCount, estimateYears, estimateQuarters]);
 
   const addEstimateColumn = () => {
-    const maxYear = Math.max(...estimateYears);
-    setEstimateYears(prev => [...prev, maxYear + 1]);
+    if (mode === 'quarterly') {
+      const last = estimateQuarters[estimateQuarters.length - 1];
+      const nextQ = last ? (last.quarter % 4) + 1 : 1;
+      const nextY = last ? (last.quarter === 4 ? last.year + 1 : last.year) : currentYear;
+      setEstimateQuarters(prev => [...prev, { year: nextY, quarter: nextQ }]);
+    } else {
+      const maxYear = Math.max(...estimateYears);
+      setEstimateYears(prev => [...prev, maxYear + 1]);
+    }
   };
 
-  const removeEstimateColumn = (year: number) => {
-    if (estimateYears.length <= 1) return;
-    setEstimateYears(prev => prev.filter(y => y !== year));
+  const removeEstimateColumn = (year: number, quarter?: number) => {
+    if (mode === 'quarterly') {
+      if (estimateQuarters.length <= 1) return;
+      setEstimateQuarters(prev => prev.filter(q => !(q.year === year && q.quarter === quarter)));
+    } else {
+      if (estimateYears.length <= 1) return;
+      setEstimateYears(prev => prev.filter(y => y !== year));
+    }
   };
 
   const columns: ColumnDef[] = useMemo(() => {
-    const sortedYears = [...estimateYears].sort((a, b) => a - b);
     if (mode === 'quarterly') {
-      const cols: ColumnDef[] = [];
-      for (const y of sortedYears) {
-        for (let q = 1; q <= 4; q++) {
-          const isPast = y < currentYear || (y === currentYear && q < currentQuarter);
-          const isCurrent = y === currentYear && q === currentQuarter;
-          cols.push({
-            year: y,
-            quarter: q,
-            label: `${y} Q${q}`,
+      return [...estimateQuarters]
+        .sort((a, b) => (a.year * 10 + a.quarter) - (b.year * 10 + b.quarter))
+        .map(({ year, quarter }) => {
+          const isPast = year < currentYear || (year === currentYear && quarter < currentQuarter);
+          const isCurrent = year === currentYear && quarter === currentQuarter;
+          return {
+            year,
+            quarter,
+            label: `${year} Q${quarter}`,
             sublabel: isCurrent ? 'Nu' : isPast ? 'Utfall' : '',
             isActual: isPast,
-          });
-        }
-      }
-      return cols;
+          };
+        });
     }
+    const sortedYears = [...estimateYears].sort((a, b) => a - b);
     return sortedYears.map(year => ({
       year,
       label: year === currentYear ? `${currentYear} (Nu)` : String(year),
       sublabel: `År ${year - currentYear}`,
       isActual: year < currentYear,
     }));
-  }, [mode, currentYear, currentQuarter, estimateYears]);
+  }, [mode, currentYear, currentQuarter, estimateYears, estimateQuarters]);
 
   // Historical columns prepended to the left for context
   const historicalColumns = useMemo((): ColumnDef[] => {
@@ -275,7 +307,7 @@ export function SpreadsheetAnalysis({
         ? ((h.earningsPerShare - prevQ.earningsPerShare) / Math.abs(prevQ.earningsPerShare)) * 100
         : undefined;
       const qEv = (currentPrice && sharesOutstanding > 0)
-        ? (currentPrice * sharesOutstanding) / 1_000_000 + netDebt
+        ? ((currentPrice / priceFxRate) * sharesOutstanding) / 1_000_000 + netDebt
         : undefined;
       // TTM EBIT/EBITDA: sum 4 quarters ending at this quarter
       const sortedForTTM = [...quarterlyHistoricalData]
@@ -298,11 +330,11 @@ export function SpreadsheetAnalysis({
         revenueGrowth: qRevGrowth,
         epsGrowth: qEpsGrowth,
         revenuePerShare: sharesOutstanding > 0 ? (h.revenue * 1_000_000) / sharesOutstanding : undefined,
-        pe: (currentPrice && h.earningsPerShare && h.earningsPerShare > 0) ? currentPrice / h.earningsPerShare : undefined,
+        pe: (currentPrice && h.earningsPerShare && h.earningsPerShare > 0) ? (currentPrice / priceFxRate) / h.earningsPerShare : undefined,
         ev: qEv,
         evEbit: (qEv && qTtmEbit && qTtmEbit > 0) ? qEv / qTtmEbit : undefined,
         evEbitda: (qEv && qTtmEbitda && qTtmEbitda > 0) ? qEv / qTtmEbitda : undefined,
-        dividendYield: (h.dividend && currentPrice && currentPrice > 0) ? (h.dividend / currentPrice) * 100 : undefined,
+        dividendYield: (h.dividend && currentPrice && currentPrice > 0) ? (h.dividend / (currentPrice / priceFxRate)) * 100 : undefined,
       } as any)[key];
     }
     const h = historicalData.find(h => h.year === col.year);
@@ -312,7 +344,7 @@ export function SpreadsheetAnalysis({
       ? ((h.earningsPerShare - prevY.earningsPerShare) / Math.abs(prevY.earningsPerShare)) * 100
       : undefined;
     const yEv = (currentPrice && sharesOutstanding > 0)
-      ? (currentPrice * sharesOutstanding) / 1_000_000 + netDebt
+      ? ((currentPrice / priceFxRate) * sharesOutstanding) / 1_000_000 + netDebt
       : undefined;
     return ({
       revenue: h.revenue,
@@ -326,11 +358,11 @@ export function SpreadsheetAnalysis({
       epsGrowth: yEpsGrowth,
       dividend: h.dividend,
       revenuePerShare: sharesOutstanding > 0 ? (h.revenue * 1_000_000) / sharesOutstanding : undefined,
-      pe: (currentPrice && h.earningsPerShare && h.earningsPerShare > 0) ? currentPrice / h.earningsPerShare : undefined,
+      pe: (currentPrice && h.earningsPerShare && h.earningsPerShare > 0) ? (currentPrice / priceFxRate) / h.earningsPerShare : undefined,
       ev: yEv,
       evEbit: (yEv && h.ebit && h.ebit > 0) ? yEv / h.ebit : undefined,
       evEbitda: (yEv && h.ebitda && h.ebitda > 0) ? yEv / h.ebitda : undefined,
-      dividendYield: (h.dividend && currentPrice && currentPrice > 0) ? (h.dividend / currentPrice) * 100 : undefined,
+      dividendYield: (h.dividend && currentPrice && currentPrice > 0) ? (h.dividend / (currentPrice / priceFxRate)) * 100 : undefined,
     } as any)[key];
   };
 
@@ -522,11 +554,12 @@ export function SpreadsheetAnalysis({
       }
 
       const estimatedPrice = epsForValuation * peToUse;
-      const mos = price > 0 ? ((estimatedPrice - price) / price) * 100 : 0;
+      const priceForCalc = price / priceFxRate; // Convert to reporting currency for ratio calculations
+      const mos = priceForCalc > 0 ? ((estimatedPrice - priceForCalc) / priceForCalc) * 100 : 0;
 
-      // EV = Market Cap + Net Debt (netDebt in MSEK, price * shares = SEK)
-      const marketCap = (price * sharesOutstanding) / 1_000_000; // MSEK
-      const calculatedEv = marketCap + netDebt; // MSEK
+      // EV = Market Cap + Net Debt (price converted to reporting currency, netDebt in same currency)
+      const marketCap = (priceForCalc * sharesOutstanding) / 1_000_000;
+      const calculatedEv = marketCap + netDebt;
       const ev = proj.ev !== undefined ? proj.ev : calculatedEv; // User override or calculated
 
       // EV/EBIT and EV/EBITDA — use TTM (sum of 4 quarters) in quarterly mode
@@ -577,10 +610,10 @@ export function SpreadsheetAnalysis({
       // Dividend / yield: yield wins if explicitly set, otherwise derive yield from dividend
       let dividend = proj.dividend;
       let dividendYield = proj.dividendYield;
-      if (dividendYield !== undefined && dividend === undefined && price && price > 0) {
-        dividend = (dividendYield / 100) * price;
+      if (dividendYield !== undefined && dividend === undefined && priceForCalc && priceForCalc > 0) {
+        dividend = (dividendYield / 100) * priceForCalc;
       } else if (dividendYield === undefined) {
-        dividendYield = (dividend && price && price > 0) ? (dividend / price) * 100 : undefined;
+        dividendYield = (dividend && priceForCalc && priceForCalc > 0) ? (dividend / priceForCalc) * 100 : undefined;
       }
 
       // Adjusted values from one-time adjustments
@@ -630,7 +663,7 @@ export function SpreadsheetAnalysis({
         earningsPerShare,
         epsGrowth,
         targetPE: peToUse,
-        estimatedPrice,
+        estimatedPrice: estimatedPrice * priceFxRate,
         mos,
         dividend,
         dividendYield,
@@ -711,7 +744,7 @@ export function SpreadsheetAnalysis({
   // Build rows dynamically based on perShare toggle and visible rows
   const rows: { label: string; key: string; editable: boolean; bg?: boolean }[] = useMemo(() => {
     const allRows: { label: string; key: string; editable: boolean; bg?: boolean }[] = [
-      { label: `Kurs (${currency})`, key: 'price', editable: true, bg: true },
+      { label: `Kurs (${priceCurrency})`, key: 'price', editable: true, bg: true },
       { label: 'Omsättningstillv (%)', key: 'revenueGrowth', editable: true },
       { label: `Omsättning/aktie (${currency})`, key: 'revenuePerShare', editable: true },
       { label: `Omsättning (M${currency})`, key: 'revenue', editable: true },
@@ -729,7 +762,7 @@ export function SpreadsheetAnalysis({
       { label: 'EV/EBIT', key: 'evEbit', editable: false },
       { label: 'EV/EBITDA', key: 'evEbitda', editable: false },
       { label: 'Rimlig P/E', key: 'targetPE', editable: true, bg: true },
-      { label: `Estimerad kurs (${currency})`, key: 'estimatedPrice', editable: false },
+      { label: `Estimerad kurs (${priceCurrency})`, key: 'estimatedPrice', editable: false },
       { label: 'MOS (%)', key: 'mos', editable: false },
       // Adjusted rows
       { label: `Justerad EBIT (M${currency})`, key: 'adjustedEbit', editable: false, bg: true },
@@ -791,14 +824,17 @@ export function SpreadsheetAnalysis({
         return (q.hist as any)?.[field];
       };
 
+      // Only roll a field up into the yearly figure when all 4 quarters contribute
+      // a value. Otherwise a field the user never filled (e.g. EBITDA) would get
+      // auto-populated from a partial sum (often from historical fallback data).
       const sumField = (field: string) => {
         const vals = quarters.map(q => getVal(q, field)).filter((v: any) => v !== undefined && !isNaN(v));
-        return vals.length > 0 ? vals.reduce((a: number, b: number) => a + b, 0) : undefined;
+        return vals.length === 4 ? vals.reduce((a: number, b: number) => a + b, 0) : undefined;
       };
 
       const avgField = (field: string) => {
         const vals = quarters.map(q => getVal(q, field)).filter((v: any) => v !== undefined && v !== 0 && !isNaN(v));
-        return vals.length > 0 ? vals.reduce((a: number, b: number) => a + b, 0) / vals.length : undefined;
+        return vals.length === 4 ? vals.reduce((a: number, b: number) => a + b, 0) / vals.length : undefined;
       };
 
       const yearlyProj: YearlyProjection = {
@@ -956,10 +992,9 @@ export function SpreadsheetAnalysis({
                     </th>
                   )}
                   {calculatedProjections.map((proj, i) => {
-                    // Only allow removing the last (rightmost) year, shown on Q1 in quarterly mode
-                    const maxYear = Math.max(...estimateYears);
-                    const showRemove = estimateYears.length > 1 && proj.year === maxYear
-                      && (mode === 'yearly' || proj.quarter === 1);
+                    // Only allow removing the last (rightmost) column
+                    const isLastColumn = i === calculatedProjections.length - 1;
+                    const showRemove = isLastColumn && (mode === 'quarterly' ? estimateQuarters.length > 1 : estimateYears.length > 1);
                     const col = columns[i];
                     return (
                       <th key={`${proj.year}-${proj.quarter || ''}`} className={cn("text-center py-2 px-3 font-medium min-w-[110px]", col.isActual && "opacity-60")}>
@@ -968,7 +1003,7 @@ export function SpreadsheetAnalysis({
                             <span className="text-xs">{proj.label}</span>
                             {showRemove && (
                               <button
-                                onClick={() => removeEstimateColumn(proj.year)}
+                                onClick={() => removeEstimateColumn(proj.year, proj.quarter)}
                                 className="text-muted-foreground hover:text-destructive transition-colors"
                                 title="Ta bort"
                               >
@@ -1048,7 +1083,7 @@ export function SpreadsheetAnalysis({
                         } else {
                           ttmEps = proj.earningsPerShare;
                         }
-                        const pe = ttmEps && ttmEps > 0 && proj.price ? proj.price / ttmEps : undefined;
+                        const pe = ttmEps && ttmEps > 0 && proj.price ? (proj.price / priceFxRate) / ttmEps : undefined;
                         return (
                           <td key={`${proj.year}-${proj.quarter || ''}`} className="text-center py-2 px-3 font-mono">
                             {pe !== undefined ? formatNumber(pe, 1) : '—'}
