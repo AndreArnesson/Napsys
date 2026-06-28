@@ -22,6 +22,7 @@ const ALL_ESTIMATE_ROWS: { key: string; label: string; group: string }[] = [
   { key: 'revenue', label: 'Omsättning', group: 'Grunddata' },
   { key: 'revenuePerShare', label: 'Omsättning/aktie', group: 'Grunddata' },
   { key: 'ebit', label: 'EBIT', group: 'Grunddata' },
+  { key: 'netIncome', label: 'Vinst', group: 'Grunddata' },
   { key: 'ebitda', label: 'EBITDA', group: 'Grunddata' },
   { key: 'netMargin', label: 'Vinstmarginal', group: 'Marginaler' },
   { key: 'ebitMargin', label: 'EBIT-marginal', group: 'Marginaler' },
@@ -46,10 +47,8 @@ const ALL_ESTIMATE_ROWS: { key: string; label: string; group: string }[] = [
 ];
 
 const DEFAULT_ESTIMATE_ROWS = [
-  'price', 'revenueGrowth', 'revenue', 'ebit', 'ebitda', 'netMargin',
-  'earningsPerShare', 'epsGrowth', 'dividend', 'dividendYield',
-  'pe', 'ev', 'evEbit', 'evEbitda', 'targetPE', 'estimatedPrice', 'mos',
-  'adjustedEbit', 'adjustedEbitda', 'adjustedNetIncome', 'adjustedEbitMargin', 'adjustedEvEbit', 'adjustedEvEbitda',
+  'price', 'revenueGrowth', 'revenue', 'ebit', 'netMargin', 'ebitMargin', 'netIncome',
+  'epsGrowth', 'pe', 'ev', 'evEbit', 'targetPE', 'estimatedPrice', 'mos', 'dividendYield',
 ];
 
 export interface YearlyProjection {
@@ -80,6 +79,7 @@ export interface YearlyProjection {
   adjustedEbitMargin?: number;
   adjustedEvEbit?: number;
   adjustedEvEbitda?: number;
+  netIncome?: number;
 }
 
 interface SpreadsheetAnalysisProps {
@@ -326,6 +326,7 @@ export function SpreadsheetAnalysis({
         ebitMargin: h.ebitMargin,
         ebitdaMargin: h.ebitdaMargin,
         earningsPerShare: h.earningsPerShare,
+        netIncome: h.netIncome,
         dividend: h.dividend,
         revenueGrowth: qRevGrowth,
         epsGrowth: qEpsGrowth,
@@ -354,6 +355,7 @@ export function SpreadsheetAnalysis({
       ebitMargin: h.ebitMargin,
       ebitdaMargin: h.ebitdaMargin,
       earningsPerShare: h.earningsPerShare,
+      netIncome: h.netIncome,
       revenueGrowth: h.revenueGrowth,
       epsGrowth: yEpsGrowth,
       dividend: h.dividend,
@@ -519,8 +521,11 @@ export function SpreadsheetAnalysis({
         ebitda = effectiveRevenue * (proj.ebitdaMargin / 100);
       }
 
-      // Net margin: use stored, or derive from EPS × shares / revenue if user entered EPS instead
+      // Net margin: use stored, or derive from Vinst, or derive from EPS × shares / revenue
       let netMargin = proj.netMargin;
+      if (netMargin === undefined && proj.netIncome !== undefined && effectiveRevenue > 0) {
+        netMargin = (proj.netIncome / effectiveRevenue) * 100;
+      }
       if (netMargin === undefined && proj.earningsPerShare !== undefined && effectiveRevenue && sharesOutstanding > 0) {
         const ni = (proj.earningsPerShare * sharesOutstanding) / 1_000_000;
         netMargin = (ni / effectiveRevenue) * 100;
@@ -628,8 +633,8 @@ export function SpreadsheetAnalysis({
 
       const adjustedEbit = ebit !== undefined ? ebit + ebitAdj : (ebitAdj !== 0 ? ebitAdj : undefined);
       const adjustedEbitda = ebitda !== undefined ? ebitda + ebitdaAdj : (ebitdaAdj !== 0 ? ebitdaAdj : undefined);
-      const netIncome = effectiveRevenue * (effectiveNetMargin / 100);
-      const adjustedNetIncome = netIncome + netIncomeAdj;
+      const netIncome = proj.netIncome !== undefined ? proj.netIncome : (effectiveRevenue > 0 ? effectiveRevenue * (effectiveNetMargin / 100) : undefined);
+      const adjustedNetIncome = (netIncome ?? 0) + netIncomeAdj;
       const adjustedEbitMargin = (adjustedEbit !== undefined && effectiveRevenue > 0) ? (adjustedEbit / effectiveRevenue) * 100 : undefined;
       const ttmAdjEbit = (mode === 'quarterly' && col.quarter && ttmEbit !== undefined && ebit !== undefined && adjustedEbit !== undefined)
         ? ttmEbit - ebit + adjustedEbit : adjustedEbit;
@@ -661,6 +666,7 @@ export function SpreadsheetAnalysis({
         ebitMargin: displayEbitMargin,
         ebitdaMargin: displayEbitdaMargin,
         earningsPerShare,
+        netIncome,
         epsGrowth,
         targetPE: peToUse,
         estimatedPrice: estimatedPrice * priceFxRate,
@@ -730,9 +736,10 @@ export function SpreadsheetAnalysis({
     if (field === 'ebit') (patch as any).ebitMargin = undefined;
     if (field === 'ebitdaMargin') (patch as any).ebitda = undefined;
     if (field === 'ebitda') (patch as any).ebitdaMargin = undefined;
-    // Net income: entering margin clears EPS override; entering EPS clears netMargin
-    if (field === 'netMargin') (patch as any).earningsPerShare = undefined;
-    if (field === 'earningsPerShare') (patch as any).netMargin = undefined;
+    // Net income: all three inputs (Vinst, Vinstmarginal, VPA) are mutually exclusive — latest wins
+    if (field === 'netMargin') { (patch as any).earningsPerShare = undefined; (patch as any).netIncome = undefined; }
+    if (field === 'earningsPerShare') { (patch as any).netMargin = undefined; (patch as any).netIncome = undefined; }
+    if (field === 'netIncome') { (patch as any).netMargin = undefined; (patch as any).earningsPerShare = undefined; }
     if (existingIndex >= 0) {
       newProjections[existingIndex] = { ...newProjections[existingIndex], ...patch };
     } else {
@@ -749,6 +756,7 @@ export function SpreadsheetAnalysis({
       { label: `Omsättning/aktie (${currency})`, key: 'revenuePerShare', editable: true },
       { label: `Omsättning (M${currency})`, key: 'revenue', editable: true },
       { label: `EBIT (M${currency})`, key: 'ebit', editable: true },
+      { label: `Vinst (M${currency})`, key: 'netIncome', editable: true },
       { label: `EBITDA (M${currency})`, key: 'ebitda', editable: true },
       { label: 'Vinstmarginal (%)', key: 'netMargin', editable: true },
       { label: 'EBIT-marginal (%)', key: 'ebitMargin', editable: true },
@@ -786,8 +794,6 @@ export function SpreadsheetAnalysis({
       if (row.key === 'evEbitda' && !visible.has('ebitda') && !visible.has('ebitdaMargin')) return false;
       if (row.key === 'adjustedEvEbit' && !visible.has('adjustedEbit')) return false;
       if (row.key === 'adjustedEvEbitda' && !visible.has('adjustedEbitda')) return false;
-      if (row.key === 'dividendYield' && !visible.has('dividend')) return false;
-      if (row.key === 'epsGrowth' && !visible.has('earningsPerShare')) return false;
       return true;
     });
   }, [perShare, visibleRows, currency, adjustments.length]);

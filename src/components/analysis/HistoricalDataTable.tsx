@@ -31,7 +31,7 @@ export interface HistoricalYear {
   shares_outstanding?: number;
 }
 
-type ColumnKey = 'revenue' | 'growth' | 'ebit' | 'ebit_growth' | 'ebitda' | 'ebitda_growth' | 'net_income' | 'dividend' | 'eps' | 'eps_growth' | 'gross_margin' | 'operating_margin' | 'net_margin' | 'pe' | 'ev' | 'ev_ebit' | 'ev_ebitda' | 'cagr_revenue' | 'cagr_profit' | 'debt';
+type ColumnKey = 'revenue' | 'growth' | 'ebit' | 'ebit_growth' | 'ebitda' | 'ebitda_growth' | 'net_income' | 'net_income_growth' | 'dividend' | 'eps' | 'eps_growth' | 'gross_margin' | 'operating_margin' | 'net_margin' | 'pe' | 'ev' | 'ev_ebit' | 'ev_ebitda' | 'cagr_revenue' | 'cagr_profit' | 'debt';
 
 const ALL_COLUMNS: { key: ColumnKey; label: string; group: string }[] = [
   { key: 'revenue', label: 'Omsättning', group: 'Resultat' },
@@ -40,6 +40,8 @@ const ALL_COLUMNS: { key: ColumnKey; label: string; group: string }[] = [
   { key: 'ebit_growth', label: 'EBIT tillväxt', group: 'Resultat' },
   { key: 'ebitda', label: 'EBITDA', group: 'Resultat' },
   { key: 'ebitda_growth', label: 'EBITDA tillväxt', group: 'Resultat' },
+  { key: 'net_income', label: 'Vinst', group: 'Resultat' },
+  { key: 'net_income_growth', label: 'Vinsttillväxt', group: 'Resultat' },
   { key: 'dividend', label: 'Utdelning', group: 'Resultat' },
   { key: 'eps', label: 'Vinst/aktie', group: 'Resultat' },
   { key: 'eps_growth', label: 'VPA-tillväxt', group: 'Resultat' },
@@ -64,7 +66,7 @@ const CAGR_METRICS: { key: CAGRMetric; label: string; columnKeys: ColumnKey[] }[
   { key: 'ebit', label: 'EBIT', columnKeys: ['ebit', 'ebit_growth'] },
   { key: 'ebitda', label: 'EBITDA', columnKeys: ['ebitda', 'ebitda_growth'] },
   { key: 'eps', label: 'VPA', columnKeys: ['eps', 'eps_growth'] },
-  { key: 'net_income', label: 'Vinst', columnKeys: [] },
+  { key: 'net_income', label: 'Vinst', columnKeys: ['net_income', 'net_income_growth'] },
   { key: 'dividend', label: 'Utdelning', columnKeys: ['dividend'] },
 ];
 
@@ -267,6 +269,7 @@ export function HistoricalDataTable({
         _epsGrowth: calcGrowth(row.earnings_per_share, prev?.earnings_per_share),
         _ebitGrowth: calcGrowth(row.ebit, prev?.ebit),
         _ebitdaGrowth: calcGrowth(row.ebitda, prev?.ebitda),
+        _netIncomeGrowth: calcGrowth(row.net_income, prev?.net_income),
       };
     });
 
@@ -432,6 +435,15 @@ export function HistoricalDataTable({
                   />
                 )}
                 {isVisible('ebitda_growth') && <TableHead className="text-center whitespace-nowrap">EBITDA tillväxt</TableHead>}
+                {isVisible('net_income') && (
+                  <CAGRHeaderCell
+                    label={perShare ? `Vinst/aktie (${currency})` : `Vinst (M${currency})`}
+                    metric="net_income"
+                    yearlyData={yearlyData}
+                    className="text-right whitespace-nowrap"
+                  />
+                )}
+                {isVisible('net_income_growth') && <TableHead className="text-center whitespace-nowrap">Vinsttillväxt</TableHead>}
                 {isVisible('dividend') && (
                   <CAGRHeaderCell
                     label={perShare ? `Utd./aktie (${currency})` : `Utdelning (M${currency})`}
@@ -517,6 +529,8 @@ export function HistoricalDataTable({
                     {isVisible('ebit_growth') && <TableCell className="text-center">{getGrowthBadge((row as any)._ebitGrowth)}</TableCell>}
                     {isVisible('ebitda') && <TableCell className="text-right font-mono text-sm">{star(formatNumber(adjEbitda), ebitdaAdj !== 0)}</TableCell>}
                     {isVisible('ebitda_growth') && <TableCell className="text-center">{getGrowthBadge((row as any)._ebitdaGrowth)}</TableCell>}
+                    {isVisible('net_income') && <TableCell className="text-right font-mono text-sm">{star(formatNumber(adjNetIncome), netIncomeAdj !== 0)}</TableCell>}
+                    {isVisible('net_income_growth') && <TableCell className="text-center">{getGrowthBadge((row as any)._netIncomeGrowth)}</TableCell>}
                     {isVisible('dividend') && <TableCell className="text-right font-mono text-sm">{row.dividend !== undefined ? formatNumber(row.dividend, 2) : '—'}</TableCell>}
                     {isVisible('eps') && <TableCell className="text-right font-mono text-sm">{row.earnings_per_share !== undefined ? row.earnings_per_share.toFixed(2) : '—'}</TableCell>}
                     {isVisible('eps_growth') && <TableCell className="text-center">{getGrowthBadge((row as any)._epsGrowth)}</TableCell>}
