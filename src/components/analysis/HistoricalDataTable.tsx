@@ -231,7 +231,8 @@ export function HistoricalDataTable({
     } else if (growth < -10) {
       return <Badge variant="outline" className="text-destructive border-destructive/50 gap-1"><TrendingDown className="h-3 w-3" />{growth.toFixed(0)}%</Badge>;
     }
-    return <Badge variant="outline" className="text-muted-foreground gap-1"><Minus className="h-3 w-3" />{growth.toFixed(0)}%</Badge>;
+    const sign = growth >= 0 ? '+' : '';
+    return <Badge variant="outline" className="text-muted-foreground gap-1"><Minus className="h-3 w-3" />{sign}{growth.toFixed(0)}%</Badge>;
   };
 
   const isQuarterly = data.some(d => d.quarter);
