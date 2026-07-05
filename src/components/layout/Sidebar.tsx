@@ -11,7 +11,8 @@ import {
   Globe,
   Moon,
   Sun,
-  Briefcase
+  Briefcase,
+  BarChart2
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
@@ -28,6 +29,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const navItems = [
     { href: '/', label: t.nav.dashboard, icon: LayoutDashboard },
     { href: '/portfolio', label: t.portfolio.title, icon: Briefcase },
+    { href: '/compare', label: 'Jämför', icon: BarChart2 },
     { href: '/settings', label: t.nav.settings, icon: Settings },
   ];
 

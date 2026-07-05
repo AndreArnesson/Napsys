@@ -15,6 +15,7 @@ import AdminImport from "./pages/AdminImport";
 import Portfolio from "./pages/Portfolio";
 import PortfolioDetail from "./pages/PortfolioDetail";
 import BulkPortfolioUpdate from "./pages/BulkPortfolioUpdate";
+import Compare from "./pages/Compare";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
                 <Route path="/portfolio/update" element={<BulkPortfolioUpdate />} />
                 <Route path="/portfolio/:id" element={<PortfolioDetail />} />
                 <Route path="/admin-import" element={<AdminImport />} />
+                <Route path="/compare" element={<Compare />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

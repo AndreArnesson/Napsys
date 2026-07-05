@@ -17,6 +17,7 @@ import { InsiderOwnership, OwnershipEntry } from '@/components/company/InsiderOw
 import { InsiderOwnershipHistory } from '@/components/company/InsiderOwnershipHistory';
 import { FileImportDialog, ParsedFinancialData, ParsedInsiderTrade, ParsedCompanyInfo } from '@/components/company/FileImportDialog';
 import { ImageUpload } from '@/components/company/ImageUpload';
+import { FundMetadataEditor } from '@/components/analysis/FundMetadataEditor';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -620,7 +621,6 @@ export default function CompanyDetail() {
             <TabsTrigger value="financials">{t.company.financials}</TabsTrigger>
             <TabsTrigger value="balance-sheet">{t.company.balanceSheet}</TabsTrigger>
             <TabsTrigger value="insiders">{t.company.insiders}</TabsTrigger>
-            
             <TabsTrigger value="analysis">{t.analysis.title}</TabsTrigger>
           </TabsList>
 
@@ -662,6 +662,10 @@ export default function CompanyDetail() {
                   </div>
 
                   <KeyDataEditor data={{ ticker: company.ticker || undefined, reportingCurrency: company.reporting_currency, tradingCurrency: company.trading_currency, currentPrice: company.current_price, exchange: (company as any).exchange || 'stockholm', companyType: (company as any).company_type || 'stock' }} onUpdate={handleKeyDataUpdate} companyId={id} />
+
+                  {(company as any).company_type === 'fund' && (
+                    <FundMetadataEditor companyId={id!} />
+                  )}
 
                   {sections.foundedYear && (
                     <div className="flex items-center gap-3">
