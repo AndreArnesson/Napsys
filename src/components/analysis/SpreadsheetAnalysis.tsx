@@ -299,7 +299,11 @@ export function SpreadsheetAnalysis({
     if (col.quarter !== undefined) {
       const h = quarterlyHistoricalData.find(h => h.year === col.year && h.quarter === col.quarter);
       if (!h) return undefined;
-      const prevQ = quarterlyHistoricalData.find(p => p.year === h.year - 1 && p.quarter === h.quarter);
+      const prevQ = qGrowthMode === 'yoy'
+        ? quarterlyHistoricalData.find(p => p.year === h.year - 1 && p.quarter === h.quarter)
+        : [...quarterlyHistoricalData]
+            .filter(p => p.year * 10 + p.quarter < h.year * 10 + h.quarter)
+            .sort((a, b) => (b.year * 10 + b.quarter) - (a.year * 10 + a.quarter))[0];
       const qRevGrowth = (prevQ?.revenue && h.revenue)
         ? ((h.revenue - prevQ.revenue) / Math.abs(prevQ.revenue)) * 100
         : undefined;
@@ -533,9 +537,13 @@ export function SpreadsheetAnalysis({
       const effectiveNetMargin = netMargin || 0;
 
       const revenuePerShare = sharesOutstanding > 0 ? (effectiveRevenue * 1_000_000) / sharesOutstanding : 0;
-      // Use manually entered EPS if provided, otherwise calculate from revenue/margin/shares
+      // Use manually entered EPS if provided, otherwise calculate from revenue/margin/shares —
+      // but only when a margin was actually entered; otherwise leave undefined so unfilled
+      // quarters don't silently count as 0 earnings in TTM sums (e.g. for P/E).
       const calculatedEpsFromRevenue = revenuePerShare * (effectiveNetMargin / 100);
-      const earningsPerShare = proj.earningsPerShare !== undefined ? proj.earningsPerShare : calculatedEpsFromRevenue;
+      const earningsPerShare = proj.earningsPerShare !== undefined
+        ? proj.earningsPerShare
+        : (netMargin !== undefined ? calculatedEpsFromRevenue : undefined);
       const peToUse = proj.targetPE || targetPE;
 
       // In quarterly mode, MOS should use TTM EPS (4 quarters annualised), not a single quarter
@@ -633,7 +641,9 @@ export function SpreadsheetAnalysis({
 
       const adjustedEbit = ebit !== undefined ? ebit + ebitAdj : (ebitAdj !== 0 ? ebitAdj : undefined);
       const adjustedEbitda = ebitda !== undefined ? ebitda + ebitdaAdj : (ebitdaAdj !== 0 ? ebitdaAdj : undefined);
-      const netIncome = proj.netIncome !== undefined ? proj.netIncome : (effectiveRevenue > 0 ? effectiveRevenue * (effectiveNetMargin / 100) : undefined);
+      const netIncome = proj.netIncome !== undefined
+        ? proj.netIncome
+        : (netMargin !== undefined && effectiveRevenue > 0 ? effectiveRevenue * (effectiveNetMargin / 100) : undefined);
       const adjustedNetIncome = (netIncome ?? 0) + netIncomeAdj;
       const adjustedEbitMargin = (adjustedEbit !== undefined && effectiveRevenue > 0) ? (adjustedEbit / effectiveRevenue) * 100 : undefined;
       const ttmAdjEbit = (mode === 'quarterly' && col.quarter && ttmEbit !== undefined && ebit !== undefined && adjustedEbit !== undefined)
