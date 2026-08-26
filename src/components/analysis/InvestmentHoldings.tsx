@@ -378,7 +378,7 @@ export function InvestmentHoldings({ holdings, onHoldingsChange, readOnly, compa
                             </>
                           ) : (
                             <div className="space-y-1 col-span-2">
-                              <Label className="text-xs text-muted-foreground">Uppskattat värde (tusental sek)</Label>
+                              <Label className="text-xs text-muted-foreground">Uppskattat värde (Mdr)</Label>
                               <NumericInput value={h.nav_value} onChange={(v) => updateHolding(h.id, { nav_value: v })} placeholder="—" className="h-8 font-mono text-xs" disabled={readOnly} />
                             </div>
                           )}
