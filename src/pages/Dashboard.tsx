@@ -39,7 +39,7 @@ export default function Dashboard() {
   const [creating, setCreating] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
-  const [sortBy, setSortBy] = useState<SortOption>('latest_updated');
+  const [sortBy, setSortBy] = useState<SortOption>('latest_analysis');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
 
   // Fetch user's companies with their latest analysis

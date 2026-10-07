@@ -330,12 +330,13 @@ export default function AnalysisEditor() {
     toast.success(newLocked ? 'Analysen är nu låst' : 'Analysen är nu upplåst');
   };
 
+  const analysisLoaded = !!currentAnalysis;
   useEffect(() => {
-    if (user && analysisId && (notes || rating || analysisName)) {
+    if (user && analysisId && analysisLoaded) {
       debouncedSave();
     }
     return () => debouncedSave.cancel();
-  }, [rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, investmentHoldings, navDiscount, napkinMode, napkinAssumptions, debouncedSave]);
+  }, [rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, investmentHoldings, navDiscount, napkinMode, napkinAssumptions, analysisLoaded, debouncedSave]);
 
   // Handle per-analysis financial import
   const handleAnalysisImport = async (data: ParsedFinancialData[], companyInfo?: ParsedCompanyInfo) => {
