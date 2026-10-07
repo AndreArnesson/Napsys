@@ -149,6 +149,13 @@ export const translations = {
       system: 'System',
       displayName: 'Visningsnamn',
       save: 'Spara',
+      backup: 'Backup',
+      backupDescription: 'Exporterar all data (analyser, bolag, portföljer) som en JSON-fil. En automatisk backup skapas en gång per dygn.',
+      exportBackup: 'Exportera JSON-fil',
+      lastBackup: 'Senaste backup',
+      neverBackup: 'Aldrig',
+      backupExported: 'Backup exporterad',
+      backupFailed: 'Backup misslyckades',
     },
     // Common
     common: {
@@ -218,6 +225,16 @@ export const translations = {
       freeTextDescription: 'Klistra in text eller beskriv dina innehav så tolkar AI det åt dig',
       freeTextPlaceholder: 'T.ex. "Jag har 30% i Volvo, 20% i H&M, resten i fonder..."',
       parseText: 'Tolka med AI',
+    },
+    // Improvements
+    improvements: {
+      title: 'Förbättringar',
+      addPlaceholder: 'Ny förbättringsidé...',
+      submit: 'Lägg till',
+      editPlaceholder: 'Uppdatera förbättringen...',
+      empty: 'Inga förbättringar ännu',
+      emptyDescription: 'Lägg till dina idéer om vad som bör förbättras här',
+      confirmDescription: 'Vill du ta bort den här förbättringen?',
     },
   },
   en: {
@@ -368,6 +385,13 @@ export const translations = {
       system: 'System',
       displayName: 'Display Name',
       save: 'Save',
+      backup: 'Backup',
+      backupDescription: 'Exports all data (analyses, companies, portfolios) as a JSON file. An automatic backup is created once a day.',
+      exportBackup: 'Export JSON file',
+      lastBackup: 'Last backup',
+      neverBackup: 'Never',
+      backupExported: 'Backup exported',
+      backupFailed: 'Backup failed',
     },
     // Common
     common: {
@@ -437,6 +461,16 @@ export const translations = {
       freeTextDescription: 'Paste text or describe your holdings and AI will interpret it',
       freeTextPlaceholder: 'E.g. "I have 30% in Volvo, 20% in H&M, the rest in funds..."',
       parseText: 'Parse with AI',
+    },
+    // Improvements
+    improvements: {
+      title: 'Improvements',
+      addPlaceholder: 'New improvement idea...',
+      submit: 'Add',
+      editPlaceholder: 'Update improvement...',
+      empty: 'No improvements yet',
+      emptyDescription: 'Add your ideas on what should be improved here',
+      confirmDescription: 'Do you want to delete this improvement?',
     },
   },
 } as const;

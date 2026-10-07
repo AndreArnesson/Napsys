@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,9 +13,14 @@ import {
   Moon,
   Sun,
   Briefcase,
-  BarChart2
+  BarChart2,
+  ClipboardList,
+  Download,
+  Loader2
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { toast } from 'sonner';
+import { runBackup } from '@/lib/backup';
 
 interface SidebarProps {
   onNavigate?: () => void;
@@ -25,11 +31,26 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const { t, language, setLanguage } = useLanguage();
   const { signOut, user } = useAuth();
   const { theme, setTheme } = useTheme();
+  const [backingUp, setBackingUp] = useState(false);
+
+  const handleBackup = async () => {
+    if (backingUp) return;
+    setBackingUp(true);
+    try {
+      await runBackup();
+      toast.success(t.settings.backupExported);
+    } catch {
+      toast.error(t.settings.backupFailed);
+    } finally {
+      setBackingUp(false);
+    }
+  };
 
   const navItems = [
     { href: '/', label: t.nav.dashboard, icon: LayoutDashboard },
     { href: '/portfolio', label: t.portfolio.title, icon: Briefcase },
     { href: '/compare', label: 'Jämför', icon: BarChart2 },
+    { href: '/improvements', label: t.improvements.title, icon: ClipboardList },
     { href: '/settings', label: t.nav.settings, icon: Settings },
   ];
 
@@ -130,6 +151,20 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             <p className="truncate text-sm text-muted-foreground">
               {user.email}
             </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start gap-2"
+              onClick={handleBackup}
+              disabled={backingUp}
+            >
+              {backingUp ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {t.settings.backup}
+            </Button>
             <Button
               variant="ghost"
               size="sm"

@@ -9,8 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import { runBackup, getLastBackupAt } from '@/lib/backup';
 
 const currencies = ['SEK', 'EUR', 'USD', 'GBP', 'NOK', 'DKK'];
 
@@ -21,6 +22,7 @@ export default function Settings() {
 
   const [displayName, setDisplayName] = useState('');
   const [defaultCurrency, setDefaultCurrency] = useState('SEK');
+  const [lastBackup, setLastBackup] = useState(getLastBackupAt());
 
   // Fetch profile
   const { data: profile, isLoading } = useQuery({
@@ -65,6 +67,17 @@ export default function Settings() {
     },
     onError: () => {
       toast.error(t.common.error);
+    },
+  });
+
+  const exportBackup = useMutation({
+    mutationFn: () => runBackup(),
+    onSuccess: (backup) => {
+      setLastBackup(backup.exported_at);
+      toast.success(t.settings.backupExported);
+    },
+    onError: () => {
+      toast.error(t.settings.backupFailed);
     },
   });
 
@@ -140,6 +153,34 @@ export default function Settings() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Backup */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t.settings.backup}</CardTitle>
+            <CardDescription>{t.settings.backupDescription}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button
+              onClick={() => exportBackup.mutate()}
+              disabled={exportBackup.isPending}
+              className="gap-2"
+            >
+              {exportBackup.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {t.settings.exportBackup}
+            </Button>
+            <div className="text-sm text-muted-foreground">
+              {t.settings.lastBackup}:{' '}
+              {lastBackup
+                ? new Date(lastBackup).toLocaleString(language === 'sv' ? 'sv-SE' : 'en-GB')
+                : t.settings.neverBackup}
             </div>
           </CardContent>
         </Card>
