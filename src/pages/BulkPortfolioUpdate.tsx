@@ -34,7 +34,7 @@ const emptyHolding = (): Holding => ({
 });
 
 export default function BulkPortfolioUpdate() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { language } = useLanguage();
   const queryClient = useQueryClient();
@@ -59,7 +59,17 @@ export default function BulkPortfolioUpdate() {
     enabled: !!user,
   });
 
-  if (!user) return <Navigate to="/auth" />;
+  if (authLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!user) return <Navigate to="/auth" replace />;
 
   const getHoldings = (pid: string) => holdingsMap[pid] || [];
 

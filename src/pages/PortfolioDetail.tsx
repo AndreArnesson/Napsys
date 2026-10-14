@@ -1,4 +1,4 @@
-import { useParams, Link, Navigate, useNavigate } from 'react-router-dom';
+import { useParams, Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,9 +9,14 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 
 export default function PortfolioDetail() {
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
+  const goBack = () => {
+    if (location.key === 'default') navigate('/portfolio');
+    else navigate(-1);
+  };
 
   const { data: portfolio, isLoading } = useQuery({
     queryKey: ['portfolio', id],
@@ -27,7 +32,17 @@ export default function PortfolioDetail() {
     enabled: !!user && !!id,
   });
 
-  if (!user) return <Navigate to="/auth" />;
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!user) return <Navigate to="/auth" replace />;
 
   if (isLoading) {
     return (
@@ -55,7 +70,7 @@ export default function PortfolioDetail() {
       <div className="space-y-6">
         <div className="flex items-center gap-2">
           <button
-            onClick={() => navigate(-1)}
+            onClick={goBack}
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />{t.common.back}

@@ -9,14 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Briefcase, ChevronRight, Trash2, Wallet, RefreshCw } from 'lucide-react';
+import { Plus, Briefcase, ChevronRight, Trash2, Wallet, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { PortfolioOverview } from '@/components/portfolio/PortfolioOverview';
 import { EconomyOverview } from '@/components/economy/EconomyOverview';
 
 export default function Portfolio() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -61,7 +61,17 @@ export default function Portfolio() {
     onError: () => toast.error(t.common.error),
   });
 
-  if (!user) return <Navigate to="/auth" />;
+  if (authLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!user) return <Navigate to="/auth" replace />;
 
   return (
     <MainLayout>

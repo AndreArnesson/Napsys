@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import debounce from 'lodash/debounce';
-import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -140,8 +140,13 @@ export default function CompanyDetail() {
   const locale = language === 'sv' ? sv : enUS;
 
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const defaultTab = searchParams.get('tab') || 'overview';
+  const goBack = () => {
+    if (location.key === 'default') navigate('/');
+    else navigate(-1);
+  };
   // Insider trades from DB
   const { data: insiderTrades = [] } = useQuery({
     queryKey: ['insider_trades', id],
@@ -567,7 +572,7 @@ export default function CompanyDetail() {
         {/* Header */}
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div className="space-y-2">
-            <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <button onClick={goBack} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="h-4 w-4" />{t.common.back}
             </button>
             <CompanyNameEditor name={company.name} onSave={(newName) => updateCompany.mutate({ name: newName })} />

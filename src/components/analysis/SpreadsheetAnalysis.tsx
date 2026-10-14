@@ -247,25 +247,33 @@ export function SpreadsheetAnalysis({
       return [...estimateQuarters]
         .sort((a, b) => (a.year * 10 + a.quarter) - (b.year * 10 + b.quarter))
         .map(({ year, quarter }) => {
-          const isPast = year < currentYear || (year === currentYear && quarter < currentQuarter);
+          const hasActual = quarterlyHistoricalData.some(h => h.year === year && h.quarter === quarter);
           const isCurrent = year === currentYear && quarter === currentQuarter;
           return {
             year,
             quarter,
             label: `${year} Q${quarter}`,
-            sublabel: isCurrent ? 'Nu' : isPast ? 'Utfall' : '',
-            isActual: isPast,
+            sublabel: hasActual ? 'Utfall' : isCurrent ? 'Nu' : '',
+            isActual: hasActual,
           };
         });
     }
     const sortedYears = [...estimateYears].sort((a, b) => a - b);
-    return sortedYears.map(year => ({
-      year,
-      label: year === currentYear ? `${currentYear} (Nu)` : String(year),
-      sublabel: `År ${year - currentYear}`,
-      isActual: year < currentYear,
-    }));
-  }, [mode, currentYear, currentQuarter, estimateYears, estimateQuarters]);
+    return sortedYears.map(year => {
+      const yearQuarters = quarterlyHistoricalData.filter(h => h.year === year).map(h => h.quarter);
+      const hasQuarterData = yearQuarters.length > 0;
+      const hasAllQuarters = [1, 2, 3, 4].every(q => yearQuarters.includes(q));
+      const hasActual = hasQuarterData
+        ? hasAllQuarters
+        : historicalData.some(h => h.year === year);
+      return {
+        year,
+        label: year === currentYear ? `${currentYear} (Nu)` : String(year),
+        sublabel: `År ${year - currentYear}`,
+        isActual: hasActual,
+      };
+    });
+  }, [mode, currentYear, currentQuarter, estimateYears, estimateQuarters, quarterlyHistoricalData, historicalData]);
 
   // Historical columns prepended to the left for context
   const historicalColumns = useMemo((): ColumnDef[] => {
@@ -284,8 +292,8 @@ export function SpreadsheetAnalysis({
       }));
     }
     const sorted = [...historicalData].sort((a, b) => b.year - a.year);
-    // Exclude years already shown as Utfall in estimate columns
-    const estimateYearSet = new Set(columns.filter(c => c.isActual).map(c => c.year));
+    // Exclude years already rendered as their own estimate column
+    const estimateYearSet = new Set(columns.map(c => c.year));
     const candidates = sorted.filter(h => !estimateYearSet.has(h.year));
     return candidates.slice(0, historyCount).reverse().map(h => ({
       year: h.year,

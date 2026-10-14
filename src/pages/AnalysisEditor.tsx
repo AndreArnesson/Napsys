@@ -195,8 +195,13 @@ export default function AnalysisEditor() {
     enabled: !!analysisId,
   });
 
+  const initializedForRef = useRef<string | null>(null);
   useEffect(() => {
-    if (currentAnalysis) {
+    // Initialize the editor once per analysis. Later refetches (e.g. the one the
+    // autosave triggers) must not clobber edits the user is still making.
+    if (!analysisId || !currentAnalysis || !company || initializedForRef.current === analysisId) return;
+    initializedForRef.current = analysisId;
+    {
       setRating(currentAnalysis.rating as 'buy' | 'hold' | 'sell' | undefined);
       setNotes(currentAnalysis.summary_comment || '');
       setCurrentPrice((currentAnalysis as any).current_price?.toString() || company?.current_price?.toString() || '');
@@ -240,7 +245,7 @@ export default function AnalysisEditor() {
       }
       setIsLocked((currentAnalysis as any).locked === true);
     }
-  }, [currentAnalysis, company]);
+  }, [currentAnalysis, company, analysisId]);
 
   const currentMOS = useMemo(() => {
     const year3Proj = projections.find(p => p.year === new Date().getFullYear() + 3);
@@ -307,18 +312,39 @@ export default function AnalysisEditor() {
     },
   });
 
-  const debouncedSave = useCallback(
-    debounce(() => {
-      if (!user || !analysisId || isLocked) return;
-      setIsSaving(true);
-      saveMutation.mutate();
-    }, 3000),
-    [user, id, analysisId, rating, notes, currentPrice, sharesOutstanding, priceFxRate, projections, analysisName, analysisImages, employees, analysisSections, adjustments, isLocked, investmentHoldings, navDiscount, napkinMode, napkinAssumptions]
+  const performSave = useCallback(() => {
+    if (!user || !analysisId || isLocked) return;
+    setIsSaving(true);
+    saveMutation.mutate();
+  }, [user, analysisId, isLocked, saveMutation]);
+
+  // Latest-value ref so a save that fires late never uses a stale closure.
+  const performSaveRef = useRef(performSave);
+  useEffect(() => { performSaveRef.current = performSave; }, [performSave]);
+
+  // One stable debounced instance for the editor's whole lifetime, so flush()
+  // on the way out always persists the most recent edit (a recreated instance
+  // would leave the pending edit stranded on the previous one).
+  const debouncedSave = useMemo(
+    () => debounce(() => performSaveRef.current(), 1500),
+    []
   );
 
-  const debouncedSaveRef = useRef(debouncedSave);
-  useEffect(() => { debouncedSaveRef.current = debouncedSave; }, [debouncedSave]);
-  useEffect(() => () => { debouncedSaveRef.current.flush(); }, []);
+  // Persist what the user has so far when leaving the editor: in-app back and
+  // route changes (unmount), plus browser back / refresh / tab close. This is the
+  // only cleanup touching the debounce, so nothing can cancel the flush first.
+  useEffect(() => {
+    const flush = () => debouncedSave.flush();
+    const onVisibility = () => { if (document.visibilityState === 'hidden') flush(); };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVisibility);
+      flush();
+      debouncedSave.cancel();
+    };
+  }, [debouncedSave]);
 
   const toggleLock = async () => {
     if (!analysisId) return;
@@ -332,11 +358,13 @@ export default function AnalysisEditor() {
 
   const analysisLoaded = !!currentAnalysis;
   useEffect(() => {
-    if (user && analysisId && analysisLoaded) {
+    // Don't autosave before the state has been initialized from the loaded
+    // analysis, or the initial empty state would overwrite real data. Include
+    // priceFxRate so editing the exchange rate alone schedules a save.
+    if (user && analysisId && analysisLoaded && initializedForRef.current === analysisId) {
       debouncedSave();
     }
-    return () => debouncedSave.cancel();
-  }, [rating, notes, currentPrice, sharesOutstanding, projections, analysisName, analysisImages, employees, analysisSections, adjustments, investmentHoldings, navDiscount, napkinMode, napkinAssumptions, analysisLoaded, debouncedSave]);
+  }, [user, analysisId, rating, notes, currentPrice, sharesOutstanding, priceFxRate, projections, analysisName, analysisImages, employees, analysisSections, adjustments, investmentHoldings, navDiscount, napkinMode, napkinAssumptions, analysisLoaded, debouncedSave]);
 
   // Handle per-analysis financial import
   const handleAnalysisImport = async (data: ParsedFinancialData[], companyInfo?: ParsedCompanyInfo) => {
