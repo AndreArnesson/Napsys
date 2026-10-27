@@ -13,3 +13,20 @@ Object.defineProperty(window, "matchMedia", {
     dispatchEvent: () => {},
   }),
 });
+
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class ResizeObserverMock {
+    private callback: ResizeObserverCallback;
+
+    constructor(callback: ResizeObserverCallback) {
+      this.callback = callback;
+    }
+
+    observe(target: Element) {
+      this.callback([{ target, contentRect: { width: 1024, height: 768 } } as ResizeObserverEntry], this);
+    }
+
+    unobserve() {}
+    disconnect() {}
+  };
+}

@@ -12,6 +12,13 @@ function getProjectionValue(rowLabel: string) {
   return within(row).getAllByRole('cell').at(-2)?.textContent?.trim();
 }
 
+function getProjectionInputValue(rowLabel: string) {
+  const row = screen.getByText(rowLabel).closest('tr');
+  if (!row) throw new Error(`Could not find table row: ${rowLabel}`);
+  const input = within(row).getAllByRole('textbox').at(-1) as HTMLInputElement | undefined;
+  return input?.value;
+}
+
 function QuarterConversionHarness({ year }: { year: number }) {
   const [projections, setProjections] = useState([
     { year, quarter: 1, revenue: 25 },
@@ -113,6 +120,112 @@ describe('SpreadsheetAnalysis valuation multiples', () => {
     expect(getProjectionValue('P/E')).toBe('10.0');
     expect(getProjectionValue('EV/EBIT')).toBe('10.00');
     expect(getProjectionValue('EV/EBITDA')).toBe('5.00');
+  });
+
+  it('converts valuation metrics consistently at a non-SEK exchange rate', () => {
+    const year = new Date().getFullYear() + 1;
+    render(
+      <LanguageProvider defaultLanguage="en">
+        <SpreadsheetAnalysis
+          currentPrice={90}
+          sharesOutstanding={2_000_000}
+          analysisId="valuation-test"
+          currency="SEK"
+          tradingCurrency="EUR"
+          priceFxRate={1.5}
+          netDebt={30}
+          projections={[{
+            year, revenue: 100, earningsPerShare: 6, ebit: 15, ebitda: 30,
+            targetPE: 12, dividend: 3,
+          }]}
+          onProjectionsChange={vi.fn()}
+        />
+      </LanguageProvider>,
+    );
+
+    // €90 / 1.5 = SEK 60. Market cap is SEK 120m and EV is SEK 150m.
+    expect(getProjectionValue('P/E')).toBe('10.0');
+    expect(getProjectionValue('EV/EBIT')).toBe('10.00');
+    expect(getProjectionValue('EV/EBITDA')).toBe('5.00');
+    expect(getProjectionValue('Estimerad kurs (EUR)')).toBe('108.00');
+    expect(getProjectionValue('MOS (%)')).toBe('+20.00%');
+    expect(getProjectionInputValue('Direktavkastning (%)')).toBe('5');
+  });
+
+  it('derives EBIT, EBITDA, profit, and EPS from revenue and margin assumptions', () => {
+    const year = new Date().getFullYear() + 1;
+    render(
+      <LanguageProvider defaultLanguage="en">
+        <SpreadsheetAnalysis
+          currentPrice={100}
+          sharesOutstanding={2_000_000}
+          analysisId="valuation-test"
+          currency="SEK"
+          projections={[{ year, revenue: 200, ebitMargin: 15, ebitdaMargin: 25, netMargin: 10 }]}
+          onProjectionsChange={vi.fn()}
+        />
+      </LanguageProvider>,
+    );
+
+    expect(getProjectionInputValue('EBIT (MSEK)')).toBe('30');
+    expect(getProjectionInputValue('EBITDA (MSEK)')).toBe('50');
+    expect(getProjectionInputValue('Vinst (MSEK)')).toBe('20');
+    expect(getProjectionInputValue('Vinst/aktie (SEK)')).toBe('10');
+    expect(getProjectionValue('P/E')).toBe('10.0');
+  });
+
+  it('uses TTM EPS, EBIT, and EBITDA for quarterly valuation multiples', () => {
+    const year = new Date().getFullYear();
+    render(
+      <LanguageProvider defaultLanguage="en">
+        <SpreadsheetAnalysis
+          currentPrice={100}
+          sharesOutstanding={1_000_000}
+          analysisId="valuation-test"
+          currency="SEK"
+          netDebt={0}
+          showQuarterly
+          projections={[
+            { year, quarter: 1, earningsPerShare: 1, ebit: 2, ebitda: 4 },
+            { year, quarter: 2, earningsPerShare: 2, ebit: 3, ebitda: 5 },
+            { year, quarter: 3, earningsPerShare: 3, ebit: 4, ebitda: 6 },
+            { year, quarter: 4, earningsPerShare: 4, ebit: 5, ebitda: 7 },
+          ]}
+          onProjectionsChange={vi.fn()}
+        />
+      </LanguageProvider>,
+    );
+
+    expect(getProjectionValue('P/E')).toBe('10.0');
+    expect(getProjectionValue('EV/EBIT')).toBe('7.14');
+    expect(getProjectionValue('EV/EBITDA')).toBe('4.55');
+    expect(getProjectionValue('Estimerad kurs (SEK)')).toBe('150.00');
+    expect(getProjectionValue('MOS (%)')).toBe('+50.00%');
+  });
+
+  it('supports YoY and sequential quarterly revenue growth baselines', () => {
+    const year = new Date().getFullYear();
+    render(
+      <LanguageProvider defaultLanguage="en">
+        <SpreadsheetAnalysis
+          currentPrice={100}
+          sharesOutstanding={1_000_000}
+          analysisId="quarterly-growth-test"
+          currency="SEK"
+          quarterlyHistoricalData={[
+            { year: year - 1, quarter: 1, revenue: 100 },
+            { year: year - 1, quarter: 4, revenue: 110 },
+          ]}
+          projections={[{ year, quarter: 1, revenue: 120 }]}
+          onProjectionsChange={vi.fn()}
+          showQuarterly
+        />
+      </LanguageProvider>,
+    );
+
+    expect(getProjectionInputValue('Omsättningstillv (%)')).toBe('20');
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Sekventiell' }));
+    expect(Number(getProjectionInputValue('Omsättningstillv (%)'))).toBeCloseTo(9.09, 2);
   });
 
   it('uses the prior completed year as the baseline for a current-year zero-growth forecast', () => {

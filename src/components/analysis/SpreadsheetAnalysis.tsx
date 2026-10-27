@@ -565,7 +565,8 @@ export function SpreadsheetAnalysis({
       let epsForValuation = earningsPerShare;
       if (mode === 'quarterly' && col.quarter) {
         const epsVals: number[] = [];
-        for (let j = i; j >= 0 && epsVals.length < 4; j--) {
+        if (earningsPerShare !== undefined) epsVals.push(earningsPerShare);
+        for (let j = i - 1; j >= 0 && epsVals.length < 4; j--) {
           if (results[j]?.calculatedEps !== undefined) epsVals.push(results[j].calculatedEps!);
         }
         if (epsVals.length < 4) {
@@ -573,7 +574,8 @@ export function SpreadsheetAnalysis({
             .sort((a, b) => (b.year * 10 + b.quarter) - (a.year * 10 + a.quarter));
           for (const qh of sortedHist) {
             if (epsVals.length >= 4) break;
-            const covered = results.slice(0, i + 1).some(p => p.year === qh.year && p.quarter === qh.quarter);
+            const covered = (qh.year === col.year && qh.quarter === col.quarter)
+              || results.slice(0, i).some(p => p.year === qh.year && p.quarter === qh.quarter);
             if (covered) continue;
             if (qh.earningsPerShare !== undefined) epsVals.push(qh.earningsPerShare);
           }
@@ -596,7 +598,9 @@ export function SpreadsheetAnalysis({
       if (mode === 'quarterly' && col.quarter) {
         const ebitVals: number[] = [];
         const ebitdaVals: number[] = [];
-        for (let j = i; j >= 0 && (ebitVals.length < 4 || ebitdaVals.length < 4); j--) {
+        if (ebit !== undefined) ebitVals.push(ebit);
+        if (ebitda !== undefined) ebitdaVals.push(ebitda);
+        for (let j = i - 1; j >= 0 && (ebitVals.length < 4 || ebitdaVals.length < 4); j--) {
           if (ebitVals.length < 4 && results[j]?.calculatedEbit !== undefined) ebitVals.push(results[j].calculatedEbit!);
           if (ebitdaVals.length < 4 && results[j]?.calculatedEbitda !== undefined) ebitdaVals.push(results[j].calculatedEbitda!);
         }
@@ -605,7 +609,8 @@ export function SpreadsheetAnalysis({
             .sort((a, b) => (b.year * 10 + b.quarter) - (a.year * 10 + a.quarter));
           for (const qh of sortedHist) {
             if (ebitVals.length >= 4 && ebitdaVals.length >= 4) break;
-            const covered = results.slice(0, i + 1).some(p => p.year === qh.year && p.quarter === qh.quarter);
+            const covered = (qh.year === col.year && qh.quarter === col.quarter)
+              || results.slice(0, i).some(p => p.year === qh.year && p.quarter === qh.quarter);
             if (covered) continue;
             if (ebitVals.length < 4 && qh.ebit !== undefined) ebitVals.push(qh.ebit);
             if (ebitdaVals.length < 4 && qh.ebitda !== undefined) ebitdaVals.push(qh.ebitda);
