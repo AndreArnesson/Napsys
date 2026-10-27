@@ -263,9 +263,11 @@ export function SpreadsheetAnalysis({
       const yearQuarters = quarterlyHistoricalData.filter(h => h.year === year).map(h => h.quarter);
       const hasQuarterData = yearQuarters.length > 0;
       const hasAllQuarters = [1, 2, 3, 4].every(q => yearQuarters.includes(q));
-      const hasActual = hasQuarterData
+      // The current fiscal year may already have imported analyst estimates.
+      // Keep it editable as a forecast, and only treat completed years as actuals.
+      const hasActual = year < currentYear && (hasQuarterData
         ? hasAllQuarters
-        : historicalData.some(h => h.year === year);
+        : historicalData.some(h => h.year === year));
       return {
         year,
         label: year === currentYear ? `${currentYear} (Nu)` : String(year),
@@ -464,7 +466,12 @@ export function SpreadsheetAnalysis({
       }
       // Yearly
       if (i === 0 && historicalData.length > 0) {
-        const lastHist = historicalData[historicalData.length - 1];
+        // Ignore data for the projection year itself when choosing its baseline.
+        // Imported annual data can contain an estimate for the current year.
+        const lastHist = [...historicalData]
+          .filter(h => h.year < col.year)
+          .sort((a, b) => b.year - a.year)[0];
+        if (!lastHist) return undefined;
         if (field === 'calculatedRevenue') return lastHist.revenue;
         if (field === 'calculatedEps') {
           if (lastHist.earningsPerShare) return lastHist.earningsPerShare;
@@ -748,6 +755,8 @@ export function SpreadsheetAnalysis({
     const newProjections = [...projections];
     // Mutual exclusivity: latest input wins for paired fields (absolute ↔ percentage)
     const patch: Partial<YearlyProjection> = { [field]: value } as Partial<YearlyProjection>;
+    if (field === 'revenueGrowth') (patch as any).revenue = undefined;
+    if (field === 'revenue') (patch as any).revenueGrowth = undefined;
     if (field === 'dividendYield') (patch as any).dividend = undefined;
     if (field === 'dividend') (patch as any).dividendYield = undefined;
     if (field === 'ebitMargin') (patch as any).ebit = undefined;
@@ -861,9 +870,13 @@ export function SpreadsheetAnalysis({
         return vals.length === 4 ? vals.reduce((a: number, b: number) => a + b, 0) / vals.length : undefined;
       };
 
+      const yearlyRevenue = sumField('revenue');
       const yearlyProj: YearlyProjection = {
         year,
-        revenue: sumField('revenue'),
+        revenue: yearlyRevenue,
+        // A converted quarterly total is the latest input, so discard any
+        // older annual growth assumption and derive the rate from the new total.
+        ...(yearlyRevenue !== undefined ? { revenueGrowth: undefined } : {}),
         ebit: sumField('ebit'),
         ebitda: sumField('ebitda'),
         netMargin: avgField('netMargin'),
@@ -1179,7 +1192,7 @@ export function SpreadsheetAnalysis({
                             inputMode="decimal"
                             className="w-24 h-8 mx-auto text-center font-mono"
                             placeholder="—"
-                            defaultValue={currentVal !== undefined && currentVal !== 0 ? String(currentVal) : ''}
+                            defaultValue={currentVal !== undefined ? String(currentVal) : ''}
                             key={`${proj.year}-${proj.quarter || ''}-${row.key}-${currentVal}`}
                             onBlur={(e) => {
                               const raw = e.target.value.trim();

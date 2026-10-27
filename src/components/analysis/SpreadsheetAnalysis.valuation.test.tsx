@@ -1,4 +1,5 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '@/i18n/LanguageContext';
 import { SpreadsheetAnalysis } from './SpreadsheetAnalysis';
@@ -9,6 +10,31 @@ function getProjectionValue(rowLabel: string) {
   const row = screen.getByText(rowLabel).closest('tr');
   if (!row) throw new Error(`Could not find table row: ${rowLabel}`);
   return within(row).getAllByRole('cell').at(-2)?.textContent?.trim();
+}
+
+function QuarterConversionHarness({ year }: { year: number }) {
+  const [projections, setProjections] = useState([
+    { year, quarter: 1, revenue: 25 },
+    { year, quarter: 2, revenue: 30 },
+    { year, quarter: 3, revenue: 35 },
+    { year, quarter: 4, revenue: 30 },
+    { year, revenue: 999, revenueGrowth: 0 },
+  ]);
+
+  return (
+    <LanguageProvider defaultLanguage="en">
+      <SpreadsheetAnalysis
+        currentPrice={28.7}
+        sharesOutstanding={15_000_000}
+        analysisId="quarter-conversion-test"
+        currency="SEK"
+        historicalData={[{ year: year - 1, revenue: 100 }]}
+        projections={projections}
+        onProjectionsChange={setProjections}
+        showQuarterly
+      />
+    </LanguageProvider>
+  );
 }
 
 describe('SpreadsheetAnalysis valuation multiples', () => {
@@ -87,5 +113,50 @@ describe('SpreadsheetAnalysis valuation multiples', () => {
     expect(getProjectionValue('P/E')).toBe('10.0');
     expect(getProjectionValue('EV/EBIT')).toBe('10.00');
     expect(getProjectionValue('EV/EBITDA')).toBe('5.00');
+  });
+
+  it('uses the prior completed year as the baseline for a current-year zero-growth forecast', () => {
+    const currentYear = new Date().getFullYear();
+    render(
+      <LanguageProvider defaultLanguage="en">
+        <SpreadsheetAnalysis
+          currentPrice={28.7}
+          sharesOutstanding={15_000_000}
+          analysisId="current-year-growth-test"
+          currency="SEK"
+          historicalData={[
+            { year: currentYear - 1, revenue: 152.03 },
+            // Some imported data sources include a current-year estimate in the
+            // historical financials table. It must not override the forecast.
+            { year: currentYear, revenue: 164.89 },
+          ]}
+          projections={[{ year: currentYear, revenueGrowth: 0 }]}
+          onProjectionsChange={vi.fn()}
+        />
+      </LanguageProvider>,
+    );
+
+    const growthRow = screen.getByText('Omsättningstillv (%)').closest('tr');
+    const revenueRow = screen.getByText('Omsättning (MSEK)').closest('tr');
+    if (!growthRow || !revenueRow) throw new Error('Could not find forecast rows');
+
+    expect((within(growthRow).getByRole('textbox') as HTMLInputElement).value).toBe('0');
+    expect((within(revenueRow).getByRole('textbox') as HTMLInputElement).value).toBe('152.03');
+  });
+
+  it('recalculates annual revenue growth after converting quarterly revenue totals', async () => {
+    const year = new Date().getFullYear();
+    render(<QuarterConversionHarness year={year} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Översätt kvartal till helårsbasis/i }));
+
+    await waitFor(() => {
+      const growthRow = screen.getByText('Omsättningstillv (%)').closest('tr');
+      const revenueRow = screen.getByText('Omsättning (MSEK)').closest('tr');
+      if (!growthRow || !revenueRow) throw new Error('Could not find yearly forecast rows');
+
+      expect((within(growthRow).getByRole('textbox') as HTMLInputElement).value).toBe('20');
+      expect((within(revenueRow).getByRole('textbox') as HTMLInputElement).value).toBe('120');
+    });
   });
 });
