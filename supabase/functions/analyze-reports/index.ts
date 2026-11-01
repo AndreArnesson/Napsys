@@ -1,10 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  compactReportText,
+  MAX_FILES_PER_ANALYSIS,
+  MAX_REPORT_TEXT_CHARS,
+} from "./_shared/reportText.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+const GEMINI_MODEL = "gemini-3-flash-preview";
 
 // Encode an ArrayBuffer to base64 without using Node's Buffer (Deno-safe)
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -16,6 +22,13 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
     binary += String.fromCharCode(...chunk);
   }
   return btoa(binary);
+}
+
+function getRetryAfterSeconds(details: string): number | null {
+  const match = details.match(/retry in\s+([\d.]+)s/i);
+  if (!match) return null;
+  const seconds = Number(match[1]);
+  return Number.isFinite(seconds) ? Math.max(1, Math.ceil(seconds)) : null;
 }
 
 serve(async (req) => {
@@ -30,6 +43,14 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    if (!Array.isArray(filePaths) || filePaths.length > MAX_FILES_PER_ANALYSIS) {
+      return new Response(JSON.stringify({
+        error: `Välj högst ${MAX_FILES_PER_ANALYSIS} rapporter per analys.`,
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
@@ -38,13 +59,21 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Download each PDF and prepare as inline base64 attachment for Gemini
+    // Download PDFs as inline attachments and FI's extracted XHTML reports as text.
     type ContentPart =
       | { type: "text"; text: string }
       | { type: "image_url"; image_url: { url: string } };
 
     const userParts: ContentPart[] = [];
     const failedFiles: string[] = [];
+    const textFileCount = filePaths.filter((path: unknown) =>
+      typeof path === "string" && path.toLowerCase().endsWith(".txt")
+    ).length;
+    let remainingTextFiles = textFileCount;
+    let remainingTextBudget = filePaths.some((path: string) =>
+      !path.toLowerCase().endsWith(".txt")
+    ) ? 120_000 : MAX_REPORT_TEXT_CHARS;
+    let compactedReportCount = 0;
 
     for (const filePath of filePaths) {
       const { data, error } = await supabase.storage.from("reports").download(filePath);
@@ -55,9 +84,27 @@ serve(async (req) => {
       }
 
       try {
+        const filename = filePath.split("/").pop() || "report.pdf";
+        if (filename.toLowerCase().endsWith(".txt")) {
+          const reportText = await data.text();
+          if (!reportText.trim()) throw new Error("Rapporttexten är tom");
+          const allowance = Math.min(
+            100_000,
+            Math.floor(remainingTextBudget / Math.max(remainingTextFiles, 1)),
+          );
+          const compacted = compactReportText(reportText, allowance);
+          remainingTextBudget -= compacted.text.length;
+          remainingTextFiles -= 1;
+          if (compacted.truncated) compactedReportCount += 1;
+          userParts.push({
+            type: "text",
+            text: `Rapporttext från FI, fil "${filename}"${compacted.truncated ? " (utdrag av början och slutet; mittdelen har kortats)" : ""}:\n${compacted.text}`,
+          });
+          continue;
+        }
+
         const arrayBuffer = await data.arrayBuffer();
         const base64 = arrayBufferToBase64(arrayBuffer);
-        const filename = filePath.split("/").pop() || "report.pdf";
         userParts.push({
           type: "image_url",
           image_url: { url: `data:application/pdf;base64,${base64}` },
@@ -88,7 +135,7 @@ serve(async (req) => {
     const systemPrompt = `Du är en erfaren aktieanalytiker som analyserar företagsrapporter (årsredovisningar, kvartalsrapporter etc).
 Svara alltid på svenska. Formatera svaret som HTML (INTE markdown). Använd <h3>, <ul>, <li>, <strong>, <p> taggar.
 Var konkret med siffror och hänvisa till specifika delar av rapporterna.
-ALDRIG använd platshållare som [Infoga Siffra] eller [Infoga procent] – läs siffrorna direkt från de bifogade PDF-rapporterna.
+ALDRIG använd platshållare som [Infoga Siffra] eller [Infoga procent] – läs siffrorna direkt från de bifogade rapporterna.
 Om flera rapporter finns, jämför och identifiera trender mellan perioderna.
 Returnera BARA HTML-innehåll, ingen markdown, inga kodblock.`;
 
@@ -99,7 +146,7 @@ Returnera BARA HTML-innehåll, ingen markdown, inga kodblock.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gemini-2.5-pro",
+        model: GEMINI_MODEL,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userParts },
@@ -109,8 +156,26 @@ Returnera BARA HTML-innehåll, ingen markdown, inga kodblock.`;
 
     if (!response.ok) {
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit – försök igen om en stund." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        const rateLimitDetails = await response.text();
+        const retryAfterSeconds = getRetryAfterSeconds(rateLimitDetails);
+        console.warn("Gemini API rate limit", {
+          model: GEMINI_MODEL,
+          retryAfter: response.headers.get("retry-after") ?? retryAfterSeconds,
+          details: rateLimitDetails.slice(0, 2_000),
+        });
+        const waitMessage = retryAfterSeconds
+          ? ` Vänta cirka ${retryAfterSeconds} sekunder innan du försöker igen.`
+          : " Vänta en minut innan du försöker igen.";
+        return new Response(JSON.stringify({
+          error: `AI-tjänstens gratiskvot för analys är tillfälligt nådd.${waitMessage}`,
+          retryAfterSeconds,
+        }), {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+            ...(retryAfterSeconds ? { "Retry-After": String(retryAfterSeconds) } : {}),
+          },
         });
       }
       if (response.status === 402) {
@@ -131,6 +196,9 @@ Returnera BARA HTML-innehåll, ingen markdown, inga kodblock.`;
 
     if (failedFiles.length > 0) {
       content += `<p><em>Notera: kunde inte läsa ${failedFiles.length} fil(er).</em></p>`;
+    }
+    if (compactedReportCount > 0) {
+      content += `<p><em>Analysen använde utdrag ur ${compactedReportCount} lång(a) rapport(er) för att hålla sig inom AI-tjänstens kostnads- och kvotgränser.</em></p>`;
     }
 
     return new Response(JSON.stringify({ summary: content }), {

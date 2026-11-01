@@ -1,4 +1,4 @@
-project_id = "ncsewiirmyvsnosytlxo"
+project_id = "ymwrlclbovmipkwgvqgw"
 
 [functions.ai-summary]
 verify_jwt = false
@@ -16,6 +16,12 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.analyze-reports]
+verify_jwt = false
+
+[functions.fi-reports]
+verify_jwt = false
+
+[functions.cleanup-old-reports]
 verify_jwt = false
 
 [functions.parse-portfolio-import]
