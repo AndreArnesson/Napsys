@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { ShareCompanyDialog } from '@/components/company/ShareCompanyDialog';
 import { MOSBadge } from '@/components/company/MOSBadge';
 import { AISummaryCard } from '@/components/company/AISummaryCard';
 import { RatingBadge } from '@/components/company/RatingBadge';
@@ -59,12 +60,13 @@ function CompanyNameEditor({ name, onSave }: { name: string; onSave: (name: stri
   );
 }
 
-function AnalysisListItem({ analysis, companyId, locale, onDelete, onRename }: {
+function AnalysisListItem({ analysis, companyId, locale, onDelete, onRename, readOnly = false }: {
   analysis: any;
   companyId: string;
   locale: any;
   onDelete: () => void;
   onRename: (name: string) => void;
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState((analysis as any).name || '');
@@ -84,7 +86,7 @@ function AnalysisListItem({ analysis, companyId, locale, onDelete, onRename }: {
             </span>
             {analysis.is_draft && <span className="text-xs bg-muted px-2 py-0.5 rounded">Draft</span>}
           </Link>
-          <div className="flex items-center gap-1">
+          {!readOnly && <div className="flex items-center gap-1">
             {editing ? (
               <form className="flex items-center gap-1" onSubmit={(e) => { e.preventDefault(); onRename(editName); setEditing(false); }}>
                 <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="h-7 w-40 text-sm" autoFocus placeholder="Analysnamn..." />
@@ -113,7 +115,7 @@ function AnalysisListItem({ analysis, companyId, locale, onDelete, onRename }: {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-          </div>
+          </div>}
         </div>
         {analysis.summary_comment && (
           <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{analysis.summary_comment}</p>
@@ -195,12 +197,13 @@ export default function CompanyDetail() {
     },
     enabled: !!id,
   });
+  const isOwner = !!user && company?.user_id === user.id;
 
   // Init rich text values when company loads, preferring any unsaved localStorage draft
   useEffect(() => {
     if (!company || richTextInited) return;
     try {
-      const draft = JSON.parse(localStorage.getItem(draftKey) || 'null');
+      const draft = isOwner ? JSON.parse(localStorage.getItem(draftKey) || 'null') : null;
       setLocalDescription(draft?.description ?? company.description ?? '');
       setLocalMoats(draft?.moats ?? company.moats ?? '');
       setLocalBusinessModel(draft?.business_model ?? (company as any)?.business_model ?? '');
@@ -263,6 +266,7 @@ export default function CompanyDetail() {
 
   const updateCompany = useMutation({
     mutationFn: async (updates: Record<string, any>) => {
+      if (!isOwner) throw new Error('Only the owner can edit this company');
       const { error } = await supabase.from('companies').update(updates).eq('id', id);
       if (error) throw error;
     },
@@ -275,14 +279,16 @@ export default function CompanyDetail() {
   const draftKey = `company-draft-${id}`;
 
   const saveFieldDraft = useCallback((field: string, value: string) => {
+    if (!isOwner) return;
     try {
       const existing = JSON.parse(localStorage.getItem(draftKey) || '{}');
       localStorage.setItem(draftKey, JSON.stringify({ ...existing, [field]: value }));
     } catch {}
-  }, [draftKey]);
+  }, [draftKey, isOwner]);
 
   const debouncedRemoteSave = useCallback(
     debounce(() => {
+      if (!isOwner) return;
       try {
         const raw = localStorage.getItem(`company-draft-${id}`);
         if (!raw) return;
@@ -292,15 +298,16 @@ export default function CompanyDetail() {
         });
       } catch {}
     }, 1500),
-    [id]
+    [id, isOwner]
   );
 
   const handleTextChange = useCallback((field: string, value: string, setter: (v: string) => void) => {
+    if (!isOwner) return;
     setter(value);
     saveFieldDraft(field, value);
     queryClient.setQueryData(['company', id], (old: any) => old ? { ...old, [field]: value } : old);
     debouncedRemoteSave();
-  }, [saveFieldDraft, debouncedRemoteSave, id, queryClient]);
+  }, [saveFieldDraft, debouncedRemoteSave, id, queryClient, isOwner]);
 
   useEffect(() => () => { debouncedRemoteSave.flush(); }, [debouncedRemoteSave]);
 
@@ -575,7 +582,9 @@ export default function CompanyDetail() {
             <button onClick={goBack} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="h-4 w-4" />{t.common.back}
             </button>
-            <CompanyNameEditor name={company.name} onSave={(newName) => updateCompany.mutate({ name: newName })} />
+            {isOwner ? <CompanyNameEditor name={company.name} onSave={(newName) => updateCompany.mutate({ name: newName })} />
+              : <h1 className="text-2xl sm:text-3xl font-bold">{company.name}</h1>}
+            {!isOwner && <p className="text-sm text-muted-foreground">{t.sharing.sharedReadOnly}</p>}
             <div className="flex items-center gap-4">
               {company.ticker && <span className="text-lg font-mono text-muted-foreground">{company.ticker}</span>}
               {latestAnalysis && (
@@ -616,7 +625,8 @@ export default function CompanyDetail() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <FileImportDialog companyId={id!} onImportFinancials={handleImportFinancials} onImportInsiders={handleImportInsiders} />
+            <ShareCompanyDialog companyId={id!} companyName={company.name} ownerId={company.user_id} />
+            {isOwner && <FileImportDialog companyId={id!} onImportFinancials={handleImportFinancials} onImportInsiders={handleImportInsiders} />}
           </div>
         </div>
 
@@ -645,7 +655,7 @@ export default function CompanyDetail() {
               };
               return (
                 <>
-                  <div className="flex justify-end">
+                  {isOwner && <div className="flex justify-end">
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button variant="outline" size="sm" className="gap-2">
@@ -664,18 +674,19 @@ export default function CompanyDetail() {
                         </div>
                       </PopoverContent>
                     </Popover>
-                  </div>
+                  </div>}
 
-                  <KeyDataEditor data={{ ticker: company.ticker || undefined, reportingCurrency: company.reporting_currency, tradingCurrency: company.trading_currency, currentPrice: company.current_price, exchange: (company as any).exchange || 'stockholm', companyType: (company as any).company_type || 'stock' }} onUpdate={handleKeyDataUpdate} companyId={id} />
+                  <KeyDataEditor readOnly={!isOwner} data={{ ticker: company.ticker || undefined, reportingCurrency: company.reporting_currency, tradingCurrency: company.trading_currency, currentPrice: company.current_price, exchange: (company as any).exchange || 'stockholm', companyType: (company as any).company_type || 'stock' }} onUpdate={handleKeyDataUpdate} companyId={id} />
 
                   {(company as any).company_type === 'fund' && (
-                    <FundMetadataEditor companyId={id!} />
+                    <fieldset disabled={!isOwner}><FundMetadataEditor companyId={id!} /></fieldset>
                   )}
 
                   {sections.foundedYear && (
                     <div className="flex items-center gap-3">
                       <Label className="text-sm font-medium whitespace-nowrap">Grundat</Label>
                       <Input
+                        disabled={!isOwner}
                         type="text"
                         inputMode="numeric"
                         placeholder="t.ex. 1999"
@@ -693,7 +704,7 @@ export default function CompanyDetail() {
                     <Card>
                       <CardHeader className="pb-2"><CardTitle>Affärsmodell</CardTitle></CardHeader>
                       <CardContent>
-                        <RichTextEditor
+                        <RichTextEditor disabled={!isOwner}
                           value={localBusinessModel}
                           onChange={(val) => handleTextChange('business_model', val, setLocalBusinessModel)}
                           placeholder="Beskriv bolagets affärsmodell..."
@@ -715,7 +726,7 @@ export default function CompanyDetail() {
                           </CardHeader>
                           <CollapsibleContent>
                             <CardContent>
-                              <RichTextEditor value={localDescription} onChange={(val) => handleTextChange('description', val, setLocalDescription)} placeholder="Add a detailed description..." minHeight="200px" />
+                              <RichTextEditor disabled={!isOwner} value={localDescription} onChange={(val) => handleTextChange('description', val, setLocalDescription)} placeholder="Add a detailed description..." minHeight="200px" />
                             </CardContent>
                           </CollapsibleContent>
                         </Card>
@@ -733,7 +744,7 @@ export default function CompanyDetail() {
                           </CardHeader>
                           <CollapsibleContent>
                             <CardContent>
-                              <RichTextEditor value={localMoats} onChange={(val) => handleTextChange('moats', val, setLocalMoats)} placeholder="Describe the company's moats..." minHeight="200px" />
+                              <RichTextEditor disabled={!isOwner} value={localMoats} onChange={(val) => handleTextChange('moats', val, setLocalMoats)} placeholder="Describe the company's moats..." minHeight="200px" />
                             </CardContent>
                           </CollapsibleContent>
                         </Card>
@@ -745,7 +756,7 @@ export default function CompanyDetail() {
                     <Card>
                       <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2">Konkurrens</CardTitle></CardHeader>
                       <CardContent>
-                        <RichTextEditor
+                        <RichTextEditor disabled={!isOwner}
                           value={localCompetition}
                           onChange={(val) => handleTextChange('competition', val, setLocalCompetition)}
                           placeholder="Beskriv konkurrenslandskapet, huvudkonkurrenter, marknadsposition..."
@@ -762,18 +773,19 @@ export default function CompanyDetail() {
                         <CardDescription>VD, insiders och ägande</CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-6">
-                        <CEOSection ceo={ceoData} onUpdate={handleCEOUpdate} companyId={id!} />
+                        <CEOSection readOnly={!isOwner} ceo={ceoData} onUpdate={handleCEOUpdate} companyId={id!} />
                         <PilotskolanSection
+                          readOnly={!isOwner}
                           value={(company as any)?.pilotskolan || ''}
                           onUpdate={(val) => updateCompany.mutate({ pilotskolan: val } as any)}
                         />
-                        <InsiderOwnership data={ownershipData} onUpdate={handleOwnershipUpdate} currentPrice={company?.current_price} tradingCurrency={(company as any)?.trading_currency || 'SEK'} companyId={id!} />
-                        <InsiderOwnershipHistory companyId={id!} currentPrice={company?.current_price} tradingCurrency={(company as any)?.trading_currency || 'SEK'} />
+                        <InsiderOwnership readOnly={!isOwner} data={ownershipData} onUpdate={handleOwnershipUpdate} currentPrice={company?.current_price} tradingCurrency={(company as any)?.trading_currency || 'SEK'} companyId={id!} />
+                        <InsiderOwnershipHistory readOnly={!isOwner} companyId={id!} currentPrice={company?.current_price} tradingCurrency={(company as any)?.trading_currency || 'SEK'} />
                         
                         {/* Ägarbild */}
                         <div className="space-y-2">
                           <Label className="text-sm font-medium">Ägarbild</Label>
-                          <RichTextEditor
+                          <RichTextEditor disabled={!isOwner}
                             value={(company as any)?.ownership_description || ''}
                             onChange={(val) => updateCompany.mutate({ ownership_description: val } as any)}
                             placeholder="Beskriv ägarbilden – t.ex. huvudägare, institutionella ägare, ägarstruktur..."
@@ -786,6 +798,7 @@ export default function CompanyDetail() {
                   {sections.images && (
                     <>
                       <ImageUpload
+                        readOnly={!isOwner}
                         images={companyImages}
                         onImagesChange={(imgs) => updateCompany.mutate({ images: imgs })}
                         title="Bilder"
@@ -833,7 +846,7 @@ export default function CompanyDetail() {
           {/* Financials Tab */}
           <TabsContent value="financials" className="space-y-6">
             {!hasIncomeData ? (
-              <Card><CardContent className="py-12 text-center"><p className="text-muted-foreground mb-4">No financial data yet. Import from Börsdata to get started.</p><FileImportDialog companyId={id!} onImportFinancials={handleImportFinancials} onImportInsiders={handleImportInsiders} /></CardContent></Card>
+              <Card><CardContent className="py-12 text-center"><p className="text-muted-foreground mb-4">No financial data yet. Import from Börsdata to get started.</p>{isOwner && <FileImportDialog companyId={id!} onImportFinancials={handleImportFinancials} onImportInsiders={handleImportInsiders} />}</CardContent></Card>
             ) : (
               <Card>
                 <CardHeader>
@@ -890,6 +903,7 @@ export default function CompanyDetail() {
             {/* AI Financial Summary */}
             {hasIncomeData && (
               <AISummaryCard
+                  readOnly={!isOwner}
                 title="AI-sammanfattning"
                 summary={localFinSummary}
                 onGenerate={generateFinancialSummary}
@@ -905,7 +919,7 @@ export default function CompanyDetail() {
           {/* Balance Sheet Tab */}
           <TabsContent value="balance-sheet" className="space-y-6">
             {!hasBalanceData ? (
-              <Card><CardContent className="py-12 text-center"><p className="text-muted-foreground mb-4">No balance sheet data yet.</p><FileImportDialog companyId={id!} onImportFinancials={handleImportFinancials} onImportInsiders={handleImportInsiders} /></CardContent></Card>
+              <Card><CardContent className="py-12 text-center"><p className="text-muted-foreground mb-4">No balance sheet data yet.</p>{isOwner && <FileImportDialog companyId={id!} onImportFinancials={handleImportFinancials} onImportInsiders={handleImportInsiders} />}</CardContent></Card>
             ) : (
               <Card>
                 <CardHeader>
@@ -960,6 +974,7 @@ export default function CompanyDetail() {
             {/* AI Balance Sheet Summary */}
             {hasBalanceData && (
               <AISummaryCard
+                  readOnly={!isOwner}
                 title="AI-sammanfattning Balansräkning"
                 summary={localBalanceSummary}
                 onGenerate={generateBalanceSummary}
@@ -974,11 +989,12 @@ export default function CompanyDetail() {
           {/* Insiders Tab */}
           <TabsContent value="insiders" className="space-y-6">
             {insiderTrades.length === 0 ? (
-              <Card><CardContent className="py-12 text-center"><p className="text-muted-foreground mb-4">No insider trades imported yet.</p><FileImportDialog companyId={id!} onImportFinancials={handleImportFinancials} onImportInsiders={handleImportInsiders} /></CardContent></Card>
+              <Card><CardContent className="py-12 text-center"><p className="text-muted-foreground mb-4">No insider trades imported yet.</p>{isOwner && <FileImportDialog companyId={id!} onImportFinancials={handleImportFinancials} onImportInsiders={handleImportInsiders} />}</CardContent></Card>
             ) : (
               <>
                 <InsiderTable trades={insiderTrades} />
                 <AISummaryCard
+                  readOnly={!isOwner}
                   title="AI-sammanfattning"
                   summary={localInsiderSummary}
                   onGenerate={generateInsiderSummary}
@@ -995,7 +1011,7 @@ export default function CompanyDetail() {
           <TabsContent value="analysis" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">{t.analysis.title}</h2>
-              <Button
+              {isOwner && <Button
                 className="gap-2"
                 disabled={creatingAnalysis}
                 onClick={async () => {
@@ -1056,10 +1072,10 @@ export default function CompanyDetail() {
               >
                 {creatingAnalysis ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 Ny analys
-              </Button>
+              </Button>}
             </div>
             {!allAnalyses?.length ? (
-              <Card><CardContent className="py-12 text-center"><p className="text-muted-foreground mb-4">Inga analyser ännu. Klicka på "Ny analys" ovan.</p></CardContent></Card>
+              <Card><CardContent className="py-12 text-center"><p className="text-muted-foreground mb-4">{isOwner ? 'Inga analyser ännu. Klicka på "Ny analys" ovan.' : t.dashboard.noSharedCompanies}</p></CardContent></Card>
             ) : (
               <div className="space-y-3">
                 {allAnalyses.map((analysis) => (
@@ -1068,6 +1084,7 @@ export default function CompanyDetail() {
                     analysis={analysis}
                     companyId={id!}
                     locale={locale}
+                    readOnly={!isOwner}
                     onDelete={async () => {
                       await supabase.from('income_statement').delete().eq('analysis_id', analysis.id);
                       await supabase.from('balance_sheet').delete().eq('analysis_id', analysis.id);

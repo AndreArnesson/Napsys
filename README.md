@@ -50,6 +50,23 @@ npm run dev
 - Click on "New codespace" to launch a new Codespace environment.
 - Edit files directly within the Codespace and commit and push your changes once you're done.
 
+## Sharing analyses
+
+Company owners can use **Dela / Share** on the company page or analysis page to
+grant read access to an existing Napsys user by their sign-in email address.
+Sharing covers the company and all its current and future analyses. Recipients
+find it under **Delat med mig / Shared with Me** on the dashboard. Owners can
+remove access in the same dialog. This does not send an email invitation.
+
+Apply `supabase/migrations/20261105205426_add_company_sharing.sql` through the
+normal database deployment process before deploying the frontend. It adds the
+email sharing RPC, consolidates duplicate grants, and restricts share management
+to company owners. The repository also contains older schema exports; the new
+migration supports both their minimal shares table and the original schema.
+
+Sharing permission tests run locally in PostgreSQL via PGlite with
+`npm test -- src/lib/companySharing.database.test.ts`; they do not access the hosted database.
+
 ## What technologies are used for this project?
 
 This project is built with:

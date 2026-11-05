@@ -19,6 +19,7 @@ export interface OwnershipEntry {
 }
 
 interface InsiderOwnershipProps {
+  readOnly?: boolean;
   data: OwnershipEntry[];
   onUpdate: (data: OwnershipEntry[]) => void;
   currentPrice?: number | null;
@@ -31,7 +32,7 @@ const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning
 type SortKey = 'name' | 'role' | 'shares' | 'percentage' | 'value';
 type SortDir = 'asc' | 'desc';
 
-export function InsiderOwnership({ data, onUpdate, currentPrice, tradingCurrency = 'SEK', companyId }: InsiderOwnershipProps) {
+export function InsiderOwnership({ data, onUpdate, currentPrice, tradingCurrency = 'SEK', companyId, readOnly = false }: InsiderOwnershipProps) {
   const queryClient = useQueryClient();
   const [pasteText, setPasteText] = useState('');
   const [parsing, setParsing] = useState(false);
@@ -109,7 +110,7 @@ export function InsiderOwnership({ data, onUpdate, currentPrice, tradingCurrency
   };
 
   const recordSnapshot = async () => {
-    if (!companyId || !snapshotDate) return;
+    if (readOnly || !companyId || !snapshotDate) return;
     setSavingSnapshot(true);
     try {
       const { error } = await supabase
@@ -198,11 +199,11 @@ export function InsiderOwnership({ data, onUpdate, currentPrice, tradingCurrency
           Insider Ownership
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowPaste(!showPaste)} className="gap-1">
+          <Button disabled={readOnly} variant="outline" size="sm" onClick={() => setShowPaste(!showPaste)} className="gap-1">
             <Sparkles className="h-3 w-3" />
             Smart Paste
           </Button>
-          <Button variant="outline" size="sm" onClick={addRow} className="gap-1">
+          <Button disabled={readOnly} variant="outline" size="sm" onClick={addRow} className="gap-1">
             <Plus className="h-3 w-3" />
             Add
           </Button>
@@ -244,16 +245,16 @@ export function InsiderOwnership({ data, onUpdate, currentPrice, tradingCurrency
                   return (
                     <TableRow key={i}>
                       <TableCell>
-                        <Input value={entry.name} onChange={(e) => updateRow(i, 'name', e.target.value)} placeholder="Name" className="h-8" />
+                        <Input disabled={readOnly} value={entry.name} onChange={(e) => updateRow(i, 'name', e.target.value)} placeholder="Name" className="h-8" />
                       </TableCell>
                       <TableCell>
-                        <Input value={entry.role} onChange={(e) => updateRow(i, 'role', e.target.value)} placeholder="Role" className="h-8" />
+                        <Input disabled={readOnly} value={entry.role} onChange={(e) => updateRow(i, 'role', e.target.value)} placeholder="Role" className="h-8" />
                       </TableCell>
                       <TableCell>
-                        <NumericInput value={entry.shares || undefined} onChange={(v) => updateRow(i, 'shares', Math.round(v ?? 0))} className="h-8 text-right font-mono" />
+                        <NumericInput disabled={readOnly} value={entry.shares || undefined} onChange={(v) => updateRow(i, 'shares', Math.round(v ?? 0))} className="h-8 text-right font-mono" />
                       </TableCell>
                       <TableCell>
-                        <NumericInput value={entry.percentage ? parseFloat((entry.percentage * 100).toFixed(2)) : undefined} onChange={(v) => updateRow(i, 'percentage', (v ?? 0) / 100)} className="h-8 text-right font-mono w-20" />
+                        <NumericInput disabled={readOnly} value={entry.percentage ? parseFloat((entry.percentage * 100).toFixed(2)) : undefined} onChange={(v) => updateRow(i, 'percentage', (v ?? 0) / 100)} className="h-8 text-right font-mono w-20" />
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm text-muted-foreground">
                         {entry.shares && currentPrice
@@ -261,7 +262,7 @@ export function InsiderOwnership({ data, onUpdate, currentPrice, tradingCurrency
                           : '—'}
                       </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeRow(i)}>
+                        <Button disabled={readOnly} variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeRow(i)}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </TableCell>
@@ -297,7 +298,7 @@ export function InsiderOwnership({ data, onUpdate, currentPrice, tradingCurrency
         </p>
       )}
 
-      {companyId && localData.length > 0 && (
+      {!readOnly && companyId && localData.length > 0 && (
         <div className="flex items-center gap-2 pt-2 border-t flex-wrap">
           <Bookmark className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <input

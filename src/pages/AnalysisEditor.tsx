@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { ShareCompanyDialog } from '@/components/company/ShareCompanyDialog';
 import { MOSBadge } from '@/components/company/MOSBadge';
 import { RatingBadge } from '@/components/company/RatingBadge';
 import { HistoricalDataTable, HistoricalYear } from '@/components/analysis/HistoricalDataTable';
@@ -188,12 +189,14 @@ export default function AnalysisEditor() {
   const { data: currentAnalysis, isLoading } = useQuery({
     queryKey: ['analysis', analysisId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('analyses').select('*').eq('id', analysisId!).single();
+      const { data, error } = await supabase.from('analyses').select('*').eq('id', analysisId!).eq('company_id', id!).single();
       if (error) throw error;
       return data;
     },
     enabled: !!analysisId,
   });
+  const canEdit = !!user && company?.user_id === user.id && currentAnalysis?.user_id === user.id;
+  const readOnly = isLocked || !canEdit;
 
   const initializedForRef = useRef<string | null>(null);
   useEffect(() => {
@@ -256,7 +259,7 @@ export default function AnalysisEditor() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!analysisId || isLocked) return;
+      if (!analysisId || readOnly) return;
       const { error } = await supabase
         .from('analyses')
         .update({
@@ -280,6 +283,7 @@ export default function AnalysisEditor() {
       if (error) throw error;
     },
     onMutate: () => {
+      if (readOnly) return;
       // Update cache synchronously so remounts see fresh data even before the network request completes
       queryClient.setQueryData(['analysis', analysisId], (old: any) => old ? {
         ...old,
@@ -313,10 +317,10 @@ export default function AnalysisEditor() {
   });
 
   const performSave = useCallback(() => {
-    if (!user || !analysisId || isLocked) return;
+    if (!user || !analysisId || readOnly) return;
     setIsSaving(true);
     saveMutation.mutate();
-  }, [user, analysisId, isLocked, saveMutation]);
+  }, [user, analysisId, readOnly, saveMutation]);
 
   // Latest-value ref so a save that fires late never uses a stale closure.
   const performSaveRef = useRef(performSave);
@@ -347,7 +351,7 @@ export default function AnalysisEditor() {
   }, [debouncedSave]);
 
   const toggleLock = async () => {
-    if (!analysisId) return;
+    if (!analysisId || !canEdit) return;
     const newLocked = !isLocked;
     const { error } = await supabase.from('analyses').update({ locked: newLocked } as any).eq('id', analysisId);
     if (error) { toast.error('Kunde inte uppdatera'); return; }
@@ -361,14 +365,14 @@ export default function AnalysisEditor() {
     // Don't autosave before the state has been initialized from the loaded
     // analysis, or the initial empty state would overwrite real data. Include
     // priceFxRate so editing the exchange rate alone schedules a save.
-    if (user && analysisId && analysisLoaded && initializedForRef.current === analysisId) {
+    if (canEdit && !readOnly && analysisId && analysisLoaded && initializedForRef.current === analysisId) {
       debouncedSave();
     }
-  }, [user, analysisId, rating, notes, currentPrice, sharesOutstanding, priceFxRate, projections, analysisName, analysisImages, employees, analysisSections, adjustments, investmentHoldings, navDiscount, napkinMode, napkinAssumptions, analysisLoaded, debouncedSave]);
+  }, [canEdit, readOnly, analysisId, rating, notes, currentPrice, sharesOutstanding, priceFxRate, projections, analysisName, analysisImages, employees, analysisSections, adjustments, investmentHoldings, navDiscount, napkinMode, napkinAssumptions, analysisLoaded, debouncedSave]);
 
   // Handle per-analysis financial import
   const handleAnalysisImport = async (data: ParsedFinancialData[], companyInfo?: ParsedCompanyInfo) => {
-    if (!id || !user || !analysisId) return;
+    if (!id || !user || !analysisId || readOnly) return;
 
     const yearly = data.filter(d => !d.quarter);
     const quarterly = data.filter(d => !!d.quarter);
@@ -529,6 +533,7 @@ export default function AnalysisEditor() {
               <Input
                 placeholder="Namnge din analys..."
                 value={analysisName}
+                readOnly={readOnly}
                 onChange={(e) => setAnalysisName(e.target.value)}
                 className="text-2xl font-bold border-none shadow-none px-0 h-auto focus-visible:ring-0 max-w-md"
               />
@@ -540,7 +545,8 @@ export default function AnalysisEditor() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            {!isLocked && !isInvestmentCompany && (
+            {company && <ShareCompanyDialog companyId={company.id} companyName={company.name} ownerId={company.user_id} />}
+            {!readOnly && !isInvestmentCompany && (
               <Button
                 variant={napkinMode ? 'default' : 'outline'}
                 size="sm"
@@ -552,8 +558,8 @@ export default function AnalysisEditor() {
                 Servettkalkyl
               </Button>
             )}
-            {!isLocked && <FileImportDialog companyId={id!} onImportFinancials={handleAnalysisImport} onImportInsiders={async () => {}} />}
-            {!isLocked && (isSaving ? (
+            {!readOnly && <FileImportDialog companyId={id!} onImportFinancials={handleAnalysisImport} onImportInsiders={async () => {}} />}
+            {!readOnly && (isSaving ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /><span>Sparar...</span>
               </div>
@@ -562,17 +568,17 @@ export default function AnalysisEditor() {
                 <CheckCircle className="h-4 w-4 text-success" /><span>{t.analysis.autosaved}</span>
               </div>
             ) : null)}
-            {!isLocked && (
+            {!readOnly && (
               <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="gap-2">
                 {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 {t.analysis.saveAnalysis}
               </Button>
             )}
-            <Button variant={isLocked ? "secondary" : "outline"} size="sm" onClick={toggleLock} className="gap-1.5">
+            {canEdit && <Button variant={isLocked ? "secondary" : "outline"} size="sm" onClick={toggleLock} className="gap-1.5">
               {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
               {isLocked ? 'Låst' : 'Lås'}
-            </Button>
-            {!isLocked && (
+            </Button>}
+            {!readOnly && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button>
@@ -606,6 +612,8 @@ export default function AnalysisEditor() {
           </div>
         )}
 
+        {!canEdit && <p className="text-sm text-muted-foreground">{t.sharing.sharedReadOnly}</p>}
+
         {/* Main Layout */}
         <div className={`grid gap-6 xl:grid-cols-4 ${isLocked ? 'pointer-events-none opacity-60' : ''}`}>
           {/* Left Sidebar */}
@@ -617,18 +625,18 @@ export default function AnalysisEditor() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Kurs ({company?.trading_currency})</Label>
-                  <Input type="text" inputMode="decimal" placeholder="0.00" value={currentPrice} onChange={(e) => setCurrentPrice(e.target.value.replace(',', '.'))} className="font-mono" />
+                  <Input disabled={readOnly} type="text" inputMode="decimal" placeholder="0.00" value={currentPrice} onChange={(e) => setCurrentPrice(e.target.value.replace(',', '.'))} className="font-mono" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Antal aktier</Label>
-                  <Input type="text" inputMode="numeric" value={sharesOutstanding} onChange={(e) => setSharesOutstanding(e.target.value.replace(',', '.'))} className="font-mono" />
+                  <Input disabled={readOnly} type="text" inputMode="numeric" value={sharesOutstanding} onChange={(e) => setSharesOutstanding(e.target.value.replace(',', '.'))} className="font-mono" />
                 </div>
                 {company?.trading_currency && company?.reporting_currency && company.trading_currency !== company.reporting_currency && (
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">
                       Valutakurs (1 {company.reporting_currency} = ? {company.trading_currency})
                     </Label>
-                    <Input type="text" inputMode="decimal" placeholder="1.00" value={priceFxRate} onChange={(e) => setPriceFxRate(e.target.value.replace(',', '.'))} className="font-mono" />
+                    <Input disabled={readOnly} type="text" inputMode="decimal" placeholder="1.00" value={priceFxRate} onChange={(e) => setPriceFxRate(e.target.value.replace(',', '.'))} className="font-mono" />
                     <p className="text-xs text-muted-foreground">Används för att omvandla kursen till rapporteringsvaluta vid multipel-beräkningar.</p>
                   </div>
                 )}
@@ -670,6 +678,7 @@ export default function AnalysisEditor() {
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Aktuell rabatt/premie (%)</Label>
                     <Input
+                    disabled={readOnly}
                       type="text"
                       inputMode="decimal"
                       placeholder="T.ex. -15 för 15% rabatt"
@@ -706,7 +715,7 @@ export default function AnalysisEditor() {
                   <p className="text-xs font-medium text-muted-foreground">Rensa data</p>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="w-full gap-1 text-destructive hover:text-destructive">
+                      <Button disabled={readOnly} variant="outline" size="sm" className="w-full gap-1 text-destructive hover:text-destructive">
                         <Trash2 className="h-3.5 w-3.5" />Rensa kvartalsdata
                       </Button>
                     </AlertDialogTrigger>
@@ -740,7 +749,7 @@ export default function AnalysisEditor() {
                       <AlertDialogFooter>
                         <AlertDialogCancel>Avbryt</AlertDialogCancel>
                         <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => {
-                          if (analysisId) {
+                          if (canEdit && analysisId) {
                             await supabase.from('income_statement').delete().eq('company_id', id!).eq('analysis_id', analysisId);
                             await supabase.from('balance_sheet').delete().eq('company_id', id!).eq('analysis_id', analysisId);
                           }
@@ -772,6 +781,7 @@ export default function AnalysisEditor() {
                   <div key={key} className="flex items-center justify-between">
                     <Label className="text-sm">{label}</Label>
                     <Switch
+                      disabled={readOnly}
                       checked={analysisSections[key] ?? false}
                       onCheckedChange={() => setAnalysisSections(prev => ({ ...prev, [key]: !prev[key] }))}
                     />
@@ -788,6 +798,7 @@ export default function AnalysisEditor() {
                 </CardHeader>
                 <CardContent>
                   <Input
+                    disabled={readOnly}
                     type="text"
                     inputMode="numeric"
                     placeholder="Antal anställda"
@@ -807,7 +818,7 @@ export default function AnalysisEditor() {
                 <InvestmentHoldings
                   holdings={investmentHoldings}
                   onHoldingsChange={setInvestmentHoldings}
-                  readOnly={isLocked}
+                  readOnly={readOnly}
                   companyName={company?.name}
                 />
                 {/* Rating & Notes for investment company */}
@@ -820,6 +831,7 @@ export default function AnalysisEditor() {
                       {(['buy', 'hold', 'sell'] as const).map((r) => (
                         <Button
                           key={r}
+                          disabled={readOnly}
                           variant={rating === r ? 'default' : 'outline'}
                           size="sm"
                           onClick={() => setRating(r)}
@@ -830,6 +842,7 @@ export default function AnalysisEditor() {
                       ))}
                     </div>
                     <Textarea
+                      readOnly={readOnly}
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                       placeholder="Övergripande kommentar om investmentbolaget..."
@@ -852,6 +865,7 @@ export default function AnalysisEditor() {
                   analysisId={analysisId}
                 />
                 <SpreadsheetAnalysis
+                  readOnly={readOnly}
                   analysisDate={currentAnalysis?.created_at?.split('T')[0]}
                   currentPrice={priceNum}
                   sharesOutstanding={sharesNum}
@@ -892,11 +906,13 @@ export default function AnalysisEditor() {
                   analysisId={analysisId}
                 />
                 <AdjustmentsEditor
+                  readOnly={readOnly}
                   adjustments={adjustments}
                   onAdjustmentsChange={setAdjustments}
                   currency={company?.reporting_currency || 'SEK'}
                 />
                 <SpreadsheetAnalysis
+                  readOnly={readOnly}
                   analysisDate={currentAnalysis?.created_at?.split('T')[0]}
                   currentPrice={priceNum}
                   sharesOutstanding={sharesNum}
@@ -960,10 +976,11 @@ export default function AnalysisEditor() {
               companyId={id!}
               analysisId={analysisId!}
               companyName={company?.name}
-              readOnly={isLocked}
+              readOnly={readOnly}
             />
             {analysisSections.images && (
               <ImageUpload
+                  readOnly={readOnly}
                 images={analysisImages}
                 onImagesChange={setAnalysisImages}
                 title="Analysbilder"

@@ -11,7 +11,7 @@ type Translations = {
   analysis: { title: string; rating: string; buy: string; hold: string; sell: string; confidence: string; summary: string; estimationMode: string; quickEstimate: string; detailedEstimate: string; growthRate: string; marginAssumption: string; discountRate: string; terminalGrowth: string; targetPE: string; targetEVEBIT: string; intrinsicValue: string; marginOfSafety: string; currentPrice: string; saveAnalysis: string; autosaved: string; draft: string; published: string; estimates: string; projections: string; previousAnalyses: string; newAnalysis: string; historicalData: string };
   mos: { undervalued: string; fair: string; overvalued: string };
   
-  sharing: { share: string; shareWith: string; email: string; permission: string; read: string; comment: string; sharedWith: string; noShares: string };
+  sharing: typeof translations.en.sharing;
   settings: { title: string; profile: string; preferences: string; language: string; currency: string; theme: string; light: string; dark: string; system: string; displayName: string; save: string; backup: string; backupDescription: string; exportBackup: string; lastBackup: string; neverBackup: string; backupExported: string; backupFailed: string };
   common: { save: string; cancel: string; delete: string; edit: string; add: string; search: string; filter: string; loading: string; error: string; success: string; confirm: string; back: string; next: string; close: string; year: string; quarter: string };
   smartPaste: { title: string; description: string; placeholder: string; processing: string; format: string; clear: string };

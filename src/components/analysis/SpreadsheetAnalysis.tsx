@@ -83,6 +83,7 @@ export interface YearlyProjection {
 }
 
 interface SpreadsheetAnalysisProps {
+  readOnly?: boolean;
   analysisDate?: string;
   currentPrice: number;
   sharesOutstanding: number;
@@ -141,6 +142,7 @@ interface ColumnDef {
 }
 
 export function SpreadsheetAnalysis({
+  readOnly = false,
   analysisDate,
   currentPrice,
   sharesOutstanding,
@@ -937,7 +939,7 @@ export function SpreadsheetAnalysis({
                   </TabsList>
                 </Tabs>
               )}
-              {!napkinMode && mode === 'quarterly' && yearsWithFullQuarters.length > 0 && (
+              {!readOnly && !napkinMode && mode === 'quarterly' && yearsWithFullQuarters.length > 0 && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -1036,7 +1038,7 @@ export function SpreadsheetAnalysis({
                   {calculatedProjections.map((proj, i) => {
                     // Only allow removing the last (rightmost) column
                     const isLastColumn = i === calculatedProjections.length - 1;
-                    const showRemove = isLastColumn && (mode === 'quarterly' ? estimateQuarters.length > 1 : estimateYears.length > 1);
+                    const showRemove = !readOnly && isLastColumn && (mode === 'quarterly' ? estimateQuarters.length > 1 : estimateYears.length > 1);
                     const col = columns[i];
                     return (
                       <th key={`${proj.year}-${proj.quarter || ''}`} className={cn("text-center py-2 px-3 font-medium min-w-[110px]", col.isActual && "opacity-60")}>
@@ -1063,7 +1065,7 @@ export function SpreadsheetAnalysis({
                     );
                   })}
                   <th className="py-2 px-2">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={addEstimateColumn} title="Lägg till år">
+                    <Button disabled={readOnly} variant="ghost" size="icon" className="h-7 w-7" onClick={addEstimateColumn} title="Lägg till år">
                       <Plus className="h-4 w-4" />
                     </Button>
                   </th>
@@ -1153,7 +1155,7 @@ export function SpreadsheetAnalysis({
                         );
                       }
 
-                      if (!row.editable) {
+                      if (readOnly || !row.editable) {
                         const val = (proj as any)[row.key];
                         return (
                           <td key={`${proj.year}-${proj.quarter || ''}`} className="text-center py-2 px-3 font-mono font-semibold">
@@ -1228,13 +1230,13 @@ export function SpreadsheetAnalysis({
         </CardHeader>
         <CardContent>
           <div className="flex gap-3">
-            <Button variant={rating === 'buy' ? 'default' : 'outline'} className={cn('flex-1', rating === 'buy' && 'bg-success hover:bg-success/90')} onClick={() => onRatingChange?.('buy')}>
+            <Button disabled={readOnly} variant={rating === 'buy' ? 'default' : 'outline'} className={cn('flex-1', rating === 'buy' && 'bg-success hover:bg-success/90')} onClick={() => onRatingChange?.('buy')}>
               <TrendingUp className="h-4 w-4 mr-2" />KÖP
             </Button>
-            <Button variant={rating === 'sell' ? 'default' : 'outline'} className={cn('flex-1', rating === 'sell' && 'bg-destructive hover:bg-destructive/90')} onClick={() => onRatingChange?.('sell')}>
+            <Button disabled={readOnly} variant={rating === 'sell' ? 'default' : 'outline'} className={cn('flex-1', rating === 'sell' && 'bg-destructive hover:bg-destructive/90')} onClick={() => onRatingChange?.('sell')}>
               <TrendingDown className="h-4 w-4 mr-2" />SÄLJ
             </Button>
-            <Button variant={rating === 'hold' ? 'default' : 'outline'} className={cn('flex-1', rating === 'hold' && 'bg-warning hover:bg-warning/90 text-warning-foreground')} onClick={() => onRatingChange?.('hold')}>
+            <Button disabled={readOnly} variant={rating === 'hold' ? 'default' : 'outline'} className={cn('flex-1', rating === 'hold' && 'bg-warning hover:bg-warning/90 text-warning-foreground')} onClick={() => onRatingChange?.('hold')}>
               <Minus className="h-4 w-4 mr-2" />AVVAKTA
             </Button>
           </div>
@@ -1247,7 +1249,7 @@ export function SpreadsheetAnalysis({
           <CardTitle className="text-lg">Anteckningar</CardTitle>
         </CardHeader>
         <CardContent>
-          <RichTextEditor value={notes || ''} onChange={(val) => onNotesChange?.(val)} placeholder="Skriv dina anteckningar här..." minHeight="100px" />
+          <RichTextEditor disabled={readOnly} value={notes || ''} onChange={(val) => onNotesChange?.(val)} placeholder="Skriv dina anteckningar här..." minHeight="100px" />
         </CardContent>
       </Card>
     </div>

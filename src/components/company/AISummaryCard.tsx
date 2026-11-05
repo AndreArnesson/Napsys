@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Sparkles, Loader2, Save } from 'lucide-react';
 
 interface AISummaryCardProps {
+  readOnly?: boolean;
   title: string;
   summary: string;
   onGenerate: () => void;
@@ -13,6 +14,7 @@ interface AISummaryCardProps {
 }
 
 export function AISummaryCard({
+  readOnly = false,
   title,
   summary,
   onGenerate,
@@ -29,7 +31,7 @@ export function AISummaryCard({
             <Sparkles className="h-5 w-5 text-primary" />
             {title}
           </CardTitle>
-          <div className="flex gap-2">
+          {!readOnly && <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -50,7 +52,7 @@ export function AISummaryCard({
                 Spara
               </Button>
             )}
-          </div>
+          </div>}
         </div>
       </CardHeader>
       <CardContent>

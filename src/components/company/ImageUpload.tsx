@@ -8,13 +8,14 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 interface ImageUploadProps {
+  readOnly?: boolean;
   images: string[];
   onImagesChange: (images: string[]) => void;
   title?: string;
   folder?: string;
 }
 
-export function ImageUpload({ images, onImagesChange, title = 'Bilder', folder = 'general' }: ImageUploadProps) {
+export function ImageUpload({ images, onImagesChange, title = 'Bilder', folder = 'general', readOnly = false }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -22,7 +23,7 @@ export function ImageUpload({ images, onImagesChange, title = 'Bilder', folder =
   const containerRef = useRef<HTMLDivElement>(null);
 
   const uploadFiles = async (files: File[]) => {
-    if (files.length === 0) return;
+    if (readOnly || files.length === 0) return;
     setUploading(true);
     const newUrls: string[] = [];
     try {
@@ -53,6 +54,7 @@ export function ImageUpload({ images, onImagesChange, title = 'Bilder', folder =
 
   // Clipboard paste support
   useEffect(() => {
+    if (readOnly) return;
     const handlePaste = (e: ClipboardEvent) => {
       const items = e.clipboardData?.items;
       if (!items) return;
@@ -70,7 +72,7 @@ export function ImageUpload({ images, onImagesChange, title = 'Bilder', folder =
     };
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
-  }, [images, folder]);
+  }, [images, folder, readOnly]);
 
   // Drag and drop
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setDragOver(true); };
@@ -95,15 +97,15 @@ export function ImageUpload({ images, onImagesChange, title = 'Bilder', folder =
               <ImagePlus className="h-4 w-4" />
               {title}
             </CardTitle>
-            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="gap-1">
+            {!readOnly && <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="gap-1">
               {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <ImagePlus className="h-3 w-3" />}
               Lägg till
-            </Button>
+            </Button>}
             <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleUpload} className="hidden" />
           </div>
         </CardHeader>
         <CardContent>
-          {images.length === 0 ? (
+          {images.length === 0 && readOnly ? <p className="text-sm text-muted-foreground">—</p> : images.length === 0 ? (
             <div
               ref={containerRef}
               className={cn("border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors", dragOver ? "border-primary bg-primary/5" : "hover:border-primary/50")}
@@ -120,12 +122,12 @@ export function ImageUpload({ images, onImagesChange, title = 'Bilder', folder =
               {images.map((url, i) => (
                 <div key={i} className="relative group aspect-video rounded-lg overflow-hidden border cursor-pointer" onClick={() => setLightboxUrl(url)}>
                   <img src={url} alt="" className="w-full h-full object-cover" />
-                  <button
+                  {!readOnly && <button
                     onClick={(e) => { e.stopPropagation(); removeImage(i); }}
                     className="absolute top-1 right-1 p-1 rounded-full bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity"
                   >
                     <X className="h-3 w-3" />
-                  </button>
+                  </button>}
                 </div>
               ))}
             </div>

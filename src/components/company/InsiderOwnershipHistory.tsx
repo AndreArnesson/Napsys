@@ -28,7 +28,7 @@ function totalPct(entries: OwnershipEntry[]) {
   return entries.reduce((s, e) => s + (e.percentage || 0), 0) * 100;
 }
 
-export function InsiderOwnershipHistory({ companyId, currentPrice, tradingCurrency = 'SEK' }: { companyId: string; currentPrice?: number | null; tradingCurrency?: string }) {
+export function InsiderOwnershipHistory({ companyId, currentPrice, tradingCurrency = 'SEK', readOnly = false }: { readOnly?: boolean; companyId: string; currentPrice?: number | null; tradingCurrency?: string }) {
   const queryClient = useQueryClient();
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
   const [editMap, setEditMap] = useState<Record<string, EditState>>({});
@@ -197,7 +197,7 @@ export function InsiderOwnershipHistory({ companyId, currentPrice, tradingCurren
                   </button>
                 </CollapsibleTrigger>
                 <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                  onClick={e => { e.stopPropagation(); deleteSnapshot(snap.id); }} disabled={deleting[snap.id]}>
+                  onClick={e => { e.stopPropagation(); deleteSnapshot(snap.id); }} disabled={readOnly || deleting[snap.id]}>
                   {deleting[snap.id] ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                 </Button>
               </div>
@@ -207,12 +207,13 @@ export function InsiderOwnershipHistory({ companyId, currentPrice, tradingCurren
                   {/* Date + note editors */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <input
+                      disabled={readOnly}
                       type="date"
                       value={edit?.date ?? snap.recorded_date}
                       onChange={e => setEdit(snap.id, { date: e.target.value })}
                       className="h-8 rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                     />
-                    <Input
+                    <Input disabled={readOnly}
                       placeholder="Note (optional)"
                       value={edit?.note ?? (snap.note || '')}
                       onChange={e => setEdit(snap.id, { note: e.target.value })}
@@ -237,16 +238,16 @@ export function InsiderOwnershipHistory({ companyId, currentPrice, tradingCurren
                         {displayEntries.map((e, i) => (
                           <TableRow key={i}>
                             <TableCell className="py-1">
-                              <Input value={e.name} onChange={ev => updateEntry(snap.id, i, 'name', ev.target.value)} placeholder="Name" className="h-7" />
+                              <Input disabled={readOnly} value={e.name} onChange={ev => updateEntry(snap.id, i, 'name', ev.target.value)} placeholder="Name" className="h-7" />
                             </TableCell>
                             <TableCell className="py-1">
-                              <Input value={e.role} onChange={ev => updateEntry(snap.id, i, 'role', ev.target.value)} placeholder="Role" className="h-7" />
+                              <Input disabled={readOnly} value={e.role} onChange={ev => updateEntry(snap.id, i, 'role', ev.target.value)} placeholder="Role" className="h-7" />
                             </TableCell>
                             <TableCell className="py-1">
-                              <Input type="text" inputMode="numeric" value={e.shares || ''} onChange={ev => updateEntry(snap.id, i, 'shares', ev.target.value.replace(',', '.'))} className="h-7 text-right font-mono w-28" />
+                              <Input disabled={readOnly} type="text" inputMode="numeric" value={e.shares || ''} onChange={ev => updateEntry(snap.id, i, 'shares', ev.target.value.replace(',', '.'))} className="h-7 text-right font-mono w-28" />
                             </TableCell>
                             <TableCell className="py-1">
-                              <Input type="text" inputMode="decimal" value={e.percentage ? (e.percentage * 100).toFixed(2) : ''} onChange={ev => updateEntry(snap.id, i, 'percentage', ev.target.value.replace(',', '.'))} className="h-7 text-right font-mono w-20" />
+                              <Input disabled={readOnly} type="text" inputMode="decimal" value={e.percentage ? (e.percentage * 100).toFixed(2) : ''} onChange={ev => updateEntry(snap.id, i, 'percentage', ev.target.value.replace(',', '.'))} className="h-7 text-right font-mono w-20" />
                             </TableCell>
                             {currentPrice && (
                               <TableCell className="py-1 text-right font-mono text-sm text-muted-foreground">
@@ -254,7 +255,7 @@ export function InsiderOwnershipHistory({ companyId, currentPrice, tradingCurren
                               </TableCell>
                             )}
                             <TableCell className="py-1">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeEntry(snap.id, i)}>
+                              <Button disabled={readOnly} variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeEntry(snap.id, i)}>
                                 <Trash2 className="h-3 w-3" />
                               </Button>
                             </TableCell>
@@ -265,10 +266,10 @@ export function InsiderOwnershipHistory({ companyId, currentPrice, tradingCurren
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => addEntry(snap.id)}>
+                    <Button disabled={readOnly} variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => addEntry(snap.id)}>
                       <Plus className="h-3 w-3" /> Add row
                     </Button>
-                    <Button size="sm" className="h-7 gap-1 text-xs" onClick={() => saveSnapshot(snap.id)} disabled={saving[snap.id]}>
+                    <Button size="sm" className="h-7 gap-1 text-xs" onClick={() => saveSnapshot(snap.id)} disabled={readOnly || saving[snap.id]}>
                       {saving[snap.id] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                       Save
                     </Button>

@@ -17,6 +17,7 @@ export interface Adjustment {
 }
 
 interface AdjustmentsEditorProps {
+  readOnly?: boolean;
   adjustments: Adjustment[];
   onAdjustmentsChange: (adjustments: Adjustment[]) => void;
   currency?: string;
@@ -28,7 +29,7 @@ const METRIC_LABELS: Record<string, string> = {
   netIncome: 'Nettoresultat',
 };
 
-export function AdjustmentsEditor({ adjustments, onAdjustmentsChange, currency = 'SEK' }: AdjustmentsEditorProps) {
+export function AdjustmentsEditor({ adjustments, onAdjustmentsChange, currency = 'SEK', readOnly = false }: AdjustmentsEditorProps) {
   const [isOpen, setIsOpen] = useState(adjustments.length > 0);
 
   const addAdjustment = () => {
@@ -90,7 +91,7 @@ export function AdjustmentsEditor({ adjustments, onAdjustmentsChange, currency =
                     {adjustments.map(adj => (
                       <tr key={adj.id} className="border-b">
                         <td className="py-2 px-2">
-                          <Input
+                          <Input disabled={readOnly}
                             placeholder="T.ex. Omstruktureringskostnad"
                             value={adj.description}
                             onChange={e => updateAdjustment(adj.id, 'description', e.target.value)}
@@ -98,7 +99,7 @@ export function AdjustmentsEditor({ adjustments, onAdjustmentsChange, currency =
                           />
                         </td>
                         <td className="py-2 px-2">
-                          <Input
+                          <Input disabled={readOnly}
                             type="text"
                             inputMode="decimal"
                             placeholder="0"
@@ -117,7 +118,7 @@ export function AdjustmentsEditor({ adjustments, onAdjustmentsChange, currency =
                           />
                         </td>
                         <td className="py-2 px-2">
-                          <Select value={adj.metric} onValueChange={v => updateAdjustment(adj.id, 'metric', v)}>
+                          <Select disabled={readOnly} value={adj.metric} onValueChange={v => updateAdjustment(adj.id, 'metric', v)}>
                             <SelectTrigger className="h-8 text-sm w-36">
                               <SelectValue />
                             </SelectTrigger>
@@ -129,7 +130,7 @@ export function AdjustmentsEditor({ adjustments, onAdjustmentsChange, currency =
                           </Select>
                         </td>
                         <td className="py-2 px-2">
-                          <Input
+                          <Input disabled={readOnly}
                             type="text"
                             inputMode="numeric"
                             value={adj.year}
@@ -138,7 +139,7 @@ export function AdjustmentsEditor({ adjustments, onAdjustmentsChange, currency =
                           />
                         </td>
                         <td className="py-2 px-2">
-                          <Select
+                          <Select disabled={readOnly}
                             value={adj.quarter ? String(adj.quarter) : 'none'}
                             onValueChange={v => updateAdjustment(adj.id, 'quarter', v === 'none' ? undefined : parseInt(v))}
                           >
@@ -155,7 +156,7 @@ export function AdjustmentsEditor({ adjustments, onAdjustmentsChange, currency =
                           </Select>
                         </td>
                         <td className="py-2 px-2">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeAdjustment(adj.id)}>
+                          <Button disabled={readOnly} variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeAdjustment(adj.id)}>
                             <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
                           </Button>
                         </td>
@@ -165,7 +166,7 @@ export function AdjustmentsEditor({ adjustments, onAdjustmentsChange, currency =
                 </table>
               </div>
             )}
-            <Button variant="outline" size="sm" className="gap-1" onClick={addAdjustment}>
+            <Button disabled={readOnly} variant="outline" size="sm" className="gap-1" onClick={addAdjustment}>
               <Plus className="h-3.5 w-3.5" />
               Lägg till justering
             </Button>

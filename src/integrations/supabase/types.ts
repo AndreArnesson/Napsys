@@ -764,19 +764,28 @@ export type Database = {
           company_id: string
           created_at: string
           id: string
-          shared_with_user_id: string
+          owner_id: string
+          shared_with_email: string
+          permission: string
+          shared_with_user_id: string | null
         }
         Insert: {
           company_id: string
           created_at?: string
           id?: string
-          shared_with_user_id: string
+          owner_id: string
+          shared_with_email: string
+          permission?: string
+          shared_with_user_id?: string | null
         }
         Update: {
           company_id?: string
           created_at?: string
           id?: string
-          shared_with_user_id?: string
+          owner_id?: string
+          shared_with_email?: string
+          permission?: string
+          shared_with_user_id?: string | null
         }
         Relationships: [
           {
@@ -881,6 +890,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      share_company_with_email: {
+        Args: { _company_id: string; _email: string }
+        Returns: string
+      }
       is_shared_with_user: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean

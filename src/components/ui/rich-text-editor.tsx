@@ -50,10 +50,11 @@ export function RichTextEditor({
   }, [onChange]);
 
   const execCmd = useCallback((command: string, value?: string) => {
+    if (disabled) return;
     editorRef.current?.focus();
     document.execCommand(command, false, value);
     handleInput();
-  }, [handleInput]);
+  }, [handleInput, disabled]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'b' && (e.metaKey || e.ctrlKey)) {
@@ -68,9 +69,9 @@ export function RichTextEditor({
   const isEmpty = !value || value === '<br>' || value === '<div><br></div>';
 
   return (
-    <div className={cn('rounded-md border bg-background', disabled && 'opacity-50 pointer-events-none', className)}>
+    <div className={cn('rounded-md border bg-background', className)}>
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 border-b px-1 py-1">
+      {!disabled && <div className="flex items-center gap-0.5 border-b px-1 py-1">
         <Toggle
           size="sm"
           aria-label="Bold"
@@ -104,7 +105,7 @@ export function RichTextEditor({
         >
           <ListOrdered className="h-3.5 w-3.5" />
         </Toggle>
-      </div>
+      </div>}
 
       {/* Editor area */}
       <div className="relative">
