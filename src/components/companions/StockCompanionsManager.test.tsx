@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '@/i18n/LanguageContext';
 import type { StockCompanion } from '@/hooks/useStockCompanions';
-import { StockCompanionsSettings } from './StockCompanionsSettings';
+import { StockCompanionsManager } from './StockCompanionsManager';
 
 const mocks = vi.hoisted(() => ({
   friends: [] as StockCompanion[],
@@ -33,17 +33,17 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: {
 } }));
 
 const companion: StockCompanion = { id: 'connection', user_id: 'reader', email: 'reader@example.com', display_name: 'Reader', status: 'accepted', incoming: false, sharing_all: false, receiving_all: false };
-function mount() {
+function mount(initialEntry = '/companions') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(<QueryClientProvider client={client}><LanguageProvider defaultLanguage="en"><MemoryRouter>
-    <StockCompanionsSettings />
+  return render(<QueryClientProvider client={client}><LanguageProvider defaultLanguage="en"><MemoryRouter initialEntries={[initialEntry]}>
+    <StockCompanionsManager />
   </MemoryRouter></LanguageProvider></QueryClientProvider>);
 }
 function tab(name: string) {
   fireEvent.mouseDown(screen.getByRole('tab', { name }), { button: 0, ctrlKey: false });
 }
 
-describe('stock companion settings', () => {
+describe('stock companion page', () => {
   beforeEach(() => {
     vi.clearAllMocks(); localStorage.clear();
     mocks.friends = [{ ...companion }]; mocks.incoming = []; mocks.own = []; mocks.grants = [];
@@ -111,7 +111,7 @@ describe('stock companion settings', () => {
 
   it('lists received analyses with links to their read-only views', async () => {
     mocks.incoming = [{ id: 'received', name: 'Received company', user_id: 'reader', analyses: [{ id: 'a1', name: 'Shared analysis', created_at: '2026-11-05' }] }];
-    mount(); tab('Shared with me');
+    mount(); await screen.findByText('Reader');
     expect(await screen.findByRole('link', { name: /Shared analysis/ })).toHaveAttribute('href', '/company/received/analysis/a1');
     expect(screen.getByText('Shared by: reader@example.com')).toBeInTheDocument();
   });
@@ -120,9 +120,58 @@ describe('stock companion settings', () => {
     mocks.friends[0].sharing_all = true;
     mocks.own = [{ id: 'mine', name: 'My company', user_id: 'owner', analyses: [{ id: 'a2', name: 'My analysis', created_at: '2026-11-05' }] }];
     mocks.grants = [{ company_id: 'mine', shared_with_user_id: 'reader', shared_with_email: 'reader@example.com' }];
-    mount(); tab('My shares');
+    mount(); await screen.findByText('Reader'); tab('My shares');
     expect(await screen.findByRole('link', { name: /My analysis/ })).toHaveAttribute('href', '/company/mine/analysis/a2');
     expect(screen.getByText('Shared with: reader@example.com')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'My company' })).toHaveLength(1);
+  });
+
+  it('shows a companion table with received counts and filters analyses when a different companion is chosen', async () => {
+    mocks.friends.push({ ...companion, id: 'second-connection', user_id: 'second', email: 'second@example.com', display_name: 'Second' });
+    mocks.incoming = [
+      { id: 'reader-company', name: 'Reader company', user_id: 'reader', analyses: [{ id: 'r1', name: 'Reader analysis', created_at: '2026-11-05' }] },
+      { id: 'second-company', name: 'Second company', user_id: 'second', analyses: [
+        { id: 's1', name: 'Second analysis', created_at: '2026-11-05' },
+        { id: 's2', name: 'Another second analysis', created_at: '2026-11-06' },
+      ] },
+    ];
+    mount();
+    expect(await screen.findByRole('table', { name: 'Stock companions' })).toBeInTheDocument();
+    await screen.findByRole('link', { name: /Reader analysis/ });
+    expect(screen.queryByRole('link', { name: /Second analysis/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View analyses: reader@example.com' })).toHaveTextContent('1');
+    const second = screen.getByRole('button', { name: 'View analyses: second@example.com' });
+    expect(second).toHaveTextContent('2');
+    fireEvent.click(second);
+    expect(screen.getByRole('heading', { name: 'Analyses from: Second' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^Second analysis/ })).toHaveAttribute('href', '/company/second-company/analysis/s1');
+    expect(screen.queryByRole('link', { name: /Reader analysis/ })).not.toBeInTheDocument();
+    expect(second).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('keeps outgoing shares scoped to the selected companion, including global grants', async () => {
+    mocks.friends.push({ ...companion, id: 'second-connection', user_id: 'second', email: 'second@example.com', display_name: 'Second', sharing_all: true });
+    mocks.own = [{ id: 'mine', name: 'My company', user_id: 'owner', analyses: [{ id: 'a2', name: 'My analysis', created_at: '2026-11-05' }] }];
+    mount(); await screen.findByText('Reader'); tab('My shares');
+    expect(await screen.findByText('You have not shared any analyses with this companion yet.')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /My analysis/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'View analyses: second@example.com' }));
+    expect(screen.getByRole('tab', { name: 'Shared with me' })).toHaveAttribute('data-state', 'active');
+    tab('My shares');
+    expect(screen.getByRole('link', { name: /My analysis/ })).toHaveAttribute('href', '/company/mine/analysis/a2');
+    expect(screen.getByText('Shared with: second@example.com')).toBeInTheDocument();
+  });
+
+  it('shows a specific empty state when the selected companion has shared nothing', async () => {
+    mount();
+    expect(await screen.findByText('This companion has not shared any analyses with you yet.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Analyses from: Reader' })).toBeInTheDocument();
+  });
+
+  it('restores the selected companion from the URL when returning to the page', async () => {
+    mocks.friends.push({ ...companion, id: 'second-connection', user_id: 'second', email: 'second@example.com', display_name: 'Second' });
+    mount('/companions?companion=second');
+    expect(await screen.findByRole('heading', { name: 'Analyses from: Second' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View analyses: second@example.com' })).toHaveAttribute('aria-pressed', 'true');
   });
 });

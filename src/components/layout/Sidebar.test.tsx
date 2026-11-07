@@ -16,6 +16,7 @@ vi.mock('@/i18n/LanguageContext', () => ({
     t: {
       nav: { dashboard: 'Dashboard', settings: 'Settings', logout: 'Log out' },
       portfolio: { title: 'Portfolio' },
+      companions: { title: 'Stock companions' },
       improvements: { title: 'Improvements' },
       settings: { language: 'Language', theme: 'Theme', backup: 'Backup' },
     },
@@ -46,6 +47,7 @@ describe('Sidebar navigation', () => {
     ['Jämför', '/compare'],
     ['Improvements', '/improvements'],
     ['Settings', '/settings'],
+    ['Stock companions', '/companions'],
   ])('links %s to %s', (label, href) => {
     renderSidebar();
     expect(screen.getByRole('link', { name: label })).toHaveAttribute('href', href);
@@ -59,6 +61,7 @@ describe('Sidebar navigation', () => {
     ['/compare', 'Jämför'],
     ['/improvements', 'Improvements'],
     ['/settings', 'Settings'],
+    ['/companions', 'Stock companions'],
   ])('marks the current section on %s', (path, label) => {
     renderSidebar(path);
     expect(screen.getByRole('link', { name: label })).toHaveClass('bg-sidebar-accent');

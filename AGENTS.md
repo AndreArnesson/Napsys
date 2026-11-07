@@ -49,8 +49,10 @@ verifierat 2026-11-07.
 Delning gäller ett företag med alla dess nuvarande och framtida analyser.
 `ShareCompanyDialog.tsx` väljer godkända börskompanjoner från en lista och anropar
 `share_company_with_companion`. Kompanjonsförfrågningar skapas via exakt e-post
-och måste godkännas av mottagaren. Inställningar visar kompanjoner samt inkommande
-och utgående delningar. Ingen e-post skickas.
+och måste godkännas av mottagaren. Menypunkten **Börskompanjoner** öppnar
+`/companions` med en kompanjonstabell och inkommande/utgående analyser för vald
+person. Urvalet sparas i URL-parametern `companion` så att det finns kvar när man
+går tillbaka från en analys. Ingen e-post skickas.
 
 `stock_companions` lagrar förfrågningar och godkända relationer. Att vara kompanjoner
 ger ingen automatisk tillgång till analyser. `companion_all_shares` ger riktad
@@ -58,8 +60,10 @@ läsåtkomst till alla ägarens nuvarande och framtida företag och analyser. St
 den av finns enskilda företagsdelningar kvar. Tas kompanjonskapet bort raderas
 delningar mellan personerna i båda riktningarna. Respektive person styr sin delning.
 
-Dashboard och inställningar läser delade företag genom företagens RLS; enbart
+Dashboard och kompanjonssidan läser delade företag genom företagens RLS; enbart
 `shares`-tabellen fångar inte användare som får åtkomst via delning av allt.
+Filtrera inkommande analyser på den valda kompanjonens `user_id` och utgående
+delningar på samma mottagare. Komponenterna finns i `src/components/companions/`.
 
 Bevara RLS och ägarkontroller på servern. Mottagarens vy ska inte autospara,
 importera eller erbjuda ändring av ägarens data. Databasens privata funktion

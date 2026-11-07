@@ -129,7 +129,7 @@ describe('ShareCompanyDialog', () => {
     mount(); await open();
     expect(await screen.findByText(/wait for acceptance before sharing/)).toBeInTheDocument();
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Manage stock companions' })).toHaveAttribute('href', '/settings#stock-companions');
+    expect(screen.getByRole('link', { name: 'Manage stock companions' })).toHaveAttribute('href', '/companions');
   });
 
   it('shows global access without offering an ineffective individual revoke button', async () => {

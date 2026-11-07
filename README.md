@@ -52,22 +52,25 @@ npm run dev
 
 ## Sharing analyses
 
-Add **Börskompanjoner / Stock companions** in Settings by their sign-in email
+Open **Börskompanjoner / Stock companions** in the main menu to add people by their sign-in email
 address. New requests require the recipient's acceptance; becoming companions
-does not grant access to analyses. Settings also lists received and outgoing
-shares with links to the analyses. Requests appear in the app; no email is sent.
+does not grant access to analyses. The companion table shows received analysis
+counts. Select **Visa analyser / View analyses** to see analyses shared by that
+companion, or switch to outgoing shares for the same person. The selected companion
+is retained in the URL when returning from an analysis. Requests appear in the app;
+no email is sent.
 
 Company owners can use **Dela / Share** on the company or analysis page to select
 an accepted companion and grant read access to that company and all its analyses.
-**Dela alla mina analyser / Share all my analyses**, available in Settings and
+**Dela alla mina analyser / Share all my analyses**, available on the companion page and
 the sharing dialog, includes all the owner's current and future companies and
 analyses. Each person chooses their own sharing direction. Turning off this option
 preserves individual company shares; removing a companion revokes all shares
 between the two people in both directions.
 
 Recipients find shared companies under **Delat med mig / Shared with Me** on the
-dashboard and in Settings. Owners can revoke individual shares in the company
-dialog; access granted by sharing everything is managed in Settings.
+dashboard and on the companion page. Owners can revoke individual shares in the company
+dialog; access granted by sharing everything is managed on the companion page.
 
 Apply `supabase/migrations/20261105205426_add_company_sharing.sql` through the
 normal database deployment process before deploying the frontend. It adds the

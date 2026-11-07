@@ -15,6 +15,7 @@ import {
   Briefcase,
   BarChart2,
   ClipboardList,
+  Users,
   Download,
   Loader2
 } from 'lucide-react';
@@ -50,6 +51,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     { href: '/', label: t.nav.dashboard, icon: LayoutDashboard },
     { href: '/portfolio', label: t.portfolio.title, icon: Briefcase },
     { href: '/compare', label: 'Jämför', icon: BarChart2 },
+    { href: '/companions', label: t.companions.title, icon: Users },
     { href: '/improvements', label: t.improvements.title, icon: ClipboardList },
     { href: '/settings', label: t.nav.settings, icon: Settings },
   ];

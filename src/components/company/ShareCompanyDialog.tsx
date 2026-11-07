@@ -128,7 +128,7 @@ export function ShareCompanyDialog({ companyId, companyName, ownerId }: {
         </form>}
         {!companions.isPending && !companions.isError && accepted.length === 0
           && <p className="text-sm text-muted-foreground">{t.companions.noAccepted}</p>}
-        <Link to="/settings#stock-companions" className="text-sm text-primary hover:underline">{t.companions.manage}</Link>
+        <Link to="/companions" className="text-sm text-primary hover:underline">{t.companions.manage}</Link>
         <div className="space-y-3 border-t pt-4">
           <h3 className="text-sm font-medium">{t.sharing.sharedWith}</h3>
           {loading ? <p role="status" className="text-sm text-muted-foreground">{t.common.loading}</p>

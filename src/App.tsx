@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import CompanyDetail from "./pages/CompanyDetail";
 import AnalysisEditor from "./pages/AnalysisEditor";
 import Settings from "./pages/Settings";
+import StockCompanions from "./pages/StockCompanions";
 import AdminImport from "./pages/AdminImport";
 import Portfolio from "./pages/Portfolio";
 import PortfolioDetail from "./pages/PortfolioDetail";
@@ -36,6 +37,7 @@ const App = () => (
                 <Route path="/company/:id" element={<CompanyDetail />} />
                 <Route path="/company/:id/analysis/:analysisId" element={<AnalysisEditor />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/companions" element={<StockCompanions />} />
                 <Route path="/portfolio" element={<Portfolio />} />
                 <Route path="/portfolio/update" element={<BulkPortfolioUpdate />} />
                 <Route path="/portfolio/:id" element={<PortfolioDetail />} />
