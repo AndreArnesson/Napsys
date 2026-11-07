@@ -14,6 +14,18 @@ export type Database = {
   }
   public: {
     Tables: {
+      stock_companions: {
+        Row: { id: string; requester_id: string; recipient_id: string; status: string; created_at: string; accepted_at: string | null }
+        Insert: { id?: string; requester_id: string; recipient_id: string; status?: string; created_at?: string; accepted_at?: string | null }
+        Update: { status?: string; accepted_at?: string | null }
+        Relationships: []
+      }
+      companion_all_shares: {
+        Row: { owner_id: string; companion_id: string; connection_id: string; created_at: string }
+        Insert: { owner_id: string; companion_id: string; connection_id: string; created_at?: string }
+        Update: { owner_id?: string; companion_id?: string; connection_id?: string; created_at?: string }
+        Relationships: [{ foreignKeyName: "companion_all_shares_connection_id_fkey"; columns: ["connection_id"]; isOneToOne: false; referencedRelation: "stock_companions"; referencedColumns: ["id"] }]
+      }
       analyses: {
         Row: {
           adjustments: Json | null
@@ -890,6 +902,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      list_stock_companions: {
+        Args: Record<string, never>
+        Returns: { id: string; user_id: string; email: string; display_name: string | null; status: string; incoming: boolean; sharing_all: boolean; receiving_all: boolean }[]
+      }
+      request_stock_companion: { Args: { _email: string }; Returns: string }
+      respond_stock_companion: { Args: { _connection_id: string; _accept: boolean }; Returns: undefined }
+      remove_stock_companion: { Args: { _connection_id: string }; Returns: undefined }
+      set_companion_share_all: { Args: { _companion_id: string; _enabled: boolean }; Returns: undefined }
+      share_company_with_companion: { Args: { _company_id: string; _companion_id: string }; Returns: string }
       share_company_with_email: {
         Args: { _company_id: string; _email: string }
         Returns: string

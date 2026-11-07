@@ -12,6 +12,7 @@ type Translations = {
   mos: { undervalued: string; fair: string; overvalued: string };
   
   sharing: typeof translations.en.sharing;
+  companions: typeof translations.en.companions;
   settings: { title: string; profile: string; preferences: string; language: string; currency: string; theme: string; light: string; dark: string; system: string; displayName: string; save: string; backup: string; backupDescription: string; exportBackup: string; lastBackup: string; neverBackup: string; backupExported: string; backupFailed: string };
   common: { save: string; cancel: string; delete: string; edit: string; add: string; search: string; filter: string; loading: string; error: string; success: string; confirm: string; back: string; next: string; close: string; year: string; quarter: string };
   smartPaste: { title: string; description: string; placeholder: string; processing: string; format: string; clear: string };

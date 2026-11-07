@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { StockCompanionsSettings } from '@/components/settings/StockCompanionsSettings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -95,6 +96,8 @@ export default function Settings() {
     <MainLayout>
       <div className="space-y-6 max-w-2xl">
         <h1 className="text-3xl font-bold">{t.settings.title}</h1>
+
+        <StockCompanionsSettings />
 
         {/* Profile Settings */}
         <Card>

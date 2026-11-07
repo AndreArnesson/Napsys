@@ -74,15 +74,7 @@ export default function Dashboard() {
   const { data: sharedCompanies, isLoading: sharedLoading } = useQuery({
     queryKey: ['shared-companies', user?.id],
     queryFn: async () => {
-      const { data: shares, error: sharesError } = await supabase
-        .from('shares')
-        .select('company_id')
-        .eq('shared_with_user_id', user!.id);
-
-      if (sharesError) throw sharesError;
-      if (!shares?.length) return [];
-
-      const companyIds = shares.map(s => s.company_id);
+      // RLS includes both individual grants and a companion sharing all analyses.
       const { data, error } = await supabase
         .from('companies')
         .select(`
@@ -98,7 +90,7 @@ export default function Dashboard() {
             projections
           )
         `)
-        .in('id', companyIds)
+        .neq('user_id', user!.id)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;

@@ -52,20 +52,34 @@ npm run dev
 
 ## Sharing analyses
 
-Company owners can use **Dela / Share** on the company page or analysis page to
-grant read access to an existing Napsys user by their sign-in email address.
-Sharing covers the company and all its current and future analyses. Recipients
-find it under **Delat med mig / Shared with Me** on the dashboard. Owners can
-remove access in the same dialog. This does not send an email invitation.
+Add **Börskompanjoner / Stock companions** in Settings by their sign-in email
+address. New requests require the recipient's acceptance; becoming companions
+does not grant access to analyses. Settings also lists received and outgoing
+shares with links to the analyses. Requests appear in the app; no email is sent.
+
+Company owners can use **Dela / Share** on the company or analysis page to select
+an accepted companion and grant read access to that company and all its analyses.
+**Dela alla mina analyser / Share all my analyses**, available in Settings and
+the sharing dialog, includes all the owner's current and future companies and
+analyses. Each person chooses their own sharing direction. Turning off this option
+preserves individual company shares; removing a companion revokes all shares
+between the two people in both directions.
+
+Recipients find shared companies under **Delat med mig / Shared with Me** on the
+dashboard and in Settings. Owners can revoke individual shares in the company
+dialog; access granted by sharing everything is managed in Settings.
 
 Apply `supabase/migrations/20261105205426_add_company_sharing.sql` through the
 normal database deployment process before deploying the frontend. It adds the
 email sharing RPC, consolidates duplicate grants, and restricts share management
 to company owners. The repository also contains older schema exports; the new
 migration supports both their minimal shares table and the original schema.
+The companion feature additionally requires
+`supabase/migrations/20261105211843_add_stock_companions.sql`.
 
 Sharing permission tests run locally in PostgreSQL via PGlite with
 `npm test -- src/lib/companySharing.database.test.ts`; they do not access the hosted database.
+Companion permissions are covered by `npm test -- src/lib/stockCompanions.database.test.ts`.
 
 ## What technologies are used for this project?
 

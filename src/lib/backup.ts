@@ -15,6 +15,8 @@ const BACKUP_TABLES = [
   'quarterly_balance_sheet',
   'timeline_events',
   'shares',
+  'stock_companions',
+  'companion_all_shares',
   'watchlist',
   'insider_trades',
   'insider_ownership_history',
