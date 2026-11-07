@@ -70,17 +70,20 @@ export function KeyDataEditor({ data, onUpdate, readOnly = false, companyId }: K
   }, [data]);
 
   const handleChange = (field: keyof KeyData, value: string) => {
+    if (readOnly) return;
     const updated = { ...localData, [field]: value };
     setLocalData(updated);
   };
 
   const handleBlur = (field: keyof KeyData) => {
+    if (readOnly) return;
     if (localData[field] !== data[field]) {
       onUpdate({ [field]: localData[field] });
     }
   };
 
   const fetchStockPrice = async () => {
+    if (readOnly) return;
     if (!localData.ticker) {
       toast.error('Ange en ticker först');
       return;

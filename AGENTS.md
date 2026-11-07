@@ -43,10 +43,16 @@ Delningsmigreringen `20261105205426_add_company_sharing.sql` är registrerad som
 tillämpad i drift, verifierat 2026-11-05. Kör inte om den som del av frontendändringar.
 Även `20261105211843_add_stock_companions.sql` är tillämpad och registrerad,
 verifierat 2026-11-07.
+`20261107101040_share_complete_company_card.sql` är också tillämpad och registrerad,
+verifierat 2026-11-07. Den kompletterar läsåtkomst till äldre kvartalsestimat och
+ägarhistorik samt låter enbart bolagsägaren ändra rapporter och bilder i Storage.
 
 ## Delning och behörigheter
 
 Delning gäller ett företag med alla dess nuvarande och framtida analyser.
+Det är hela bolagets analyskort som delas: bolagsinformation, finansiell data,
+anteckningar, bilder och alla analyser. Mottagaren får läsåtkomst till hela kortet.
+Kompanjonssidans bolagslänk ska öppna `/company/:id`; analyslänkar är genvägar.
 `ShareCompanyDialog.tsx` väljer godkända börskompanjoner från en lista och anropar
 `share_company_with_companion`. Kompanjonsförfrågningar skapas via exakt e-post
 och måste godkännas av mottagaren. Menypunkten **Börskompanjoner** öppnar
@@ -68,6 +74,9 @@ delningar på samma mottagare. Komponenterna finns i `src/components/companions/
 Bevara RLS och ägarkontroller på servern. Mottagarens vy ska inte autospara,
 importera eller erbjuda ändring av ägarens data. Databasens privata funktion
 slår upp exakt e-postadress utan att exponera användarregistret för frontend.
+Storage-skrivning kräver ägande av bolaget. Rapportvägar har formatet
+`<company_id>/<fil>` och bilder `company/<company_id>/<fil>` eller
+`analysis/<analysis_id>/<fil>`. Ändra filvägar och Storage-policyer tillsammans.
 
 ## Verifiering
 

@@ -113,6 +113,7 @@ export function InsiderOwnershipHistory({ companyId, currentPrice, tradingCurren
   };
 
   const saveSnapshot = async (id: string) => {
+    if (readOnly) return;
     const state = editMap[id];
     if (!state) return;
     setSaving(s => ({ ...s, [id]: true }));
@@ -133,6 +134,7 @@ export function InsiderOwnershipHistory({ companyId, currentPrice, tradingCurren
   };
 
   const deleteSnapshot = async (id: string) => {
+    if (readOnly) return;
     setDeleting(d => ({ ...d, [id]: true }));
     try {
       const { error } = await supabase.from('insider_ownership_history').delete().eq('id', id);

@@ -98,7 +98,7 @@ export function ShareCompanyDialog({ companyId, companyName, ownerId }: {
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{t.sharing.share}: {companyName}</DialogTitle>
+          <DialogTitle>{t.sharing.shareCard}: {companyName}</DialogTitle>
           <DialogDescription>{t.sharing.description}</DialogDescription>
         </DialogHeader>
         {accepted.length > 0 && <form onSubmit={submit} className="space-y-3">
@@ -122,7 +122,7 @@ export function ShareCompanyDialog({ companyId, companyName, ownerId }: {
             </div>
           </div>
           <Button type="submit" disabled={!selected || selected.sharing_all || share.isPending} className="gap-2">
-            {share.isPending && <Loader2 className="h-4 w-4 animate-spin" />}{t.sharing.share}
+            {share.isPending && <Loader2 className="h-4 w-4 animate-spin" />}{shareAll ? t.companions.shareAll : t.sharing.shareCard}
           </Button>
           {submitError && <p id={`${fieldId}-error`} role="alert" className="text-sm text-destructive">{submitError}</p>}
         </form>}

@@ -11,6 +11,8 @@ const second = '20000000-0000-0000-0000-000000000002';
 const readerCompany = '20000000-0000-0000-0000-000000000003';
 const base = readFileSync(new URL('../../supabase/migrations/20261105205426_add_company_sharing.sql', import.meta.url), 'utf8');
 const migration = readFileSync(new URL('../../supabase/migrations/20261105211843_add_stock_companions.sql', import.meta.url), 'utf8');
+const cardMigration = readFileSync(new URL('../../supabase/migrations/20261107101040_share_complete_company_card.sql', import.meta.url), 'utf8');
+const cardTables = ['balance_sheet', 'quarterly_income_statement', 'quarterly_balance_sheet', 'timeline_events', 'insider_trades', 'report_documents'];
 
 describe('stock companion requests and sharing permissions', () => {
   let db: PGlite;
@@ -75,16 +77,53 @@ describe('stock companion requests and sharing permissions', () => {
       INSERT INTO auth.users VALUES ('${owner}', 'owner@example.com', null), ('${reader}', 'Reader@Example.com', null), ('${outsider}', 'outsider@example.com', null);
       INSERT INTO public.profiles VALUES ('${reader}', 'Reader Name');
     `);
+    await db.exec(`
+      CREATE SCHEMA storage;
+      CREATE TABLE storage.objects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), bucket_id text, name text);
+      ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+      GRANT USAGE ON SCHEMA storage TO authenticated;
+      GRANT ALL ON storage.objects TO authenticated;
+      CREATE POLICY "Anyone can view analysis images" ON storage.objects FOR SELECT USING (bucket_id = 'analysis-images');
+      CREATE POLICY "Authenticated users can upload analysis images" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'analysis-images');
+      CREATE POLICY "Users can update own analysis images" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = 'analysis-images');
+      CREATE POLICY "Users can delete own analysis images" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'analysis-images');
+      CREATE POLICY "Users can upload reports" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'reports');
+      CREATE POLICY "Users can read own reports" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'reports');
+      CREATE POLICY "Users can delete own reports" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'reports');
+      CREATE TABLE public.quarterly_estimates (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), analysis_id uuid REFERENCES public.analyses, note text);
+      ALTER TABLE public.quarterly_estimates ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY own_estimates ON public.quarterly_estimates FOR ALL TO authenticated
+        USING (analysis_id IN (SELECT id FROM public.analyses WHERE user_id = auth.uid()));
+      GRANT ALL ON public.quarterly_estimates TO authenticated;
+      CREATE TABLE public.insider_ownership_history (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), company_id uuid REFERENCES public.companies, note text);
+      ALTER TABLE public.insider_ownership_history ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY "Authenticated users can read insider ownership history" ON public.insider_ownership_history FOR SELECT TO authenticated USING (true);
+      GRANT ALL ON public.insider_ownership_history TO authenticated;
+      ${cardTables.map(table => `
+        CREATE TABLE public.${table} (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), company_id uuid REFERENCES public.companies, note text);
+        ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY;
+        CREATE POLICY own_data ON public.${table} FOR ALL TO authenticated
+          USING (company_id IN (SELECT id FROM public.companies WHERE user_id = auth.uid()));
+        CREATE POLICY shared_data ON public.${table} FOR SELECT TO authenticated
+          USING (public.is_shared_with_user(company_id, auth.uid()));
+        GRANT ALL ON public.${table} TO authenticated;
+      `).join('\n')}
+    `);
     await db.exec(base);
     await db.exec(migration);
+    await db.exec(cardMigration);
   }, 30_000);
 
   beforeEach(async () => {
-    await db.exec('RESET ROLE; TRUNCATE public.stock_companions, public.companion_all_shares, public.shares, public.income_statement, public.analyses, public.companies CASCADE;');
+    await db.exec('RESET ROLE; TRUNCATE storage.objects; TRUNCATE public.stock_companions, public.companion_all_shares, public.shares, public.income_statement, public.analyses, public.companies CASCADE;');
     await db.exec(`
       INSERT INTO public.companies VALUES ('${first}', '${owner}', 'First'), ('${second}', '${owner}', 'Second'), ('${readerCompany}', '${reader}', 'Reader company');
       INSERT INTO public.analyses (company_id, user_id, name) VALUES ('${first}', '${owner}', 'First analysis'), ('${second}', '${owner}', 'Second analysis');
       INSERT INTO public.income_statement VALUES ('${first}', 100), ('${second}', 200);
+      INSERT INTO public.quarterly_estimates (analysis_id, note) SELECT id, name FROM public.analyses;
+      ${[...cardTables, 'insider_ownership_history'].map(table => `INSERT INTO public.${table} (company_id, note) VALUES ('${first}', 'First card'), ('${second}', 'Second card');`).join('\n')}
+      INSERT INTO storage.objects (bucket_id, name) VALUES ('reports', '${first}/report.pdf'), ('reports', '${second}/report.pdf'), ('analysis-images', 'company/${first}/image.png');
+      INSERT INTO storage.objects (bucket_id, name) SELECT 'analysis-images', 'analysis/' || id::text || '/image.png' FROM public.analyses;
     `);
   });
   afterAll(async () => { await db?.close(); });
@@ -239,5 +278,65 @@ describe('stock companion requests and sharing permissions', () => {
     const id = await request();
     await db.query('SELECT public.remove_stock_companion($1)', [id]);
     expect(await visibleCompanies(reader)).toEqual([first, readerCompany]);
+  });
+
+  it('shares the complete company card and every current and future analysis with read-only access', async () => {
+    await accept(); await asUser(owner);
+    await db.query('SELECT public.share_company_with_companion($1, $2)', [first, reader]);
+    const later = await db.query<{ id: string }>("INSERT INTO public.analyses (company_id, user_id, name) VALUES ($1, $2, 'Later analysis') RETURNING id", [first, owner]);
+    await db.query("INSERT INTO public.quarterly_estimates (analysis_id, note) VALUES ($1, 'Later estimates')", [later.rows[0].id]);
+    await asUser(reader);
+    expect((await db.query('SELECT name FROM public.analyses ORDER BY name')).rows).toEqual([{ name: 'First analysis' }, { name: 'Later analysis' }]);
+    expect((await db.query('SELECT note FROM public.quarterly_estimates ORDER BY note')).rows).toEqual([{ note: 'First analysis' }, { note: 'Later estimates' }]);
+    for (const table of [...cardTables, 'insider_ownership_history']) {
+      expect((await db.query(`SELECT note FROM public.${table}`)).rows).toEqual([{ note: 'First card' }]);
+      expect((await db.query(`UPDATE public.${table} SET note = 'Changed' RETURNING id`)).rows).toEqual([]);
+      expect((await db.query(`DELETE FROM public.${table} RETURNING id`)).rows).toEqual([]);
+      await expect(db.query(`INSERT INTO public.${table} (company_id, note) VALUES ($1, 'Forged')`, [first])).rejects.toMatchObject({ code: '42501' });
+    }
+    expect((await db.query("UPDATE public.quarterly_estimates SET note = 'Changed' RETURNING id")).rows).toEqual([]);
+    expect((await db.query('DELETE FROM public.quarterly_estimates RETURNING id')).rows).toEqual([]);
+    await expect(db.query("INSERT INTO public.quarterly_estimates (analysis_id, note) VALUES ($1, 'Forged')", [later.rows[0].id])).rejects.toMatchObject({ code: '42501' });
+  });
+
+  it('protects legacy estimates and ownership history when access is absent or revoked', async () => {
+    await accept(); await asUser(owner);
+    await db.query('SELECT public.share_company_with_companion($1, $2)', [first, reader]);
+    await asUser(outsider);
+    for (const table of ['quarterly_estimates', 'insider_ownership_history']) expect((await db.query(`SELECT * FROM public.${table}`)).rows).toEqual([]);
+    await asUser(owner);
+    await db.query('DELETE FROM public.shares WHERE company_id = $1', [first]);
+    await asUser(reader);
+    for (const table of [...cardTables, 'quarterly_estimates', 'insider_ownership_history']) expect((await db.query(`SELECT * FROM public.${table}`)).rows).toEqual([]);
+  });
+
+  it('includes legacy estimates and ownership history when sharing all company cards', async () => {
+    await accept(); await all(true); await asUser(reader);
+    expect((await db.query('SELECT note FROM public.quarterly_estimates ORDER BY note')).rows).toEqual([{ note: 'First analysis' }, { note: 'Second analysis' }]);
+    expect((await db.query('SELECT note FROM public.insider_ownership_history ORDER BY note')).rows).toEqual([{ note: 'First card' }, { note: 'Second card' }]);
+    expect((await db.query("SELECT name FROM storage.objects WHERE bucket_id = 'reports'")).rows).toHaveLength(2);
+    await all(false); await asUser(reader);
+    expect((await db.query('SELECT * FROM public.quarterly_estimates')).rows).toEqual([]);
+    expect((await db.query('SELECT * FROM public.insider_ownership_history')).rows).toEqual([]);
+    expect((await db.query("SELECT name FROM storage.objects WHERE bucket_id = 'reports'")).rows).toEqual([]);
+  });
+
+  it('allows recipients to read shared reports but not replace, delete, upload, or move card files', async () => {
+    await accept(); await asUser(owner);
+    await db.query('SELECT public.share_company_with_companion($1, $2)', [first, reader]);
+    await asUser(reader);
+    expect((await db.query("SELECT name FROM storage.objects WHERE bucket_id = 'reports'")).rows).toEqual([{ name: `${first}/report.pdf` }]);
+    expect((await db.query("UPDATE storage.objects SET name = 'Changed' RETURNING id")).rows).toEqual([]);
+    expect((await db.query('DELETE FROM storage.objects RETURNING id')).rows).toEqual([]);
+    await expect(db.query("INSERT INTO storage.objects (bucket_id, name) VALUES ('reports', $1)", [`${first}/forged.pdf`])).rejects.toMatchObject({ code: '42501' });
+    await expect(db.query("INSERT INTO storage.objects (bucket_id, name) VALUES ('analysis-images', $1)", [`company/${first}/forged.png`])).rejects.toMatchObject({ code: '42501' });
+    await asUser(owner);
+    expect((await db.query("INSERT INTO storage.objects (bucket_id, name) VALUES ('reports', $1) RETURNING id", [`${first}/new.pdf`])).rows).toHaveLength(1);
+    expect((await db.query("INSERT INTO storage.objects (bucket_id, name) VALUES ('analysis-images', $1) RETURNING id", [`company/${first}/new.png`])).rows).toHaveLength(1);
+    await expect(db.query("UPDATE storage.objects SET name = $1 WHERE bucket_id = 'reports' AND name = $2", [`${readerCompany}/moved.pdf`, `${first}/report.pdf`])).rejects.toMatchObject({ code: '42501' });
+    expect((await db.query("UPDATE storage.objects SET name = $1 WHERE bucket_id = 'reports' AND name = $2 RETURNING id", [`${first}/renamed.pdf`, `${first}/report.pdf`])).rows).toHaveLength(1);
+    expect((await db.query("DELETE FROM storage.objects WHERE bucket_id = 'analysis-images' RETURNING id")).rows).toHaveLength(4);
+    await asUser(outsider);
+    expect((await db.query("SELECT * FROM storage.objects WHERE bucket_id = 'reports'")).rows).toEqual([]);
   });
 });

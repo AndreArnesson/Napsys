@@ -39,6 +39,7 @@ export function CEOSection({ ceo, onUpdate, companyId, readOnly = false }: CEOSe
   }, [ceo]);
 
   const handleChange = (field: keyof CEOData, value: string) => {
+    if (readOnly) return;
     hasEditedRef.current = true;
     const updated = { ...localCeo, [field]: value };
     setLocalCeo(updated);

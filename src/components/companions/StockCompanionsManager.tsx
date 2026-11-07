@@ -39,7 +39,8 @@ function SharedCompanyList({ companies, direction }: {
   }
   return <ul className="space-y-3">
     {companies.map(({ company, people }) => <li key={company.id} className="rounded-lg border p-4 space-y-2">
-      <Link to={`/company/${company.id}?tab=analysis`} className="font-medium text-primary hover:underline">{company.name}</Link>
+      <Link to={`/company/${company.id}`} className="font-medium text-primary hover:underline">{company.name}</Link>
+      <p className="text-xs text-muted-foreground">{t.sharing.entireCard} · {t.sharing.readOnly}</p>
       <p className="text-xs text-muted-foreground break-words">
         {direction === 'incoming' ? t.companions.sharedBy : t.companions.sharedWith}: {people.join(', ')}
       </p>

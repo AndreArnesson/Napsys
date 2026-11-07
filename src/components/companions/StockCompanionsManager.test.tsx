@@ -114,6 +114,8 @@ describe('stock companion page', () => {
     mount(); await screen.findByText('Reader');
     expect(await screen.findByRole('link', { name: /Shared analysis/ })).toHaveAttribute('href', '/company/received/analysis/a1');
     expect(screen.getByText('Shared by: reader@example.com')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Received company' })).toHaveAttribute('href', '/company/received');
+    expect(screen.getByText('Entire analysis card · Read only')).toBeInTheDocument();
   });
 
   it('lists outgoing analyses from global grants and individual grants without duplicates', async () => {

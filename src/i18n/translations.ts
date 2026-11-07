@@ -128,6 +128,8 @@ export const translations = {
     // Sharing
     sharing: {
       share: 'Dela',
+      shareCard: 'Dela hela analyskortet',
+      entireCard: 'Hela analyskortet',
       shareWith: 'Dela med',
       email: 'E-postadress',
       permission: 'Behörighet',
@@ -135,10 +137,10 @@ export const translations = {
       comment: 'Kommentera',
       sharedWith: 'Delad med',
       noShares: 'Inte delad med någon',
-      description: 'Välj en börskompanjon som får läsa företaget och alla dess nuvarande och framtida analyser. Mottagaren hittar dem under Delat med mig.',
+      description: 'Välj en börskompanjon som får läsåtkomst till hela bolagets analyskort: bolagsinformation, finansiell data, anteckningar, bilder och samtliga nuvarande och framtida analyser. Mottagaren kan öppna och läsa allt på kortet.',
       readOnly: 'Endast läsning',
       sharedReadOnly: 'Delad med dig – endast läsning',
-      shareSuccess: 'Analyserna har delats',
+      shareSuccess: 'Hela analyskortet har delats',
       shareFailed: 'Kunde inte dela analyserna. Försök igen.',
       userNotFound: 'Ingen Napsys-användare med den e-postadressen hittades. Personen behöver skapa ett konto först.',
       cannotShareWithSelf: 'Du har redan åtkomst till dina egna analyser.',
@@ -430,6 +432,8 @@ export const translations = {
     // Sharing
     sharing: {
       share: 'Share',
+      shareCard: 'Share the entire analysis card',
+      entireCard: 'Entire analysis card',
       shareWith: 'Share with',
       email: 'Email address',
       permission: 'Permission',
@@ -437,10 +441,10 @@ export const translations = {
       comment: 'Comment',
       sharedWith: 'Shared with',
       noShares: 'Not shared with anyone',
-      description: 'Choose a stock companion who can read the company and all its current and future analyses. They can find them under Shared with Me.',
+      description: 'Choose a stock companion who gets read-only access to the entire company analysis card: company information, financial data, notes, images, and all current and future analyses. They can open and read everything on the card.',
       readOnly: 'Read only',
       sharedReadOnly: 'Shared with you – read only',
-      shareSuccess: 'Analyses shared',
+      shareSuccess: 'Entire analysis card shared',
       shareFailed: 'Could not share the analyses. Please try again.',
       userNotFound: 'No Napsys user found with that email address. They need to create an account first.',
       cannotShareWithSelf: 'You already have access to your own analyses.',

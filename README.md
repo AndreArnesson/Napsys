@@ -62,6 +62,10 @@ no email is sent.
 
 Company owners can use **Dela / Share** on the company or analysis page to select
 an accepted companion and grant read access to that company and all its analyses.
+This shares the entire company analysis card: company information, financial data,
+notes, images, reports, and every current and future analysis. Recipients can open
+the whole card; individual analysis links are shortcuts within it. Recipients
+cannot edit the card or upload, replace, or delete its files.
 **Dela alla mina analyser / Share all my analyses**, available on the companion page and
 the sharing dialog, includes all the owner's current and future companies and
 analyses. Each person chooses their own sharing direction. Turning off this option
@@ -79,6 +83,8 @@ to company owners. The repository also contains older schema exports; the new
 migration supports both their minimal shares table and the original schema.
 The companion feature additionally requires
 `supabase/migrations/20261105211843_add_stock_companions.sql`.
+Complete card access and file write restrictions additionally use
+`supabase/migrations/20261107101040_share_complete_company_card.sql`.
 
 Sharing permission tests run locally in PostgreSQL via PGlite with
 `npm test -- src/lib/companySharing.database.test.ts`; they do not access the hosted database.

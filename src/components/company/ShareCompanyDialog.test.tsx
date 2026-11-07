@@ -65,11 +65,12 @@ describe('ShareCompanyDialog', () => {
   it('shares with a selected accepted companion and refreshes recipients', async () => {
     mount();
     const dialog = await open();
-    expect(within(dialog).getByText(/all its current and future analyses/)).toBeInTheDocument();
+    expect(within(dialog).getByRole('heading', { name: 'Share the entire analysis card: Example' })).toBeInTheDocument();
+    expect(within(dialog).getByText(/company information, financial data, notes, images, and all current and future analyses/)).toBeInTheDocument();
     await screen.findByText('Not shared with anyone');
     mocks.list.mockResolvedValue({ data: [grant], error: null });
     fireEvent.change(await screen.findByLabelText('Select stock companion'), { target: { value: 'reader' } });
-    fireEvent.submit(within(dialog).getByRole('button', { name: 'Share' }).closest('form')!);
+    fireEvent.submit(dialog.querySelector('form')!);
     await screen.findByText('reader@example.com');
     expect(mocks.rpc).toHaveBeenCalledWith('share_company_with_companion', { _company_id: 'company', _companion_id: 'reader' });
     expect(screen.getByLabelText('Select stock companion')).toHaveValue('');
@@ -81,7 +82,7 @@ describe('ShareCompanyDialog', () => {
     mount();
     const dialog = await open();
     fireEvent.change(await screen.findByLabelText('Select stock companion'), { target: { value: 'reader' } });
-    fireEvent.submit(within(dialog).getByRole('button', { name: 'Share' }).closest('form')!);
+    fireEvent.submit(dialog.querySelector('form')!);
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not complete the change');
     expect(screen.getByLabelText('Select stock companion')).toHaveValue('reader');
   });
@@ -120,7 +121,7 @@ describe('ShareCompanyDialog', () => {
     fireEvent.change(await screen.findByLabelText('Select stock companion'), { target: { value: 'reader' } });
     fireEvent.click(screen.getByRole('checkbox', { name: 'Share all my analyses' }));
     expect(screen.getByText(/including those you create in the future/)).toBeInTheDocument();
-    fireEvent.submit(within(dialog).getByRole('button', { name: 'Share' }).closest('form')!);
+    fireEvent.submit(dialog.querySelector('form')!);
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('set_companion_share_all', { _companion_id: 'reader', _enabled: true }));
   });
 
