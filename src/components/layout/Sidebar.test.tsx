@@ -48,6 +48,7 @@ describe('Sidebar navigation', () => {
     ['Improvements', '/improvements'],
     ['Settings', '/settings'],
     ['Stock companions', '/companions'],
+    ['News', '/news'],
   ])('links %s to %s', (label, href) => {
     renderSidebar();
     expect(screen.getByRole('link', { name: label })).toHaveAttribute('href', href);
@@ -62,6 +63,7 @@ describe('Sidebar navigation', () => {
     ['/improvements', 'Improvements'],
     ['/settings', 'Settings'],
     ['/companions', 'Stock companions'],
+    ['/news', 'News'],
   ])('marks the current section on %s', (path, label) => {
     renderSidebar(path);
     expect(screen.getByRole('link', { name: label })).toHaveClass('bg-sidebar-accent');

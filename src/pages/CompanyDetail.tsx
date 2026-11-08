@@ -7,6 +7,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { ShareCompanyDialog } from '@/components/company/ShareCompanyDialog';
+import { CompanyAssistant } from '@/components/company/CompanyAssistant';
+import { companyAssistantTranslations } from '@/i18n/companyAssistant';
 import { MOSBadge } from '@/components/company/MOSBadge';
 import { AISummaryCard } from '@/components/company/AISummaryCard';
 import { RatingBadge } from '@/components/company/RatingBadge';
@@ -637,6 +639,7 @@ export default function CompanyDetail() {
             <TabsTrigger value="balance-sheet">{t.company.balanceSheet}</TabsTrigger>
             <TabsTrigger value="insiders">{t.company.insiders}</TabsTrigger>
             <TabsTrigger value="analysis">{t.analysis.title}</TabsTrigger>
+            <TabsTrigger value="assistant">{companyAssistantTranslations[language].tab}</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -1101,6 +1104,9 @@ export default function CompanyDetail() {
                 ))}
               </div>
             )}
+          </TabsContent>
+          <TabsContent value="assistant" className="space-y-6">
+            <CompanyAssistant companyId={id!} isOwner={isOwner} />
           </TabsContent>
         </Tabs>
       </div>

@@ -16,6 +16,9 @@ import { ImageUpload } from '@/components/company/ImageUpload';
 import { ReportAnalyzer } from '@/components/analysis/ReportAnalyzer';
 import { InvestmentHoldings, InvestmentHolding } from '@/components/analysis/InvestmentHoldings';
 import { NapkinCalculation, NapkinAssumption } from '@/components/analysis/NapkinCalculation';
+import { AnalysisChatBubble } from '@/components/analysis/AnalysisChatBubble';
+import type { AnalysisChatDraft } from '@/lib/analysisChat';
+import type { AnalysisValuationContext } from '@/lib/analysisValuation';
 import { FileImportDialog, ParsedFinancialData, ParsedCompanyInfo } from '@/components/company/FileImportDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -54,6 +57,12 @@ export default function AnalysisEditor() {
   const [priceFxRate, setPriceFxRate] = useState<string>('1');
   const [napkinMode, setNapkinMode] = useState<boolean>(false);
   const [napkinAssumptions, setNapkinAssumptions] = useState<NapkinAssumption[]>([]);
+  const chatValuationRef = useRef<{ analysisId: string; value: AnalysisValuationContext } | null>(null);
+  const handleValuationContext = useCallback((value: AnalysisValuationContext) => {
+    if (analysisId) chatValuationRef.current = { analysisId, value };
+  }, [analysisId]);
+  const getValuationContext = useCallback(() =>
+    chatValuationRef.current?.analysisId === analysisId ? chatValuationRef.current.value : undefined, [analysisId]);
 
   // Undo/Redo stacks for projections
   const undoStackRef = useRef<YearlyProjection[][]>([]);
@@ -505,6 +514,28 @@ export default function AnalysisEditor() {
 
   const displayData = showQuarterly && quarterlyHistoricalData.length > 0 ? quarterlyHistoricalData : historicalData;
 
+  // Reading the current editor values lets a question include the latest edit
+  // without forcing an autosave or giving the assistant any write access.
+  const draftNumber = (value: string, integer = false) => {
+    const number = integer ? Number.parseInt(value, 10) : Number.parseFloat(value);
+    return Number.isFinite(number) ? number : null;
+  };
+  const chatDraft: AnalysisChatDraft | undefined = !readOnly && initializedForRef.current === analysisId ? {
+    name: analysisName,
+    summary_comment: notes,
+    rating: rating || null,
+    current_price: draftNumber(currentPrice),
+    shares_outstanding: draftNumber(sharesOutstanding, true),
+    price_fx_rate: draftNumber(priceFxRate),
+    employees: draftNumber(employees, true),
+    projections: isInvestmentCompany ? investmentHoldings : projections,
+    adjustments,
+    investment_holdings: isInvestmentCompany ? investmentHoldings : [],
+    nav_discount: draftNumber(navDiscount),
+    napkin_mode: napkinMode,
+    napkin_assumptions: napkinAssumptions,
+  } : undefined;
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -892,6 +923,7 @@ export default function AnalysisEditor() {
                   tradingCurrency={company?.trading_currency}
                   showQuarterly={false}
                   napkinMode
+                  onValuationContext={handleValuationContext}
                 />
               </>
             ) : (
@@ -958,6 +990,7 @@ export default function AnalysisEditor() {
                     if (!latestBalance) return 0;
                     return ((latestBalance.long_term_debt ?? 0) + (latestBalance.short_term_debt ?? 0) - (latestBalance.cash_equivalents ?? 0));
                   })()}
+                  onValuationContext={handleValuationContext}
                 />
                 {analysisSections.debt && (
                   <DebtSection data={(balanceData || []).map((b: any) => ({
@@ -990,6 +1023,13 @@ export default function AnalysisEditor() {
           </div>
         </div>
       </div>
+      {id && company && <AnalysisChatBubble
+        companyId={id}
+        analysisId={analysisId}
+        analysisName={analysisName || currentAnalysis.name || undefined}
+        draft={chatDraft}
+        getValuationContext={isInvestmentCompany ? undefined : getValuationContext}
+      />}
     </MainLayout>
   );
 }

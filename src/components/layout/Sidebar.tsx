@@ -16,12 +16,14 @@ import {
   BarChart2,
   ClipboardList,
   Users,
+  Newspaper,
   Download,
   Loader2
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
 import { runBackup } from '@/lib/backup';
+import { newsTranslations } from '@/i18n/news';
 
 interface SidebarProps {
   onNavigate?: () => void;
@@ -52,6 +54,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     { href: '/portfolio', label: t.portfolio.title, icon: Briefcase },
     { href: '/compare', label: 'Jämför', icon: BarChart2 },
     { href: '/companions', label: t.companions.title, icon: Users },
+    { href: '/news', label: newsTranslations[language].title, icon: Newspaper },
     { href: '/improvements', label: t.improvements.title, icon: ClipboardList },
     { href: '/settings', label: t.nav.settings, icon: Settings },
   ];

@@ -19,6 +19,7 @@ import BulkPortfolioUpdate from "./pages/BulkPortfolioUpdate";
 import Compare from "./pages/Compare";
 import Improvements from "./pages/Improvements";
 import NotFound from "./pages/NotFound";
+import News from "./pages/News";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const App = () => (
                 <Route path="/company/:id/analysis/:analysisId" element={<AnalysisEditor />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/companions" element={<StockCompanions />} />
+                <Route path="/news" element={<News />} />
                 <Route path="/portfolio" element={<Portfolio />} />
                 <Route path="/portfolio/update" element={<BulkPortfolioUpdate />} />
                 <Route path="/portfolio/:id" element={<PortfolioDetail />} />

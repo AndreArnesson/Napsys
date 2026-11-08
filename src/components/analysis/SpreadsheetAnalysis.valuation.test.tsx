@@ -176,6 +176,7 @@ describe('SpreadsheetAnalysis valuation multiples', () => {
 
   it('uses TTM EPS, EBIT, and EBITDA for quarterly valuation multiples', () => {
     const year = new Date().getFullYear();
+    const onValuationContext = vi.fn();
     render(
       <LanguageProvider defaultLanguage="en">
         <SpreadsheetAnalysis
@@ -185,6 +186,7 @@ describe('SpreadsheetAnalysis valuation multiples', () => {
           currency="SEK"
           netDebt={0}
           showQuarterly
+          onValuationContext={onValuationContext}
           projections={[
             { year, quarter: 1, earningsPerShare: 1, ebit: 2, ebitda: 4 },
             { year, quarter: 2, earningsPerShare: 2, ebit: 3, ebitda: 5 },
@@ -201,6 +203,41 @@ describe('SpreadsheetAnalysis valuation multiples', () => {
     expect(getProjectionValue('EV/EBITDA')).toBe('4.55');
     expect(getProjectionValue('Estimerad kurs (SEK)')).toBe('150.00');
     expect(getProjectionValue('MOS (%)')).toBe('+50.00%');
+    expect(onValuationContext.mock.lastCall?.[0]).toMatchObject({
+      mode: 'quarterly', rows: expect.arrayContaining([expect.objectContaining({ year, quarter: 4, estimatedPrice: 150, mos: 50 })]),
+    });
+  });
+
+  it('supplies next year’s calculated MoS from raw growth/margins and local P/E, including FX-only changes', () => {
+    const year = new Date().getFullYear();
+    localStorage.setItem('ss-settings-valuation-test', JSON.stringify({ targetPE: 12 }));
+    const projections = [
+      { year, revenueGrowth: 10, netMargin: 10 },
+      { year: year + 1, revenueGrowth: 20, netMargin: 20 },
+    ];
+    const historicalData = [{ year: year - 1, revenue: 100, netIncome: 10 }];
+    const onValuationContext = vi.fn();
+    const onProjectionsChange = vi.fn();
+    const view = (priceFxRate: number) => <LanguageProvider defaultLanguage="en">
+      <SpreadsheetAnalysis analysisId="valuation-test" currentPrice={100} sharesOutstanding={1_000_000}
+        priceFxRate={priceFxRate} currency="EUR" tradingCurrency="SEK" projections={projections}
+        historicalData={historicalData} onProjectionsChange={onProjectionsChange}
+        onValuationContext={onValuationContext} readOnly />
+    </LanguageProvider>;
+    const { rerender } = render(view(2));
+    const first = onValuationContext.mock.lastCall?.[0];
+    expect(first).toMatchObject({ targetPE: 12, reportingCurrency: 'EUR', tradingCurrency: 'SEK', priceFxRate: 2 });
+    expect(first.rows[0]).toMatchObject({ year: year + 1, targetPE: 12 });
+    expect(first.rows[0].revenue).toBeCloseTo(132);
+    expect(first.rows[0].estimatedPrice).toBeCloseTo(633.6);
+    expect(first.rows[0].mos).toBeCloseTo(533.6);
+    expect(getProjectionValue('MOS (%)')).toBe('+533.60%');
+    expect(projections[1]).not.toHaveProperty('mos');
+
+    rerender(view(3));
+    expect(onValuationContext.mock.lastCall?.[0].rows[0].mos).toBeCloseTo(850.4);
+    expect(getProjectionValue('MOS (%)')).toBe('+850.40%');
+    expect(onProjectionsChange).not.toHaveBeenCalled();
   });
 
   it('supports YoY and sequential quarterly revenue growth baselines', () => {

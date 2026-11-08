@@ -1,5 +1,13 @@
 project_id = "ymwrlclbovmipkwgvqgw"
 
+# Retain the gateway's JWT verification and verify the user again with getUser.
+# Scheduled news also requires its dedicated private scheduler token.
+[functions.company-chat]
+verify_jwt = true
+
+[functions.company-news]
+verify_jwt = true
+
 [functions.ai-summary]
 verify_jwt = false
 

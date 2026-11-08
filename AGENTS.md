@@ -47,6 +47,22 @@ verifierat 2026-11-07.
 verifierat 2026-11-07. Den kompletterar läsåtkomst till äldre kvartalsestimat och
 ägarhistorik samt låter enbart bolagsägaren ändra rapporter och bilder i Storage.
 
+Bolagsassistentens `20261108081520_company_assistant.sql`,
+`20261108082331_schedule_company_news.sql` och
+`20261108083056_company_news_gateway_auth.sql` är tillämpade och registrerade,
+verifierat 2026-11-08. Edge Functions `company-chat` och `company-news` behåller
+`verify_jwt=true` och kontrollerar dessutom användarens behörigheter själva.
+Jobbet `company-news-hourly` behandlar enbart bolag där ägaren slagit på
+bevakningen, högst en gång per dygn per bolag. Se `docs/company-assistant.md`
+för kvoter, källor och avstängning. Chatthistorik är privat per användare och
+kräver aktuell läsåtkomst till bolaget; den delas inte med börskompanjoner.
+
+`20261108201148_analysis_chat_context.sql` är också tillämpad och registrerad,
+verifierat 2026-11-08. `company_chat_turns.analysis_id` är NULL för bolagschatten
+och anger annars den separata privata analyschatten. Analys och bolag måste
+stämma överens via komposit-FK; även aktuell läsåtkomst till analysen krävs.
+När en analys raderas försvinner dess chatthistorik, medan bolagschatten finns kvar.
+
 ## Delning och behörigheter
 
 Delning gäller ett företag med alla dess nuvarande och framtida analyser.

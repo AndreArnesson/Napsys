@@ -15,6 +15,7 @@ import { Calculator, TrendingUp, TrendingDown, Minus, Plus, Trash2, SlidersHoriz
 import { useLanguage } from '@/i18n/LanguageContext';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { analysisValuationSnapshot, type AnalysisValuationContext } from '@/lib/analysisValuation';
 
 const ALL_ESTIMATE_ROWS: { key: string; label: string; group: string }[] = [
   { key: 'price', label: 'Kurs', group: 'Grunddata' },
@@ -128,6 +129,7 @@ interface SpreadsheetAnalysisProps {
   /** Servettkalkyl: only show the most basic rows (revenue, net margin, EPS, P/E, MOS). */
   napkinMode?: boolean;
   analysisId?: string;
+  onValuationContext?: (context: AnalysisValuationContext) => void;
 }
 
 // Rows kept when napkinMode is on — keep it ultra-basic
@@ -162,6 +164,7 @@ export function SpreadsheetAnalysis({
   adjustments = [],
   napkinMode = false,
   analysisId,
+  onValuationContext,
 }: SpreadsheetAnalysisProps) {
   const priceCurrency = tradingCurrency ?? currency;
   const { t, language } = useLanguage();
@@ -719,7 +722,15 @@ export function SpreadsheetAnalysis({
       });
     }
     return results;
-  }, [projections, currentPrice, targetPE, columns, mode, historicalData, sharesOutstanding, qGrowthMode, quarterlyHistoricalData, netDebt, adjustments]);
+  }, [projections, currentPrice, targetPE, columns, mode, historicalData, sharesOutstanding, qGrowthMode, quarterlyHistoricalData, netDebt, adjustments, priceFxRate]);
+
+  useEffect(() => {
+    onValuationContext?.(analysisValuationSnapshot({
+      mode, targetPE, currentPrice, sharesOutstanding, priceFxRate,
+      reportingCurrency: currency, tradingCurrency: priceCurrency,
+      rows: calculatedProjections,
+    }));
+  }, [onValuationContext, calculatedProjections, mode, targetPE, currentPrice, sharesOutstanding, priceFxRate, currency, priceCurrency]);
 
   const toggleVisibleRow = (key: string, checked: boolean) => {
     setVisibleRows(prev => {

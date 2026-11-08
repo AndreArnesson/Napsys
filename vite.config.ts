@@ -47,6 +47,12 @@ export default defineConfig(() => ({
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         runtimeCaching: [
           {
+            // Assistant history and settings must never be served from a previous
+            // account's service-worker cache, including when the browser is offline.
+            urlPattern: /^https:\/\/.*\.supabase\.co\/(?:rest\/v1\/(?:company_chat_turns|company_ai_settings|company_news_items|rpc\/set_company_ai_settings)|functions\/v1\/company-(?:chat|news))(?:[/?]|$)/i,
+            handler: "NetworkOnly",
+          },
+          {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
             handler: "NetworkFirst",
             options: {

@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      company_ai_settings: {
+        Row: { company_id: string; chat_enabled: boolean; news_enabled: boolean; feed_urls: string[]; last_news_checked_at: string | null; last_news_error: string | null; news_summary: string | null; news_paused_until: string | null; updated_at: string }
+        Insert: { company_id: string; chat_enabled?: boolean; news_enabled?: boolean; feed_urls?: string[]; last_news_checked_at?: string | null; last_news_error?: string | null; news_summary?: string | null; news_paused_until?: string | null; updated_at?: string }
+        Update: { chat_enabled?: boolean; news_enabled?: boolean; feed_urls?: string[]; last_news_checked_at?: string | null; last_news_error?: string | null; news_summary?: string | null; news_paused_until?: string | null; updated_at?: string }
+        Relationships: [{ foreignKeyName: "company_ai_settings_company_id_fkey"; columns: ["company_id"]; isOneToOne: true; referencedRelation: "companies"; referencedColumns: ["id"] }]
+      }
+      company_chat_turns: {
+        Row: { id: string; company_id: string; user_id: string; analysis_id: string | null; question: string; answer: string; sources: Json; created_at: string }
+        Insert: { id?: string; company_id: string; user_id: string; analysis_id?: string | null; question: string; answer: string; sources?: Json; created_at?: string }
+        Update: { question?: string; answer?: string; sources?: Json }
+        Relationships: [
+          { foreignKeyName: "company_chat_turns_company_id_fkey"; columns: ["company_id"]; isOneToOne: false; referencedRelation: "companies"; referencedColumns: ["id"] },
+          { foreignKeyName: "company_chat_turns_analysis_company_fkey"; columns: ["analysis_id", "company_id"]; isOneToOne: false; referencedRelation: "analyses"; referencedColumns: ["id", "company_id"] }
+        ]
+      }
+      company_news_items: {
+        Row: { id: string; company_id: string; url: string; title: string; source: string; summary: string | null; published_at: string | null; fetched_at: string }
+        Insert: { id?: string; company_id: string; url: string; title: string; source: string; summary?: string | null; published_at?: string | null; fetched_at?: string }
+        Update: { title?: string; source?: string; summary?: string | null; published_at?: string | null; fetched_at?: string }
+        Relationships: [{ foreignKeyName: "company_news_items_company_id_fkey"; columns: ["company_id"]; isOneToOne: false; referencedRelation: "companies"; referencedColumns: ["id"] }]
+      }
       stock_companions: {
         Row: { id: string; requester_id: string; recipient_id: string; status: string; created_at: string; accepted_at: string | null }
         Insert: { id?: string; requester_id: string; recipient_id: string; status?: string; created_at?: string; accepted_at?: string | null }
@@ -902,6 +923,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      set_company_ai_settings: {
+        Args: { _company_id: string; _chat_enabled: boolean; _news_enabled: boolean; _feed_urls: string[] }
+        Returns: Database["public"]["Tables"]["company_ai_settings"]["Row"]
+      }
       list_stock_companions: {
         Args: Record<string, never>
         Returns: { id: string; user_id: string; email: string; display_name: string | null; status: string; incoming: boolean; sharing_all: boolean; receiving_all: boolean }[]
