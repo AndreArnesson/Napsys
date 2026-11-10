@@ -39,6 +39,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 import { sv, enUS } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar } from 'recharts';
 import { Pencil } from 'lucide-react';
+import { createAnalysisWithSnapshot } from '@/lib/createAnalysis';
 
 function CompanyNameEditor({ name, onSave }: { name: string; onSave: (name: string) => void }) {
   const [editing, setEditing] = useState(false);
@@ -522,7 +523,7 @@ export default function CompanyDetail() {
         operating_margin: d.operating_margin ?? null,
         net_margin: d.net_margin ?? null,
       }));
-      await supabase.from('quarterly_income_statement' as any).delete().eq('company_id', id);
+      await supabase.from('quarterly_income_statement' as any).delete().eq('company_id', id).is('analysis_id', null);
       await supabase.from('quarterly_income_statement' as any).insert(qRows);
     }
 
@@ -1037,40 +1038,20 @@ export default function CompanyDetail() {
                     } catch { /* use existing price */ }
                   }
 
-                  const { data, error } = await supabase
-                    .from('analyses')
-                    .insert({
-                      company_id: id!,
-                      user_id: user.id,
-                      is_draft: true,
-                      current_price: freshPrice,
-                      shares_outstanding: company.shares_outstanding ?? null,
-                    } as any)
-                    .select()
-                    .single();
-                  if (error) { setCreatingAnalysis(false); toast.error('Failed to create analysis'); return; }
-
-                  // Snapshot company-level financial data into this analysis
-                  const newAnalysisId = data.id;
-                  const { data: companyIncome } = await supabase.from('income_statement').select('*').eq('company_id', id!).is('analysis_id', null);
-                  if (companyIncome && companyIncome.length > 0) {
-                    const snapshotIncome = companyIncome.map((row: any) => {
-                      const { id: _id, created_at: _ca, ...rest } = row;
-                      return { ...rest, analysis_id: newAnalysisId };
+                  try {
+                    const newAnalysisId = await createAnalysisWithSnapshot({
+                      companyId: id!, userId: user.id, currentPrice: freshPrice,
+                      sharesOutstanding: company.shares_outstanding ?? null,
+                      reportingCurrency: company.reporting_currency ?? 'SEK',
+                      tradingCurrency: company.trading_currency ?? company.reporting_currency ?? 'SEK',
+                      companyType: (company as any).company_type ?? 'operating',
                     });
-                    await supabase.from('income_statement').insert(snapshotIncome as any);
+                    navigate(`/company/${id}/analysis/${newAnalysisId}`);
+                  } catch {
+                    toast.error(t.analysis.snapshotLoadFailed);
+                  } finally {
+                    setCreatingAnalysis(false);
                   }
-                  const { data: companyBalance } = await supabase.from('balance_sheet').select('*').eq('company_id', id!).is('analysis_id', null);
-                  if (companyBalance && companyBalance.length > 0) {
-                    const snapshotBalance = companyBalance.map((row: any) => {
-                      const { id: _id, created_at: _ca, ...rest } = row;
-                      return { ...rest, analysis_id: newAnalysisId };
-                    });
-                    await supabase.from('balance_sheet').insert(snapshotBalance as any);
-                  }
-
-                  setCreatingAnalysis(false);
-                  navigate(`/company/${id}/analysis/${data.id}`);
                 }}
               >
                 {creatingAnalysis ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}

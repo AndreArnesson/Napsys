@@ -19,6 +19,8 @@ import { NapkinCalculation, NapkinAssumption } from '@/components/analysis/Napki
 import { AnalysisChatBubble } from '@/components/analysis/AnalysisChatBubble';
 import type { AnalysisChatDraft } from '@/lib/analysisChat';
 import type { AnalysisValuationContext } from '@/lib/analysisValuation';
+import { analysisPeriod, calculationSettings, type AnalysisCalculationSettings } from '@/lib/analysisTimeline';
+import type { OutcomeRow } from '@/components/analysis/EstimateOutcomeComparison';
 import { FileImportDialog, ParsedFinancialData, ParsedCompanyInfo } from '@/components/company/FileImportDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,6 +34,11 @@ import { toast } from 'sonner';
 import debounce from 'lodash/debounce';
 
 export default function AnalysisEditor() {
+  const { analysisId } = useParams();
+  return <AnalysisEditorContent key={analysisId} />;
+}
+
+function AnalysisEditorContent() {
   const { id, analysisId } = useParams<{ id: string; analysisId: string }>();
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -49,7 +56,7 @@ export default function AnalysisEditor() {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [employees, setEmployees] = useState<string>('');
-  const [analysisSections, setAnalysisSections] = useState<Record<string, boolean>>({ debt: true, images: true, employees: false });
+  const [analysisSections, setAnalysisSections] = useState<Record<string, any>>({ debt: true, images: true, employees: false });
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [isLocked, setIsLocked] = useState(false);
   const [investmentHoldings, setInvestmentHoldings] = useState<InvestmentHolding[]>([]);
@@ -57,6 +64,9 @@ export default function AnalysisEditor() {
   const [priceFxRate, setPriceFxRate] = useState<string>('1');
   const [napkinMode, setNapkinMode] = useState<boolean>(false);
   const [napkinAssumptions, setNapkinAssumptions] = useState<NapkinAssumption[]>([]);
+  const [editorReady, setEditorReady] = useState(false);
+  const [settings, setSettings] = useState<AnalysisCalculationSettings>(() => calculationSettings(null));
+  const [compareActuals, setCompareActuals] = useState(false);
   const chatValuationRef = useRef<{ analysisId: string; value: AnalysisValuationContext } | null>(null);
   const handleValuationContext = useCallback((value: AnalysisValuationContext) => {
     if (analysisId) chatValuationRef.current = { analysisId, value };
@@ -112,27 +122,22 @@ export default function AnalysisEditor() {
     enabled: !!id,
   });
 
-  // Fetch analysis-scoped income data first, fall back to company-level
-  const { data: incomeData } = useQuery({
+  // Historical analyses only use their own snapshots. A missing snapshot is
+  // unknown, never an invitation to substitute current company financials.
+  const { data: incomeData, isLoading: incomeLoading, error: incomeError } = useQuery({
     queryKey: ['income_statement', id, analysisId],
     queryFn: async () => {
-      // Try analysis-specific data first
-      const { data: analysisData } = await supabase.from('income_statement').select('*').eq('company_id', id!).eq('analysis_id', analysisId!).order('fiscal_year', { ascending: true });
-      if (analysisData && analysisData.length > 0) return analysisData;
-      // Fall back to company-level (analysis_id is null)
-      const { data, error } = await supabase.from('income_statement').select('*').eq('company_id', id!).is('analysis_id', null).order('fiscal_year', { ascending: true });
+      const { data, error } = await supabase.from('income_statement').select('*').eq('company_id', id!).eq('analysis_id', analysisId!).order('fiscal_year', { ascending: true });
       if (error) throw error;
       return data || [];
     },
     enabled: !!id && !!analysisId,
   });
 
-  const { data: balanceData } = useQuery({
+  const { data: balanceData, isLoading: balanceLoading, error: balanceError } = useQuery({
     queryKey: ['balance_sheet', id, analysisId],
     queryFn: async () => {
-      const { data: analysisData } = await supabase.from('balance_sheet').select('*').eq('company_id', id!).eq('analysis_id', analysisId!).order('fiscal_year', { ascending: true });
-      if (analysisData && analysisData.length > 0) return analysisData;
-      const { data, error } = await supabase.from('balance_sheet').select('*').eq('company_id', id!).is('analysis_id', null).order('fiscal_year', { ascending: true });
+      const { data, error } = await supabase.from('balance_sheet').select('*').eq('company_id', id!).eq('analysis_id', analysisId!).order('fiscal_year', { ascending: true });
       if (error) throw error;
       return data || [];
     },
@@ -140,14 +145,31 @@ export default function AnalysisEditor() {
   });
 
   // Fetch quarterly data
-  const { data: quarterlyIncomeData } = useQuery({
+  const { data: quarterlyIncomeData, isLoading: quartersLoading, error: quartersError } = useQuery({
     queryKey: ['quarterly_income', id, analysisId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('quarterly_income_statement' as any).select('*').eq('company_id', id!).order('fiscal_year', { ascending: true });
+      const { data, error } = await supabase.from('quarterly_income_statement' as any).select('*').eq('company_id', id!).eq('analysis_id', analysisId!).order('fiscal_year', { ascending: true });
       if (error) throw error;
       return (data || []) as any[];
     },
-    enabled: !!id,
+    enabled: !!id && !!analysisId,
+  });
+
+  const { data: actualData, isLoading: actualsLoading, error: actualsError } = useQuery({
+    queryKey: ['analysis-comparison-actuals', id],
+    queryFn: async (): Promise<OutcomeRow[]> => {
+      const results = await Promise.all([
+        supabase.from('income_statement').select('*').eq('company_id', id!).is('analysis_id', null).order('fiscal_year'),
+        supabase.from('quarterly_income_statement' as any).select('*').eq('company_id', id!).is('analysis_id', null).order('fiscal_year'),
+      ]);
+      for (const result of results) if (result.error) throw result.error;
+      const now = analysisPeriod();
+      return results.flatMap((result, index) => (result.data || []).filter((row: any) => index === 0
+        ? row.fiscal_year < now.year : row.fiscal_year * 4 + row.quarter < now.year * 4 + now.quarter)
+        .map((row: any) => ({ year: row.fiscal_year, quarter: index === 1 ? row.quarter : undefined,
+          revenue: row.revenue ?? undefined, ebit: row.ebit ?? undefined, netIncome: row.net_income ?? undefined })));
+    },
+    enabled: !!id && compareActuals && (analysisSections.reporting_currency ?? company?.reporting_currency) === company?.reporting_currency,
   });
 
   // Transform DB data to HistoricalYear format
@@ -216,8 +238,8 @@ export default function AnalysisEditor() {
     {
       setRating(currentAnalysis.rating as 'buy' | 'hold' | 'sell' | undefined);
       setNotes(currentAnalysis.summary_comment || '');
-      setCurrentPrice((currentAnalysis as any).current_price?.toString() || company?.current_price?.toString() || '');
-      setSharesOutstanding((currentAnalysis as any).shares_outstanding?.toString() || company?.shares_outstanding?.toString() || '');
+      setCurrentPrice((currentAnalysis as any).current_price?.toString() ?? '');
+      setSharesOutstanding((currentAnalysis as any).shares_outstanding?.toString() ?? '');
       setPriceFxRate((currentAnalysis as any).price_fx_rate?.toString() || '1');
       setAnalysisName((currentAnalysis as any).name || '');
       setAnalysisImages(((currentAnalysis as any).images as string[]) || []);
@@ -225,6 +247,9 @@ export default function AnalysisEditor() {
       const defaultSections = { debt: true, images: true, employees: false };
       const loadedSections = (currentAnalysis as any).visible_sections || {};
       setAnalysisSections({ ...defaultSections, ...loadedSections });
+      let legacySettings: unknown;
+      try { legacySettings = JSON.parse(localStorage.getItem(`ss-settings-${analysisId}`) || '{}'); } catch { /* no usable local legacy settings */ }
+      setSettings(calculationSettings(loadedSections.calculation_settings ?? legacySettings));
       setNapkinMode(loadedSections.napkin_mode === true);
       if (Array.isArray(loadedSections.napkin_assumptions)) {
         setNapkinAssumptions(loadedSections.napkin_assumptions);
@@ -233,7 +258,7 @@ export default function AnalysisEditor() {
       const savedAdjustments = (currentAnalysis as any).adjustments;
       if (Array.isArray(savedAdjustments)) {
         // Check if these are investment holdings (have 'name' key) or regular adjustments
-        const isInvestmentType = (company as any)?.company_type === 'investment_company';
+        const isInvestmentType = (loadedSections.company_type ?? (company as any)?.company_type) === 'investment_company';
         if (isInvestmentType) {
           // Investment holdings stored in adjustments
           setInvestmentHoldings(savedAdjustments.filter((a: any) => a._type === 'investment_holding').map((a: any) => ({ ...a, _type: undefined })));
@@ -256,19 +281,27 @@ export default function AnalysisEditor() {
         }
       }
       setIsLocked((currentAnalysis as any).locked === true);
+      setEditorReady(true);
     }
   }, [currentAnalysis, company, analysisId]);
 
   const currentMOS = useMemo(() => {
-    const year3Proj = projections.find(p => p.year === new Date().getFullYear() + 3);
-    return year3Proj?.mos;
-  }, [projections]);
+    const year3Proj = projections.find(p => p.quarter === undefined && p.year === analysisPeriod(currentAnalysis?.created_at).year + 3);
+    return year3Proj?.mos ?? currentAnalysis?.margin_of_safety ?? undefined;
+  }, [projections, currentAnalysis?.created_at, currentAnalysis?.margin_of_safety]);
 
-  const isInvestmentCompany = (company as any)?.company_type === 'investment_company';
+  const isInvestmentCompany = (analysisSections.company_type ?? (company as any)?.company_type) === 'investment_company';
+  const reportingCurrency = analysisSections.reporting_currency ?? company?.reporting_currency ?? 'SEK';
+  const tradingCurrency = analysisSections.trading_currency ?? company?.trading_currency ?? reportingCurrency;
+  const comparisonCurrencyMatches = reportingCurrency === company?.reporting_currency;
+  const editableState = JSON.stringify([rating, notes, projections, currentPrice, sharesOutstanding, priceFxRate,
+    analysisName, analysisImages, employees, analysisSections, adjustments, investmentHoldings,
+    navDiscount, napkinMode, napkinAssumptions, settings]);
+  const cleanStateRef = useRef<string | null>(null);
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!analysisId || readOnly) return;
+    mutationFn: async (_submittedState: string) => {
+      if (!analysisId || readOnly || !editorReady) return;
       const { error } = await supabase
         .from('analyses')
         .update({
@@ -283,7 +316,8 @@ export default function AnalysisEditor() {
           name: analysisName || null,
           images: analysisImages,
           employees: employees ? parseInt(employees) : null,
-          visible_sections: { ...analysisSections, napkin_mode: napkinMode, napkin_assumptions: napkinAssumptions },
+          visible_sections: { ...analysisSections, reporting_currency: reportingCurrency, trading_currency: tradingCurrency,
+            calculation_settings: settings, napkin_mode: napkinMode, napkin_assumptions: napkinAssumptions },
           adjustments: isInvestmentCompany
             ? [...adjustments, ...(navDiscount ? [{ _type: 'nav_discount', value: parseFloat(navDiscount) }] : [])]
             : adjustments,
@@ -307,13 +341,15 @@ export default function AnalysisEditor() {
         name: analysisName || null,
         images: analysisImages,
         employees: employees ? parseInt(employees) : null,
-        visible_sections: { ...analysisSections, napkin_mode: napkinMode, napkin_assumptions: napkinAssumptions },
+        visible_sections: { ...analysisSections, reporting_currency: reportingCurrency, trading_currency: tradingCurrency,
+          calculation_settings: settings, napkin_mode: napkinMode, napkin_assumptions: napkinAssumptions },
         adjustments: isInvestmentCompany
           ? [...adjustments, ...(navDiscount ? [{ _type: 'nav_discount', value: parseFloat(navDiscount) }] : [])]
           : adjustments,
       } : old);
     },
-    onSuccess: () => {
+    onSuccess: (_data, submittedState) => {
+      cleanStateRef.current = submittedState;
       queryClient.invalidateQueries({ queryKey: ['all-analyses', id] });
       queryClient.invalidateQueries({ queryKey: ['analysis', analysisId] });
       setLastSaved(new Date());
@@ -326,10 +362,10 @@ export default function AnalysisEditor() {
   });
 
   const performSave = useCallback(() => {
-    if (!user || !analysisId || readOnly) return;
+    if (!user || !analysisId || readOnly || !editorReady || cleanStateRef.current === editableState) return;
     setIsSaving(true);
-    saveMutation.mutate();
-  }, [user, analysisId, readOnly, saveMutation]);
+    saveMutation.mutate(editableState);
+  }, [user, analysisId, readOnly, editorReady, editableState, saveMutation]);
 
   // Latest-value ref so a save that fires late never uses a stale closure.
   const performSaveRef = useRef(performSave);
@@ -369,15 +405,15 @@ export default function AnalysisEditor() {
     toast.success(newLocked ? 'Analysen är nu låst' : 'Analysen är nu upplåst');
   };
 
-  const analysisLoaded = !!currentAnalysis;
   useEffect(() => {
-    // Don't autosave before the state has been initialized from the loaded
-    // analysis, or the initial empty state would overwrite real data. Include
-    // priceFxRate so editing the exchange rate alone schedules a save.
-    if (canEdit && !readOnly && analysisId && analysisLoaded && initializedForRef.current === analysisId) {
-      debouncedSave();
+    if (!editorReady) return;
+    if (cleanStateRef.current === null) {
+      cleanStateRef.current = editableState;
+      return;
     }
-  }, [canEdit, readOnly, analysisId, rating, notes, currentPrice, sharesOutstanding, priceFxRate, projections, analysisName, analysisImages, employees, analysisSections, adjustments, investmentHoldings, navDiscount, napkinMode, napkinAssumptions, analysisLoaded, debouncedSave]);
+    if (canEdit && !readOnly && editableState !== cleanStateRef.current) debouncedSave();
+    else debouncedSave.cancel();
+  }, [canEdit, readOnly, editorReady, editableState, debouncedSave]);
 
   // Handle per-analysis financial import
   const handleAnalysisImport = async (data: ParsedFinancialData[], companyInfo?: ParsedCompanyInfo) => {
@@ -450,19 +486,12 @@ export default function AnalysisEditor() {
       await supabase.from('quarterly_income_statement' as any).insert(qRows);
     }
 
-    // Auto-fill company info
+    // An import in the analysis editor changes this analysis only.
     if (companyInfo) {
-      const updates: Record<string, any> = {};
-      if (companyInfo.ticker) updates.ticker = companyInfo.ticker;
-      if (companyInfo.reportingCurrency) updates.reporting_currency = companyInfo.reportingCurrency;
-      if (companyInfo.tradingCurrency) updates.trading_currency = companyInfo.tradingCurrency;
-      if (companyInfo.latestPrice) updates.current_price = companyInfo.latestPrice;
-      if (companyInfo.sharesOutstanding) updates.shares_outstanding = companyInfo.sharesOutstanding;
-      if (Object.keys(updates).length > 0) {
-        await supabase.from('companies').update(updates).eq('id', id);
-        queryClient.invalidateQueries({ queryKey: ['company', id] });
-      }
-      // Also set on analysis level
+      setAnalysisSections(previous => ({ ...previous,
+        ...(companyInfo.reportingCurrency ? { reporting_currency: companyInfo.reportingCurrency } : {}),
+        ...(companyInfo.tradingCurrency ? { trading_currency: companyInfo.tradingCurrency } : {}),
+      }));
       if (companyInfo.latestPrice) setCurrentPrice(String(companyInfo.latestPrice));
       if (companyInfo.sharesOutstanding) {
         setSharesOutstanding(String(companyInfo.sharesOutstanding));
@@ -475,8 +504,6 @@ export default function AnalysisEditor() {
       const latestShares = sortedYearly.find(d => d.shares_outstanding)?.shares_outstanding;
       if (latestShares) {
         setSharesOutstanding(String(Math.round(latestShares)));
-        await supabase.from('companies').update({ shares_outstanding: Math.round(latestShares) }).eq('id', id);
-        queryClient.invalidateQueries({ queryKey: ['company', id] });
       }
     }
 
@@ -486,7 +513,7 @@ export default function AnalysisEditor() {
     toast.success(`Imported financial data for this analysis`);
   };
 
-  if (isLoading) {
+  if (isLoading || (!!currentAnalysis && (!editorReady || incomeLoading || balanceLoading || quartersLoading))) {
     return (
       <MainLayout>
         <div className="flex items-center justify-center py-20">
@@ -505,6 +532,10 @@ export default function AnalysisEditor() {
         </div>
       </MainLayout>
     );
+  }
+
+  if (incomeError || balanceError || quartersError || analysisSections.snapshot_complete === false) {
+    return <MainLayout><p role="alert" className="py-20 text-center">{t.analysis.snapshotLoadFailed}</p></MainLayout>;
   }
 
   const priceNum = parseFloat(currentPrice) || 0;
@@ -539,6 +570,11 @@ export default function AnalysisEditor() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        {(!incomeData?.length || !balanceData?.length || (showQuarterly && !quarterlyIncomeData?.length)
+          || currentAnalysis.current_price == null || currentAnalysis.shares_outstanding == null) &&
+          <p role="status" className="rounded-lg border p-3 text-sm text-muted-foreground">{t.analysis.missingOriginalData}</p>}
+        {(!analysisSections.calculation_settings || !analysisSections.reporting_currency || !analysisSections.trading_currency) &&
+          <p role="status" className="rounded-lg border p-3 text-sm text-muted-foreground">{t.analysis.legacyCalculationSettings}</p>}
         {/* Header */}
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div className="space-y-2">
@@ -600,7 +636,7 @@ export default function AnalysisEditor() {
               </div>
             ) : null)}
             {!readOnly && (
-              <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="gap-2">
+              <Button onClick={() => saveMutation.mutate(editableState)} disabled={saveMutation.isPending} className="gap-2">
                 {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 {t.analysis.saveAnalysis}
               </Button>
@@ -646,7 +682,7 @@ export default function AnalysisEditor() {
         {!canEdit && <p className="text-sm text-muted-foreground">{t.sharing.sharedReadOnly}</p>}
 
         {/* Main Layout */}
-        <div className={`grid gap-6 xl:grid-cols-4 ${isLocked ? 'pointer-events-none opacity-60' : ''}`}>
+        <div className="grid gap-6 xl:grid-cols-4">
           {/* Left Sidebar */}
           <div className="xl:col-span-1 space-y-6">
             <Card>
@@ -655,17 +691,17 @@ export default function AnalysisEditor() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Kurs ({company?.trading_currency})</Label>
-                  <Input disabled={readOnly} type="text" inputMode="decimal" placeholder="0.00" value={currentPrice} onChange={(e) => setCurrentPrice(e.target.value.replace(',', '.'))} className="font-mono" />
+                  <Label htmlFor="analysis-price" className="text-xs text-muted-foreground">Kurs ({tradingCurrency})</Label>
+                  <Input id="analysis-price" disabled={readOnly} type="text" inputMode="decimal" placeholder="0.00" value={currentPrice} onChange={(e) => setCurrentPrice(e.target.value.replace(',', '.'))} className="font-mono" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Antal aktier</Label>
-                  <Input disabled={readOnly} type="text" inputMode="numeric" value={sharesOutstanding} onChange={(e) => setSharesOutstanding(e.target.value.replace(',', '.'))} className="font-mono" />
+                  <Label htmlFor="analysis-shares" className="text-xs text-muted-foreground">Antal aktier</Label>
+                  <Input id="analysis-shares" disabled={readOnly} type="text" inputMode="numeric" value={sharesOutstanding} onChange={(e) => setSharesOutstanding(e.target.value.replace(',', '.'))} className="font-mono" />
                 </div>
-                {company?.trading_currency && company?.reporting_currency && company.trading_currency !== company.reporting_currency && (
+                {tradingCurrency !== reportingCurrency && (
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">
-                      Valutakurs (1 {company.reporting_currency} = ? {company.trading_currency})
+                      Valutakurs (1 {reportingCurrency} = ? {tradingCurrency})
                     </Label>
                     <Input disabled={readOnly} type="text" inputMode="decimal" placeholder="1.00" value={priceFxRate} onChange={(e) => setPriceFxRate(e.target.value.replace(',', '.'))} className="font-mono" />
                     <p className="text-xs text-muted-foreground">Används för att omvandla kursen till rapporteringsvaluta vid multipel-beräkningar.</p>
@@ -690,7 +726,7 @@ export default function AnalysisEditor() {
                           {ev !== null && <div className="flex justify-between text-sm"><span className="text-muted-foreground">EV</span><span className="font-mono font-medium">{(ev / 1e3).toFixed(2)} Mdr</span></div>}
                           {ev !== null && ebit && ebit > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">EV/EBIT</span><span className="font-mono font-medium">{(ev / ebit).toFixed(1)}x</span></div>}
                           {ev !== null && ebitda && ebitda > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">EV/EBITDA</span><span className="font-mono font-medium">{(ev / ebitda).toFixed(1)}x</span></div>}
-                          {netDebt !== null && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Nettoskuld</span><span className="font-mono font-medium">{netDebt.toFixed(0)} M{company?.reporting_currency || 'SEK'}</span></div>}
+                          {netDebt !== null && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Nettoskuld</span><span className="font-mono font-medium">{netDebt.toFixed(0)} M{reportingCurrency}</span></div>}
                         </>
                       );
                     })()}
@@ -742,6 +778,13 @@ export default function AnalysisEditor() {
                   <Label className="text-sm">Visa kvartalsdata</Label>
                   <Switch checked={showQuarterly} onCheckedChange={setShowQuarterly} />
                 </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="compare-actuals" className="text-sm">{t.analysis.compareActuals}</Label>
+                  <Switch id="compare-actuals" checked={compareActuals} onCheckedChange={setCompareActuals} />
+                </div>
+                {compareActuals && !comparisonCurrencyMatches && <p className="text-xs">{t.analysis.comparisonCurrencyMismatch}</p>}
+                {compareActuals && comparisonCurrencyMatches && actualsLoading && <p className="text-xs">{t.common.loading}</p>}
+                {compareActuals && actualsError && <p role="alert" className="text-xs">{t.common.error}</p>}
                 <div className="border-t pt-3 space-y-2">
                   <p className="text-xs font-medium text-muted-foreground">Rensa data</p>
                   <AlertDialog>
@@ -753,13 +796,14 @@ export default function AnalysisEditor() {
                     <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle>Rensa kvartalsdata?</AlertDialogTitle>
-                        <AlertDialogDescription>All kvartalsdata för detta bolag tas bort. Denna åtgärd kan inte ångras.</AlertDialogDescription>
+                        <AlertDialogDescription>{t.analysis.quarterClearDescription}</AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Avbryt</AlertDialogCancel>
                         <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => {
-                          await supabase.from('quarterly_income_statement' as any).delete().eq('company_id', id!);
-                          await supabase.from('quarterly_balance_sheet' as any).delete().eq('company_id', id!);
+                          if (readOnly || !analysisId) return;
+                          await supabase.from('quarterly_income_statement' as any).delete().eq('company_id', id!).eq('analysis_id', analysisId);
+                          await supabase.from('quarterly_balance_sheet' as any).delete().eq('company_id', id!).eq('analysis_id', analysisId);
                           queryClient.invalidateQueries({ queryKey: ['quarterly_income', id, analysisId] });
                           toast.success('Kvartalsdata rensad');
                         }}>Rensa</AlertDialogAction>
@@ -768,7 +812,7 @@ export default function AnalysisEditor() {
                   </AlertDialog>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="w-full gap-1 text-destructive hover:text-destructive">
+                      <Button disabled={readOnly} variant="outline" size="sm" className="w-full gap-1 text-destructive hover:text-destructive">
                         <Trash2 className="h-3.5 w-3.5" />Rensa årsdata
                       </Button>
                     </AlertDialogTrigger>
@@ -780,13 +824,10 @@ export default function AnalysisEditor() {
                       <AlertDialogFooter>
                         <AlertDialogCancel>Avbryt</AlertDialogCancel>
                         <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => {
-                          if (canEdit && analysisId) {
+                          if (!readOnly && analysisId) {
                             await supabase.from('income_statement').delete().eq('company_id', id!).eq('analysis_id', analysisId);
                             await supabase.from('balance_sheet').delete().eq('company_id', id!).eq('analysis_id', analysisId);
                           }
-                          // Also clear company-level data
-                          await supabase.from('income_statement').delete().eq('company_id', id!).is('analysis_id', null);
-                          await supabase.from('balance_sheet').delete().eq('company_id', id!).is('analysis_id', null);
                           queryClient.invalidateQueries({ queryKey: ['income_statement', id, analysisId] });
                           queryClient.invalidateQueries({ queryKey: ['balance_sheet', id, analysisId] });
                           toast.success('Årsdata rensad');
@@ -886,7 +927,7 @@ export default function AnalysisEditor() {
               <>
                 <HistoricalDataTable
                   data={displayData}
-                  currency={company?.reporting_currency}
+                  currency={reportingCurrency}
                   sharesOutstanding={sharesNum}
                   currentPrice={priceNum}
                   priceFxRate={fxRateNum}
@@ -919,8 +960,12 @@ export default function AnalysisEditor() {
                   onRatingChange={setRating}
                   notes={notes}
                   onNotesChange={setNotes}
-                  currency={company?.reporting_currency}
-                  tradingCurrency={company?.trading_currency}
+                  currency={reportingCurrency}
+                  tradingCurrency={tradingCurrency}
+                  analysisId={analysisId}
+                  calculationSettings={settings}
+                  onCalculationSettingsChange={setSettings}
+                  actualData={compareActuals && comparisonCurrencyMatches ? actualData : undefined}
                   showQuarterly={false}
                   napkinMode
                   onValuationContext={handleValuationContext}
@@ -930,7 +975,7 @@ export default function AnalysisEditor() {
               <>
                 <HistoricalDataTable
                   data={displayData}
-                  currency={company?.reporting_currency}
+                  currency={reportingCurrency}
                   sharesOutstanding={sharesNum}
                   currentPrice={priceNum}
                   priceFxRate={fxRateNum}
@@ -941,7 +986,7 @@ export default function AnalysisEditor() {
                   readOnly={readOnly}
                   adjustments={adjustments}
                   onAdjustmentsChange={setAdjustments}
-                  currency={company?.reporting_currency || 'SEK'}
+                  currency={reportingCurrency}
                 />
                 <SpreadsheetAnalysis
                   readOnly={readOnly}
@@ -980,14 +1025,17 @@ export default function AnalysisEditor() {
                   onRatingChange={setRating}
                   notes={notes}
                   onNotesChange={setNotes}
-                  currency={company?.reporting_currency}
-                  tradingCurrency={company?.trading_currency}
+                  currency={reportingCurrency}
+                  tradingCurrency={tradingCurrency}
+                  calculationSettings={settings}
+                  onCalculationSettingsChange={setSettings}
+                  actualData={compareActuals && comparisonCurrencyMatches ? actualData : undefined}
                   showQuarterly={showQuarterly}
                   adjustments={adjustments}
                   analysisId={analysisId}
                   netDebt={(() => {
                     const latestBalance = balanceData?.[balanceData.length - 1] as any;
-                    if (!latestBalance) return 0;
+                    if (!latestBalance) return null;
                     return ((latestBalance.long_term_debt ?? 0) + (latestBalance.short_term_debt ?? 0) - (latestBalance.cash_equivalents ?? 0));
                   })()}
                   onValuationContext={handleValuationContext}

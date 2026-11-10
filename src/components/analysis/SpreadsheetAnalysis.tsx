@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import type { Adjustment } from './AdjustmentsEditor';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,8 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { analysisValuationSnapshot, type AnalysisValuationContext } from '@/lib/analysisValuation';
+import { analysisPeriod, type AnalysisCalculationSettings } from '@/lib/analysisTimeline';
+import { EstimateOutcomeComparison, type OutcomeRow } from './EstimateOutcomeComparison';
 
 const ALL_ESTIMATE_ROWS: { key: string; label: string; group: string }[] = [
   { key: 'price', label: 'Kurs', group: 'Grunddata' },
@@ -122,7 +124,7 @@ interface SpreadsheetAnalysisProps {
   onNotesChange?: (notes: string) => void;
   currency?: string;
   showQuarterly?: boolean;
-  netDebt?: number;
+  netDebt?: number | null;
   priceFxRate?: number;
   tradingCurrency?: string;
   adjustments?: Adjustment[];
@@ -130,6 +132,9 @@ interface SpreadsheetAnalysisProps {
   napkinMode?: boolean;
   analysisId?: string;
   onValuationContext?: (context: AnalysisValuationContext) => void;
+  calculationSettings?: AnalysisCalculationSettings;
+  onCalculationSettingsChange?: (settings: AnalysisCalculationSettings) => void;
+  actualData?: OutcomeRow[];
 }
 
 // Rows kept when napkinMode is on — keep it ultra-basic
@@ -165,6 +170,9 @@ export function SpreadsheetAnalysis({
   napkinMode = false,
   analysisId,
   onValuationContext,
+  calculationSettings,
+  onCalculationSettingsChange,
+  actualData,
 }: SpreadsheetAnalysisProps) {
   const priceCurrency = tradingCurrency ?? currency;
   const { t, language } = useLanguage();
@@ -180,21 +188,30 @@ export function SpreadsheetAnalysis({
     } catch { return fallback; }
   };
 
-  const [targetPE, setTargetPE] = useState(() => loadSetting('targetPE', 15));
-  const [mode, setMode] = useState<'yearly' | 'quarterly'>(() => loadSetting('mode', showQuarterly ? 'quarterly' : 'yearly'));
+  const [localTargetPE, setTargetPE] = useState(() => loadSetting('targetPE', 15));
+  const targetPE = calculationSettings?.targetPE ?? localTargetPE;
+  const [mode, setMode] = useState<'yearly' | 'quarterly'>(() => loadSetting('mode',
+    showQuarterly || (projections.length > 0 && projections.every(p => p.quarter !== undefined)) ? 'quarterly' : 'yearly'));
   const [perShare, setPerShare] = useState(() => loadSetting('perShare', false));
   const [visibleRows, setVisibleRows] = useState<string[]>(() => loadSetting('visibleRows', napkinMode ? NAPKIN_ROWS : DEFAULT_ESTIMATE_ROWS));
-  const [qGrowthMode, setQGrowthMode] = useState<'yoy' | 'sequential'>(() => loadSetting('qGrowthMode', 'yoy'));
+  const [localQGrowthMode, setQGrowthMode] = useState<'yoy' | 'sequential'>(() => loadSetting('qGrowthMode', 'yoy'));
+  const qGrowthMode = calculationSettings?.qGrowthMode ?? localQGrowthMode;
   const [historyCount, setHistoryCount] = useState(() => loadSetting('historyCount', 0));
 
-  const currentYear = new Date().getFullYear();
-  const currentQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
+  const { year: currentYear, quarter: currentQuarter } = analysisPeriod(analysisDate);
   const defaultYears = [currentYear, currentYear + 1];
+  const savedYears = [...new Set(projections.map(p => p.year))].sort((a, b) => a - b);
+  const savedQuarters = projections.filter(p => p.quarter !== undefined)
+    .map(p => ({ year: p.year, quarter: p.quarter! }));
+  const periodsKey = JSON.stringify([savedYears, savedQuarters]);
+  const periodsLoaded = useRef(projections.length > 0);
   
-  // Derive initial estimateYears: localStorage > projections > default
+  // Saved periods take precedence over legacy browser defaults.
   const [estimateYears, setEstimateYears] = useState<number[]>(() => {
     const fromStorage = loadSetting<number[] | null>('estimateYears', null);
-    if (fromStorage && fromStorage.length > 0) return fromStorage;
+    if (loadSetting<number>('periodsVersion', 0) === 2 && fromStorage?.length) {
+      return [...new Set([...fromStorage, ...savedYears])].sort((a, b) => a - b);
+    }
     if (projections.length > 0) {
       const years = [...new Set(projections.map(p => p.year))].sort((a, b) => a - b);
       if (years.length > 0) return years;
@@ -202,10 +219,12 @@ export function SpreadsheetAnalysis({
     return defaultYears;
   });
 
-  // Derive initial estimateQuarters for quarterly mode: localStorage > projections > default (expand defaultYears)
+  // Keep quarterly and yearly views anchored to the same saved timeline.
   const [estimateQuarters, setEstimateQuarters] = useState<{year: number, quarter: number}[]>(() => {
     const fromStorage = loadSetting<{year: number, quarter: number}[] | null>('estimateQuarters', null);
-    if (fromStorage && fromStorage.length > 0) return fromStorage;
+    if (loadSetting<number>('periodsVersion', 0) === 2 && fromStorage?.length) {
+      return [...new Map([...fromStorage, ...savedQuarters].map(p => [`${p.year}-${p.quarter}`, p])).values()];
+    }
     if (projections.length > 0) {
       const qs = [...new Set(projections.filter(p => p.quarter !== undefined).map(p => `${p.year}-${p.quarter}`))]
         .map(k => { const [y, q] = k.split('-'); return { year: Number(y), quarter: Number(q) }; })
@@ -213,16 +232,30 @@ export function SpreadsheetAnalysis({
       if (qs.length > 0) return qs;
     }
     const qs: {year: number, quarter: number}[] = [];
-    for (const y of defaultYears) {
+    for (const y of savedYears.length ? savedYears : defaultYears) {
       for (let q = 1; q <= 4; q++) qs.push({ year: y, quarter: q });
     }
     return qs;
   });
 
+  // Projections may arrive after the first render. Never leave their periods
+  // hidden behind defaults or stale browser settings from an earlier version.
+  useEffect(() => {
+    if (!projections.length) return;
+    const alreadyLoaded = periodsLoaded.current;
+    setEstimateYears(previous => alreadyLoaded
+      ? [...new Set([...previous, ...savedYears])].sort((a, b) => a - b) : savedYears);
+    if (savedQuarters.length) setEstimateQuarters(previous => alreadyLoaded
+      ? [...new Map([...previous, ...savedQuarters].map(p => [`${p.year}-${p.quarter}`, p])).values()]
+      : savedQuarters);
+    else if (!alreadyLoaded) setEstimateQuarters(savedYears.flatMap(year => [1, 2, 3, 4].map(quarter => ({ year, quarter }))));
+    periodsLoaded.current = true;
+  }, [periodsKey]);
+
   // Persist display settings to localStorage
   useEffect(() => {
     if (!storageKey) return;
-    localStorage.setItem(storageKey, JSON.stringify({ targetPE, mode, perShare, visibleRows, qGrowthMode, historyCount, estimateYears, estimateQuarters }));
+    localStorage.setItem(storageKey, JSON.stringify({ periodsVersion: 2, targetPE, mode, perShare, visibleRows, qGrowthMode, historyCount, estimateYears, estimateQuarters }));
   }, [storageKey, targetPE, mode, perShare, visibleRows, qGrowthMode, historyCount, estimateYears, estimateQuarters]);
 
   const addEstimateColumn = () => {
@@ -252,13 +285,15 @@ export function SpreadsheetAnalysis({
       return [...estimateQuarters]
         .sort((a, b) => (a.year * 10 + a.quarter) - (b.year * 10 + b.quarter))
         .map(({ year, quarter }) => {
-          const hasActual = quarterlyHistoricalData.some(h => h.year === year && h.quarter === quarter);
+          const hasEstimate = projections.some(p => p.year === year && p.quarter === quarter);
+          const hasActual = !hasEstimate && year * 4 + quarter < currentYear * 4 + currentQuarter
+            && quarterlyHistoricalData.some(h => h.year === year && h.quarter === quarter);
           const isCurrent = year === currentYear && quarter === currentQuarter;
           return {
             year,
             quarter,
             label: `${year} Q${quarter}`,
-            sublabel: hasActual ? 'Utfall' : isCurrent ? 'Nu' : '',
+            sublabel: hasActual ? t.analysis.actual : isCurrent ? t.analysis.atAnalysisDate : t.analysis.estimates,
             isActual: hasActual,
           };
         });
@@ -270,17 +305,18 @@ export function SpreadsheetAnalysis({
       const hasAllQuarters = [1, 2, 3, 4].every(q => yearQuarters.includes(q));
       // The current fiscal year may already have imported analyst estimates.
       // Keep it editable as a forecast, and only treat completed years as actuals.
-      const hasActual = year < currentYear && (hasQuarterData
+      const hasEstimate = projections.some(p => p.year === year && p.quarter === undefined);
+      const hasActual = !hasEstimate && year < currentYear && (hasQuarterData
         ? hasAllQuarters
         : historicalData.some(h => h.year === year));
       return {
         year,
-        label: year === currentYear ? `${currentYear} (Nu)` : String(year),
-        sublabel: `År ${year - currentYear}`,
+        label: String(year),
+        sublabel: hasActual ? t.analysis.actual : `${t.analysis.year} ${year - currentYear}`,
         isActual: hasActual,
       };
     });
-  }, [mode, currentYear, currentQuarter, estimateYears, estimateQuarters, quarterlyHistoricalData, historicalData]);
+  }, [mode, currentYear, currentQuarter, estimateYears, estimateQuarters, quarterlyHistoricalData, historicalData, projections, t]);
 
   // Historical columns prepended to the left for context
   const historicalColumns = useMemo((): ColumnDef[] => {
@@ -289,7 +325,8 @@ export function SpreadsheetAnalysis({
       const sorted = [...quarterlyHistoricalData].sort((a, b) => (b.year * 10 + b.quarter) - (a.year * 10 + a.quarter));
       // Exclude quarters already shown as Utfall in estimate columns
       const estimateKeys = new Set(columns.filter(c => c.isActual).map(c => `${c.year}-${c.quarter}`));
-      const candidates = sorted.filter(h => !estimateKeys.has(`${h.year}-${h.quarter}`));
+      const first = Math.min(...columns.map(c => c.year * 4 + c.quarter!));
+      const candidates = sorted.filter(h => h.year * 4 + h.quarter < first && !estimateKeys.has(`${h.year}-${h.quarter}`));
       return candidates.slice(0, historyCount).reverse().map(h => ({
         year: h.year,
         quarter: h.quarter,
@@ -301,7 +338,7 @@ export function SpreadsheetAnalysis({
     const sorted = [...historicalData].sort((a, b) => b.year - a.year);
     // Exclude years already rendered as their own estimate column
     const estimateYearSet = new Set(columns.map(c => c.year));
-    const candidates = sorted.filter(h => !estimateYearSet.has(h.year));
+    const candidates = sorted.filter(h => h.year < Math.min(...columns.map(c => c.year)) && !estimateYearSet.has(h.year));
     return candidates.slice(0, historyCount).reverse().map(h => ({
       year: h.year,
       label: String(h.year),
@@ -325,7 +362,7 @@ export function SpreadsheetAnalysis({
       const qEpsGrowth = (prevQ?.earningsPerShare && h.earningsPerShare)
         ? ((h.earningsPerShare - prevQ.earningsPerShare) / Math.abs(prevQ.earningsPerShare)) * 100
         : undefined;
-      const qEv = (currentPrice && sharesOutstanding > 0)
+      const qEv = (currentPrice && sharesOutstanding > 0 && netDebt !== null)
         ? ((currentPrice / priceFxRate) * sharesOutstanding) / 1_000_000 + netDebt
         : undefined;
       // TTM EBIT/EBITDA: sum 4 quarters ending at this quarter
@@ -363,7 +400,7 @@ export function SpreadsheetAnalysis({
     const yEpsGrowth = (prevY?.earningsPerShare && h.earningsPerShare)
       ? ((h.earningsPerShare - prevY.earningsPerShare) / Math.abs(prevY.earningsPerShare)) * 100
       : undefined;
-    const yEv = (currentPrice && sharesOutstanding > 0)
+    const yEv = (currentPrice && sharesOutstanding > 0 && netDebt !== null)
       ? ((currentPrice / priceFxRate) * sharesOutstanding) / 1_000_000 + netDebt
       : undefined;
     return ({
@@ -462,7 +499,8 @@ export function SpreadsheetAnalysis({
           if (i > 0) return results[i - 1]?.[field];
           // For first quarter, use last available historical quarter
           if (quarterlyHistoricalData.length > 0) {
-            const sorted = [...quarterlyHistoricalData].sort((a, b) => (b.year * 10 + b.quarter) - (a.year * 10 + a.quarter));
+            const sorted = quarterlyHistoricalData.filter(h => h.year * 4 + h.quarter < col.year * 4 + col.quarter!)
+              .sort((a, b) => (b.year * 10 + b.quarter) - (a.year * 10 + a.quarter));
             if (field === 'calculatedRevenue') return sorted[0]?.revenue;
             if (field === 'calculatedEps') return sorted[0]?.earningsPerShare;
           }
@@ -563,7 +601,7 @@ export function SpreadsheetAnalysis({
       const calculatedEpsFromRevenue = revenuePerShare * (effectiveNetMargin / 100);
       const earningsPerShare = proj.earningsPerShare !== undefined
         ? proj.earningsPerShare
-        : (netMargin !== undefined ? calculatedEpsFromRevenue : undefined);
+        : (netMargin !== undefined && revenue !== undefined && sharesOutstanding > 0 ? calculatedEpsFromRevenue : undefined);
       const peToUse = proj.targetPE || targetPE;
 
       // In quarterly mode, MOS should use TTM EPS (4 quarters annualised), not a single quarter
@@ -575,7 +613,7 @@ export function SpreadsheetAnalysis({
           if (results[j]?.calculatedEps !== undefined) epsVals.push(results[j].calculatedEps!);
         }
         if (epsVals.length < 4) {
-          const sortedHist = [...quarterlyHistoricalData]
+          const sortedHist = quarterlyHistoricalData.filter(h => h.year * 4 + h.quarter < col.year * 4 + col.quarter!)
             .sort((a, b) => (b.year * 10 + b.quarter) - (a.year * 10 + a.quarter));
           for (const qh of sortedHist) {
             if (epsVals.length >= 4) break;
@@ -594,7 +632,7 @@ export function SpreadsheetAnalysis({
 
       // EV = Market Cap + Net Debt (price converted to reporting currency, netDebt in same currency)
       const marketCap = (priceForCalc * sharesOutstanding) / 1_000_000;
-      const calculatedEv = marketCap + netDebt;
+      const calculatedEv = netDebt === null || currentPrice <= 0 || sharesOutstanding <= 0 ? undefined : marketCap + netDebt;
       const ev = proj.ev !== undefined ? proj.ev : calculatedEv; // User override or calculated
 
       // EV/EBIT and EV/EBITDA — use TTM (sum of 4 quarters) in quarterly mode
@@ -610,7 +648,7 @@ export function SpreadsheetAnalysis({
           if (ebitdaVals.length < 4 && results[j]?.calculatedEbitda !== undefined) ebitdaVals.push(results[j].calculatedEbitda!);
         }
         if (ebitVals.length < 4 || ebitdaVals.length < 4) {
-          const sortedHist = [...quarterlyHistoricalData]
+          const sortedHist = quarterlyHistoricalData.filter(h => h.year * 4 + h.quarter < col.year * 4 + col.quarter!)
             .sort((a, b) => (b.year * 10 + b.quarter) - (a.year * 10 + a.quarter));
           for (const qh of sortedHist) {
             if (ebitVals.length >= 4 && ebitdaVals.length >= 4) break;
@@ -943,10 +981,14 @@ export function SpreadsheetAnalysis({
                 </Tabs>
               )}
               {!napkinMode && mode === 'quarterly' && (
-                <Tabs value={qGrowthMode} onValueChange={(v) => setQGrowthMode(v as 'yoy' | 'sequential')}>
+                <Tabs value={qGrowthMode} onValueChange={(v) => {
+                  const next = v as 'yoy' | 'sequential';
+                  setQGrowthMode(next);
+                  onCalculationSettingsChange?.({ targetPE, qGrowthMode: next });
+                }}>
                   <TabsList className="h-8">
-                    <TabsTrigger value="yoy" className="text-xs px-3 h-7">YoY</TabsTrigger>
-                    <TabsTrigger value="sequential" className="text-xs px-3 h-7">Sekventiell</TabsTrigger>
+                    <TabsTrigger disabled={readOnly} value="yoy" className="text-xs px-3 h-7">YoY</TabsTrigger>
+                    <TabsTrigger disabled={readOnly} value="sequential" className="text-xs px-3 h-7">Sekventiell</TabsTrigger>
                   </TabsList>
                 </Tabs>
               )}
@@ -1016,8 +1058,13 @@ export function SpreadsheetAnalysis({
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Target P/E:</span>
                 <NumericInput
+                  disabled={readOnly}
                   value={targetPE}
-                  onChange={(v) => setTargetPE(v ?? 15)}
+                  onChange={(v) => {
+                    const next = v ?? 15;
+                    setTargetPE(next);
+                    onCalculationSettingsChange?.({ targetPE: next, qGrowthMode });
+                  }}
                   className="w-20 h-8"
                 />
               </div>
@@ -1119,7 +1166,8 @@ export function SpreadsheetAnalysis({
                           }
                           // If we still need more quarters, look at quarterly historical data
                           if (allQuarterEps.length < 4 && quarterlyHistoricalData.length > 0) {
-                            const sorted = [...quarterlyHistoricalData].sort((a, b) => (b.year * 10 + b.quarter) - (a.year * 10 + a.quarter));
+                            const sorted = quarterlyHistoricalData.filter(h => h.year * 4 + h.quarter < proj.year * 4 + proj.quarter!)
+                              .sort((a, b) => (b.year * 10 + b.quarter) - (a.year * 10 + a.quarter));
                             for (const qh of sorted) {
                               if (allQuarterEps.length >= 4) break;
                               // Skip if this quarter is already covered by projections
@@ -1235,6 +1283,8 @@ export function SpreadsheetAnalysis({
       </Card>
 
       {/* Rating */}
+      {actualData && <EstimateOutcomeComparison projections={calculatedProjections.filter(p => !p.isActual)} actuals={actualData} currency={currency} />}
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">Stämpel (Rating)</CardTitle>
