@@ -5,8 +5,8 @@ import { translations, Language } from './translations';
 type Translations = {
   nav: { dashboard: string; companies: string; settings: string; logout: string; login: string; signup: string };
   auth: { login: string; signup: string; email: string; password: string; confirmPassword: string; forgotPassword: string; noAccount: string; hasAccount: string; signInWithGoogle: string; orContinueWith: string; welcomeBack: string; createAccount: string; loginDescription: string; signupDescription: string };
-  dashboard: { title: string; myCompanies: string; sharedWithMe: string; addCompany: string; searchPlaceholder: string; noCompanies: string; noCompaniesDescription: string; lastAnalysis: string; noSharedCompanies: string; noSharedCompaniesDescription: string };
-  company: { overview: string; financials: string; balanceSheet: string; analysis: string; notes: string; description: string; moats: string; management: string; board: string; ceo: string; sharesOutstanding: string; currentPrice: string; reportingCurrency: string; tradingCurrency: string; ticker: string; keyData: string; insiders: string; importData: string };
+  dashboard: { [Key in keyof typeof translations.sv.dashboard]: string };
+  company: { [Key in keyof typeof translations.sv.company]: string };
   financials: { incomeStatement: string; balanceSheet: string; revenue: string; ebit: string; ebitda: string; netIncome: string; grossMargin: string; operatingMargin: string; netMargin: string; totalAssets: string; totalLiabilities: string; shareholdersEquity: string; currentAssets: string; currentLiabilities: string; longTermDebt: string; shortTermDebt: string; cashEquivalents: string; debtToEquity: string; currentRatio: string; quickRatio: string; equityRatio: string; fiscalYear: string };
   analysis: { [Key in keyof typeof translations.sv.analysis]: string };
   mos: { undervalued: string; fair: string; overvalued: string };

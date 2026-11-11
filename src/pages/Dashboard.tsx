@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Plus, Search, Building2, Loader2, Trash2, Pencil, ArrowUpDown, AlertTriangle, X, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { CURRENCIES, EXCHANGES } from '@/lib/companyMarkets';
 
 type SortOption = 'latest_updated' | 'latest_analysis' | 'name_asc' | 'name_desc' | 'price_up' | 'price_down' | 'mos_high' | 'mos_low';
 type TypeFilter = 'all' | 'stock' | 'investment_company' | 'fund' | 'etf';
@@ -30,11 +31,14 @@ const TYPE_FILTERS: { value: TypeFilter; label: string }[] = [
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [newCompanyName, setNewCompanyName] = useState('');
   const [newCompanyTicker, setNewCompanyTicker] = useState('');
+  const [newReportingCurrency, setNewReportingCurrency] = useState('');
+  const [newTradingCurrency, setNewTradingCurrency] = useState('');
+  const [newExchange, setNewExchange] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -130,38 +134,52 @@ export default function Dashboard() {
     toast.success('Alla felnotiser markerade som lösta');
   };
 
+  const marketFieldsValid = CURRENCIES.includes(newReportingCurrency) && CURRENCIES.includes(newTradingCurrency)
+    && EXCHANGES.some(exchange => exchange.value !== 'other' && exchange.value === newExchange);
+
   const handleCreateCompany = async () => {
+    if (!user || creating) return;
     if (!newCompanyName.trim()) {
-      toast.error('Company name is required');
+      toast.error(t.dashboard.companyNameRequired);
+      return;
+    }
+    if (!marketFieldsValid) {
+      toast.error(t.dashboard.companyMarketFieldsRequired);
       return;
     }
 
+    const name = newCompanyName.trim();
+    const ticker = newCompanyTicker.trim();
+    const exchange = newExchange;
     setCreating(true);
-    const { data: newCompany, error } = await supabase
-      .from('companies')
-      .insert({
-        name: newCompanyName.trim(),
-        ticker: newCompanyTicker.trim() || null,
-        user_id: user!.id,
-      })
-      .select()
-      .single();
-    setCreating(false);
+    try {
+      const { data: newCompany, error } = await supabase
+        .from('companies')
+        .insert({
+          name,
+          ticker: ticker || null,
+          user_id: user.id,
+          reporting_currency: newReportingCurrency,
+          trading_currency: newTradingCurrency,
+          exchange,
+        })
+        .select()
+        .single();
+      if (error) throw error;
 
-    if (error) {
-      toast.error('Failed to create company');
-      console.error(error);
-    } else {
-      toast.success('Company created');
+      toast.success(t.dashboard.companyCreated);
       setNewCompanyName('');
       setNewCompanyTicker('');
+      setNewReportingCurrency('');
+      setNewTradingCurrency('');
+      setNewExchange('');
       setDialogOpen(false);
       refetchCompanies();
 
       // Auto-fetch stock price if ticker was provided
-      if (newCompanyTicker.trim() && newCompany) {
+      if (ticker && newCompany) {
         supabase.functions.invoke('fetch-stock-price', {
-          body: { ticker: newCompanyTicker.trim(), exchange: 'stockholm' },
+          body: { ticker, exchange },
         }).then(({ data: priceData }) => {
           if (priceData?.price) {
             supabase.from('companies').update({ current_price: priceData.price }).eq('id', newCompany.id)
@@ -169,6 +187,11 @@ export default function Dashboard() {
           }
         }).catch(() => { /* silent fail for auto-fetch */ });
       }
+    } catch (error) {
+      toast.error(t.dashboard.companyCreateFailed);
+      console.error(error);
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -258,7 +281,7 @@ export default function Dashboard() {
               {companies?.length || 0} {t.dashboard.myCompanies.toLowerCase()}
             </p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { if (!creating) setDialogOpen(open); }}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
@@ -269,38 +292,67 @@ export default function Dashboard() {
               <DialogHeader>
                 <DialogTitle>{t.dashboard.addCompany}</DialogTitle>
                 <DialogDescription>
-                  Add a new company to your investment arsenal
+                  {t.dashboard.addCompanyDescription}
                 </DialogDescription>
               </DialogHeader>
+              <form onSubmit={(event) => { event.preventDefault(); void handleCreateCompany(); }}>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="company-name">Name *</Label>
+                  <Label htmlFor="company-name">{t.company.name} *</Label>
                   <Input
                     id="company-name"
-                    placeholder="e.g. Apple Inc."
+                    placeholder={t.company.namePlaceholder}
                     value={newCompanyName}
                     onChange={(e) => setNewCompanyName(e.target.value)}
+                    required
+                    disabled={creating}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="company-ticker">{t.company.ticker}</Label>
                   <Input
                     id="company-ticker"
-                    placeholder="e.g. AAPL"
+                    placeholder={t.company.tickerPlaceholder}
                     value={newCompanyTicker}
                     onChange={(e) => setNewCompanyTicker(e.target.value.toUpperCase())}
+                    disabled={creating}
                   />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="company-reporting-currency">{t.company.reportingCurrency} *</Label>
+                    <Select value={newReportingCurrency} onValueChange={setNewReportingCurrency} required disabled={creating}>
+                      <SelectTrigger id="company-reporting-currency"><SelectValue placeholder={t.company.selectCurrency} /></SelectTrigger>
+                      <SelectContent>{CURRENCIES.map(currency => <SelectItem key={currency} value={currency}>{currency}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="company-trading-currency">{t.company.tradingCurrency} *</Label>
+                    <Select value={newTradingCurrency} onValueChange={setNewTradingCurrency} required disabled={creating}>
+                      <SelectTrigger id="company-trading-currency"><SelectValue placeholder={t.company.selectCurrency} /></SelectTrigger>
+                      <SelectContent>{CURRENCIES.map(currency => <SelectItem key={currency} value={currency}>{currency}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="company-exchange">{t.company.exchange} *</Label>
+                  <Select value={newExchange} onValueChange={setNewExchange} required disabled={creating}>
+                    <SelectTrigger id="company-exchange"><SelectValue placeholder={t.company.selectExchange} /></SelectTrigger>
+                    <SelectContent>{EXCHANGES.filter(exchange => exchange.value !== 'other').map(exchange =>
+                      <SelectItem key={exchange.value} value={exchange.value}>{language === 'en' ? exchange.englishLabel ?? exchange.label : exchange.label}</SelectItem>)}</SelectContent>
+                  </Select>
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                <Button type="button" variant="outline" disabled={creating} onClick={() => setDialogOpen(false)}>
                   {t.common.cancel}
                 </Button>
-                <Button onClick={handleCreateCompany} disabled={creating}>
+                <Button type="submit" disabled={creating || !newCompanyName.trim() || !marketFieldsValid}>
                   {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {t.common.add}
                 </Button>
               </DialogFooter>
+              </form>
             </DialogContent>
           </Dialog>
         </div>

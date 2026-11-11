@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, RefreshCw, TrendingUp, TrendingDown, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { TickerSearch } from './TickerSearch';
+import { CURRENCIES, EXCHANGES } from '@/lib/companyMarkets';
 
 interface KeyData {
   ticker?: string;
@@ -34,32 +35,8 @@ interface KeyDataEditorProps {
   companyId?: string;
 }
 
-const CURRENCIES = ['SEK', 'EUR', 'USD', 'GBP', 'NOK', 'DKK', 'CHF'];
-const EXCHANGES = [
-  { value: 'stockholm', label: 'Stockholm (.ST)' },
-  { value: 'helsinki', label: 'Helsinki (.HE)' },
-  { value: 'copenhagen', label: 'Köpenhamn (.CO)' },
-  { value: 'oslo', label: 'Oslo (.OL)' },
-  { value: 'us', label: 'USA (NYSE/NASDAQ)' },
-  { value: 'london', label: 'London (.L)' },
-  { value: 'frankfurt', label: 'Frankfurt (.F)' },
-  { value: 'paris', label: 'Paris (.PA)' },
-  { value: 'amsterdam', label: 'Amsterdam (.AS)' },
-  { value: 'brussels', label: 'Bryssel (.BR)' },
-  { value: 'zurich', label: 'Zürich (.SW)' },
-  { value: 'milan', label: 'Milano (.MI)' },
-  { value: 'madrid', label: 'Madrid (.MC)' },
-  { value: 'toronto', label: 'Toronto (.TO)' },
-  { value: 'sydney', label: 'Sydney (.AX)' },
-  { value: 'tokyo', label: 'Tokyo (.T)' },
-  { value: 'hong_kong', label: 'Hong Kong (.HK)' },
-  { value: 'singapore', label: 'Singapore (.SI)' },
-  { value: 'mumbai', label: 'Mumbai (.BO/.NS)' },
-  { value: 'other', label: 'Annat (fritext)' },
-];
-
 export function KeyDataEditor({ data, onUpdate, readOnly = false, companyId }: KeyDataEditorProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [localData, setLocalData] = useState<KeyData>(data);
   const [fetchingPrice, setFetchingPrice] = useState(false);
   const [stockResult, setStockResult] = useState<StockPriceResult | null>(null);
@@ -185,7 +162,7 @@ export function KeyDataEditor({ data, onUpdate, readOnly = false, companyId }: K
                 </SelectTrigger>
                 <SelectContent>
                   {EXCHANGES.map(ex => (
-                    <SelectItem key={ex.value} value={ex.value}>{ex.label}</SelectItem>
+                    <SelectItem key={ex.value} value={ex.value}>{language === 'en' ? ex.englishLabel ?? ex.label : ex.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

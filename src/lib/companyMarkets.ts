@@ -1,0 +1,26 @@
+export const CURRENCIES = ['SEK', 'EUR', 'USD', 'GBP', 'NOK', 'DKK', 'CHF', 'CAD', 'AUD', 'JPY', 'HKD', 'SGD', 'INR'];
+
+export const EXCHANGES = [
+  { value: 'stockholm', label: 'Stockholm (.ST)' },
+  { value: 'helsinki', label: 'Helsinki (.HE)' },
+  { value: 'copenhagen', label: 'Köpenhamn (.CO)', englishLabel: 'Copenhagen (.CO)' },
+  { value: 'oslo', label: 'Oslo (.OL)' },
+  { value: 'nasdaq', label: 'Nasdaq (USA)' },
+  { value: 'nyse', label: 'NYSE (USA)' },
+  { value: 'us', label: 'USA (NYSE/NASDAQ)' },
+  { value: 'london', label: 'London (.L)' },
+  { value: 'frankfurt', label: 'Frankfurt (.F)' },
+  { value: 'paris', label: 'Paris (.PA)' },
+  { value: 'amsterdam', label: 'Amsterdam (.AS)' },
+  { value: 'brussels', label: 'Bryssel (.BR)', englishLabel: 'Brussels (.BR)' },
+  { value: 'zurich', label: 'Zürich (.SW)', englishLabel: 'Zurich (.SW)' },
+  { value: 'milan', label: 'Milano (.MI)', englishLabel: 'Milan (.MI)' },
+  { value: 'madrid', label: 'Madrid (.MC)' },
+  { value: 'toronto', label: 'Toronto (.TO)' },
+  { value: 'sydney', label: 'Sydney (.AX)' },
+  { value: 'tokyo', label: 'Tokyo (.T)' },
+  { value: 'hong_kong', label: 'Hong Kong (.HK)' },
+  { value: 'singapore', label: 'Singapore (.SI)' },
+  { value: 'mumbai', label: 'Mumbai (.BO/.NS)' },
+  { value: 'other', label: 'Annat (fritext)', englishLabel: 'Other (custom)' },
+];

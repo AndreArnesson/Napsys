@@ -1027,7 +1027,7 @@ export default function CompanyDetail() {
                   if (company.ticker) {
                     try {
                       const { data: priceData } = await supabase.functions.invoke('fetch-stock-price', {
-                        body: { ticker: company.ticker, exchange: 'stockholm' },
+                        body: { ticker: company.ticker, exchange: company.exchange || 'stockholm' },
                       });
                       if (priceData?.price) {
                         freshPrice = priceData.price;
@@ -1047,8 +1047,9 @@ export default function CompanyDetail() {
                       companyType: (company as any).company_type ?? 'operating',
                     });
                     navigate(`/company/${id}/analysis/${newAnalysisId}`);
-                  } catch {
-                    toast.error(t.analysis.snapshotLoadFailed);
+                  } catch (error) {
+                    console.error('[Create analysis]', error);
+                    toast.error(t.analysis.createFailed);
                   } finally {
                     setCreatingAnalysis(false);
                   }
