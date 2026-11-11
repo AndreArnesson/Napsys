@@ -12,6 +12,7 @@ const readerCompany = '20000000-0000-0000-0000-000000000003';
 const base = readFileSync(new URL('../../supabase/migrations/20261105205426_add_company_sharing.sql', import.meta.url), 'utf8');
 const migration = readFileSync(new URL('../../supabase/migrations/20261105211843_add_stock_companions.sql', import.meta.url), 'utf8');
 const cardMigration = readFileSync(new URL('../../supabase/migrations/20261107101040_share_complete_company_card.sql', import.meta.url), 'utf8');
+const ownershipMigration = readFileSync(new URL('../../supabase/migrations/20261110204115_fix_insider_ownership_snapshot_writes.sql', import.meta.url), 'utf8');
 const cardTables = ['balance_sheet', 'quarterly_income_statement', 'quarterly_balance_sheet', 'timeline_events', 'insider_trades', 'report_documents'];
 
 describe('stock companion requests and sharing permissions', () => {
@@ -95,10 +96,18 @@ describe('stock companion requests and sharing permissions', () => {
       CREATE POLICY own_estimates ON public.quarterly_estimates FOR ALL TO authenticated
         USING (analysis_id IN (SELECT id FROM public.analyses WHERE user_id = auth.uid()));
       GRANT ALL ON public.quarterly_estimates TO authenticated;
-      CREATE TABLE public.insider_ownership_history (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), company_id uuid REFERENCES public.companies, note text);
+      CREATE TABLE public.insider_ownership_history (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        company_id uuid NOT NULL REFERENCES public.companies ON DELETE CASCADE,
+        recorded_date date NOT NULL,
+        entries jsonb NOT NULL DEFAULT '[]'::jsonb,
+        note text,
+        created_at timestamptz DEFAULT now(),
+        UNIQUE (company_id, recorded_date)
+      );
       ALTER TABLE public.insider_ownership_history ENABLE ROW LEVEL SECURITY;
       CREATE POLICY "Authenticated users can read insider ownership history" ON public.insider_ownership_history FOR SELECT TO authenticated USING (true);
-      GRANT ALL ON public.insider_ownership_history TO authenticated;
+      GRANT ALL ON public.insider_ownership_history TO authenticated, anon;
       ${cardTables.map(table => `
         CREATE TABLE public.${table} (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), company_id uuid REFERENCES public.companies, note text);
         ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY;
@@ -112,6 +121,7 @@ describe('stock companion requests and sharing permissions', () => {
     await db.exec(base);
     await db.exec(migration);
     await db.exec(cardMigration);
+    await db.exec(ownershipMigration);
   }, 30_000);
 
   beforeEach(async () => {
@@ -121,7 +131,9 @@ describe('stock companion requests and sharing permissions', () => {
       INSERT INTO public.analyses (company_id, user_id, name) VALUES ('${first}', '${owner}', 'First analysis'), ('${second}', '${owner}', 'Second analysis');
       INSERT INTO public.income_statement VALUES ('${first}', 100), ('${second}', 200);
       INSERT INTO public.quarterly_estimates (analysis_id, note) SELECT id, name FROM public.analyses;
-      ${[...cardTables, 'insider_ownership_history'].map(table => `INSERT INTO public.${table} (company_id, note) VALUES ('${first}', 'First card'), ('${second}', 'Second card');`).join('\n')}
+      ${cardTables.map(table => `INSERT INTO public.${table} (company_id, note) VALUES ('${first}', 'First card'), ('${second}', 'Second card');`).join('\n')}
+      INSERT INTO public.insider_ownership_history (company_id, recorded_date, note)
+      VALUES ('${first}', '2026-11-01', 'First card'), ('${second}', '2026-11-01', 'Second card');
       INSERT INTO storage.objects (bucket_id, name) VALUES ('reports', '${first}/report.pdf'), ('reports', '${second}/report.pdf'), ('analysis-images', 'company/${first}/image.png');
       INSERT INTO storage.objects (bucket_id, name) SELECT 'analysis-images', 'analysis/' || id::text || '/image.png' FROM public.analyses;
     `);
@@ -292,7 +304,9 @@ describe('stock companion requests and sharing permissions', () => {
       expect((await db.query(`SELECT note FROM public.${table}`)).rows).toEqual([{ note: 'First card' }]);
       expect((await db.query(`UPDATE public.${table} SET note = 'Changed' RETURNING id`)).rows).toEqual([]);
       expect((await db.query(`DELETE FROM public.${table} RETURNING id`)).rows).toEqual([]);
-      await expect(db.query(`INSERT INTO public.${table} (company_id, note) VALUES ($1, 'Forged')`, [first])).rejects.toMatchObject({ code: '42501' });
+      const dateColumn = table === 'insider_ownership_history' ? ', recorded_date' : '';
+      const dateValue = table === 'insider_ownership_history' ? ", '2026-11-10'" : '';
+      await expect(db.query(`INSERT INTO public.${table} (company_id, note${dateColumn}) VALUES ($1, 'Forged'${dateValue})`, [first])).rejects.toMatchObject({ code: '42501' });
     }
     expect((await db.query("UPDATE public.quarterly_estimates SET note = 'Changed' RETURNING id")).rows).toEqual([]);
     expect((await db.query('DELETE FROM public.quarterly_estimates RETURNING id')).rows).toEqual([]);
@@ -319,6 +333,78 @@ describe('stock companion requests and sharing permissions', () => {
     expect((await db.query('SELECT * FROM public.quarterly_estimates')).rows).toEqual([]);
     expect((await db.query('SELECT * FROM public.insider_ownership_history')).rows).toEqual([]);
     expect((await db.query("SELECT name FROM storage.objects WHERE bucket_id = 'reports'")).rows).toEqual([]);
+  });
+
+  it('lets the owner create, overwrite, edit, and delete ownership snapshots', async () => {
+    await asUser(owner);
+    const entries = [{ name: 'CEO', role: 'CEO', shares: 1000, percentage: 0.1 }];
+    const upsert = `INSERT INTO public.insider_ownership_history (company_id, recorded_date, entries, note)
+      VALUES ($1, '2026-11-10', $2, $3)
+      ON CONFLICT (company_id, recorded_date) DO UPDATE SET entries = EXCLUDED.entries, note = EXCLUDED.note
+      RETURNING id, entries, note`;
+    const created = await db.query<{ id: string }>(upsert, [first, JSON.stringify(entries), 'Original']);
+    const revised = [{ ...entries[0], shares: 2000, percentage: 0.2 }];
+    expect((await db.query(upsert, [first, JSON.stringify(revised), 'Revised'])).rows)
+      .toEqual([{ id: created.rows[0].id, entries: revised, note: 'Revised' }]);
+    expect((await db.query('SELECT id FROM public.insider_ownership_history WHERE company_id = $1', [first])).rows).toHaveLength(2);
+    expect((await db.query(`UPDATE public.insider_ownership_history
+      SET recorded_date = '2026-11-09', entries = $2, note = 'Edited' WHERE id = $1 RETURNING note, entries`,
+    [created.rows[0].id, JSON.stringify(entries)])).rows).toEqual([{ note: 'Edited', entries }]);
+    expect((await db.query('DELETE FROM public.insider_ownership_history WHERE id = $1 RETURNING id', [created.rows[0].id])).rows).toHaveLength(1);
+    expect((await db.query('SELECT note FROM public.insider_ownership_history WHERE company_id = $1', [first])).rows)
+      .toEqual([{ note: 'First card' }]);
+  });
+
+  it.each(['individual', 'all'])('keeps ownership snapshots read-only with %s sharing', async (sharing) => {
+    await accept();
+    if (sharing === 'all') {
+      await all(true);
+    } else {
+      await asUser(owner);
+      await db.query('SELECT public.share_company_with_companion($1, $2)', [first, reader]);
+    }
+    await asUser(reader);
+    expect((await db.query('SELECT note FROM public.insider_ownership_history WHERE company_id = $1', [first])).rows)
+      .toEqual([{ note: 'First card' }]);
+    for (const date of ['2026-11-01', '2026-11-10']) {
+      await expect(db.query(`INSERT INTO public.insider_ownership_history (company_id, recorded_date, note)
+        VALUES ($1, $2, 'Forged') ON CONFLICT (company_id, recorded_date) DO UPDATE SET note = EXCLUDED.note`,
+      [first, date])).rejects.toMatchObject({ code: '42501' });
+    }
+    expect((await db.query("UPDATE public.insider_ownership_history SET note = 'Forged' WHERE company_id = $1 RETURNING id", [first])).rows).toEqual([]);
+    expect((await db.query('DELETE FROM public.insider_ownership_history WHERE company_id = $1 RETURNING id', [first])).rows).toEqual([]);
+    expect((await db.query('UPDATE public.insider_ownership_history SET company_id = $2 WHERE company_id = $1 RETURNING id', [first, readerCompany])).rows).toEqual([]);
+    // The same recipient can still save snapshots for a company they own.
+    expect((await db.query(`INSERT INTO public.insider_ownership_history (company_id, recorded_date)
+      VALUES ($1, '2026-11-10') RETURNING id`, [readerCompany])).rows).toHaveLength(1);
+    await asUser(owner);
+    expect((await db.query('SELECT note FROM public.insider_ownership_history WHERE company_id = $1', [first])).rows)
+      .toEqual([{ note: 'First card' }]);
+  });
+
+  it('rejects moving an owned ownership snapshot to another person’s company', async () => {
+    await asUser(owner);
+    await expect(db.query('UPDATE public.insider_ownership_history SET company_id = $2 WHERE company_id = $1', [first, readerCompany]))
+      .rejects.toMatchObject({ code: '42501' });
+    expect((await db.query('SELECT note FROM public.insider_ownership_history WHERE company_id = $1', [first])).rows)
+      .toEqual([{ note: 'First card' }]);
+  });
+
+  it('denies outsiders and anonymous users ownership snapshot writes', async () => {
+    await asUser(outsider);
+    await expect(db.query(`INSERT INTO public.insider_ownership_history (company_id, recorded_date)
+      VALUES ($1, '2026-11-10')`, [first])).rejects.toMatchObject({ code: '42501' });
+    expect((await db.query("UPDATE public.insider_ownership_history SET note = 'Forged' RETURNING id")).rows).toEqual([]);
+    expect((await db.query('DELETE FROM public.insider_ownership_history RETURNING id')).rows).toEqual([]);
+    await asUser(null);
+    for (const sql of [
+      'SELECT * FROM public.insider_ownership_history',
+      `INSERT INTO public.insider_ownership_history (company_id, recorded_date) VALUES ('${first}', '2026-11-10')`,
+      "UPDATE public.insider_ownership_history SET note = 'Forged'",
+      'DELETE FROM public.insider_ownership_history',
+    ]) {
+      await expect(db.query(sql)).rejects.toMatchObject({ code: '42501' });
+    }
   });
 
   it('allows recipients to read shared reports but not replace, delete, upload, or move card files', async () => {

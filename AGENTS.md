@@ -63,6 +63,11 @@ och anger annars den separata privata analyschatten. Analys och bolag måste
 stämma överens via komposit-FK; även aktuell läsåtkomst till analysen krävs.
 När en analys raderas försvinner dess chatthistorik, medan bolagschatten finns kvar.
 
+`20261110204115_fix_insider_ownership_snapshot_writes.sql` är tillämpad och
+registrerad i drift, verifierat 2026-11-10. Den låter bolagsägaren skapa, uppdatera
+och radera insiderägandets snapshots; delningsmottagare har fortsatt enbart
+läsåtkomst till historiken.
+
 ## Delning och behörigheter
 
 Delning gäller ett företag med alla dess nuvarande och framtida analyser.
