@@ -8,6 +8,9 @@ verify_jwt = true
 [functions.company-news]
 verify_jwt = true
 
+[functions.borsdata-link]
+verify_jwt = true
+
 [functions.ai-summary]
 verify_jwt = false
 

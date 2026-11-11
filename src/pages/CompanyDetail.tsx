@@ -8,6 +8,7 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { ShareCompanyDialog } from '@/components/company/ShareCompanyDialog';
 import { CompanyAssistant } from '@/components/company/CompanyAssistant';
+import { BorsdataLink } from '@/components/company/BorsdataLink';
 import { companyAssistantTranslations } from '@/i18n/companyAssistant';
 import { MOSBadge } from '@/components/company/MOSBadge';
 import { AISummaryCard } from '@/components/company/AISummaryCard';
@@ -613,17 +614,7 @@ export default function CompanyDetail() {
                   <ExternalLink className="h-3 w-3" />
                   FI Insyn
                 </a>
-                {company.ticker && (
-                  <a
-                    href={`https://borsdata.se/terminal/se/${encodeURIComponent(company.ticker.toLowerCase())}/export`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Börsdata
-                  </a>
-                )}
+                <BorsdataLink companyId={company.id} name={company.name} ticker={company.ticker} exchange={company.exchange} />
               </div>
             </div>
           </div>
