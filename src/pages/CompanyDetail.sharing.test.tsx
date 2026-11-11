@@ -32,6 +32,7 @@ afterEach(cleanup);
 
 it('opens the full company card read only and lets the recipient browse every analysis without saving drafts', async () => {
   localStorage.clear(); mocks.write.mockClear(); mocks.invoke.mockClear();
+  mocks.invoke.mockResolvedValue({ data: { match: null, candidates: [] }, error: null });
   localStorage.setItem('company-draft-avtech', JSON.stringify({ description: 'Private local draft' }));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = render(<QueryClientProvider client={client}><LanguageProvider defaultLanguage="en">
@@ -57,5 +58,8 @@ it('opens the full company card read only and lets the recipient browse every an
   expect(within(analyses).queryByRole('button')).not.toBeInTheDocument();
   view.unmount();
   expect(mocks.write).not.toHaveBeenCalled();
-  expect(mocks.invoke).not.toHaveBeenCalled();
+  // Resolving the external link is read-only; no write or import function runs.
+  expect(mocks.invoke).toHaveBeenCalledExactlyOnceWith('borsdata-link', {
+    body: { companyId: 'avtech' }, signal: expect.any(AbortSignal),
+  });
 });
