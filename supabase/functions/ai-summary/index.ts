@@ -30,14 +30,14 @@ Fokusera på:
 Var konkret med siffror. Håll dig under 300 ord. Returnera BARA HTML-innehåll, ingen markdown, inga kodblock.
 
 Exempel på format:
-<h3>📈 Omsättning & Tillväxt</h3>
+<p>Kort slutsats om den viktigaste utvecklingen...</p>
+<h3>Omsättning & Tillväxt</h3>
 <p>Omsättningen har vuxit med <strong>X%</strong> per år...</p>
-<h3>💰 Vinst & Marginaler</h3>
+<h3>Vinst & Marginaler</h3>
 <ul><li>Rörelsemarginal: <strong>X%</strong></li></ul>
-<h3>⚠️ Risker</h3>
+<h3>Risker</h3>
 <ul><li>Hög skuldsättning...</li></ul>
-<h3>🎯 Sammanfattning</h3>
-<p>Sammantaget...</p>`;
+`;
       userPrompt = `Analysera finansiell data för ${companyName || 'bolaget'}:\n\n${JSON.stringify(data, null, 2)}`;
     } else if (type === "insider") {
       systemPrompt = `Du är en erfaren aktieanalytiker. Analysera insynshandeln och ge en koncis sammanfattning på svenska. Formatera svaret som HTML (INTE markdown). Använd <h3>, <ul>, <li>, <strong>, <p> taggar.
@@ -71,6 +71,8 @@ Var konkret med siffror. Håll dig under 300 ord. Returnera BARA HTML-innehåll,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    systemPrompt += `\n\nInled svaret med en kort slutsats i ett <p>-stycke som sammanfattar den viktigaste observationen. Följ med 2–4 korta <h3>-rubriker för underlag, relevanta risker och osäkerheter. Skriv korta stycken, använd listor för parallella observationer och fetstil sparsamt för viktiga nyckeltal. Ange period, valuta och enhet för siffror där det framgår, och säg till när underlag saknas. Använd inga dekorativa emojis eller upprepande slutsatser.`;
 
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",

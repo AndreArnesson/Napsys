@@ -122,7 +122,7 @@ export function RichTextEditor({
           onBlur={(e) => { isFocusedRef.current = false; onBlur?.(); }}
           onKeyDown={handleKeyDown}
           className={cn(
-            'px-3 py-2 text-sm outline-none prose prose-sm max-w-none',
+            'px-3 py-2 text-sm outline-none prose prose-sm max-w-none dark:prose-invert',
             '[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5',
             '[&_b]:font-bold [&_strong]:font-bold [&_i]:italic [&_em]:italic',
           )}

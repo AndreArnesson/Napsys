@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { AssistantContent } from '@/components/ai/AssistantContent';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink, Loader2, MessageSquare, Newspaper, RefreshCw, Send, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -16,7 +17,6 @@ import {
   readChatTurn,
   safeAssistantUrl,
   saveAssistantSettings,
-  type AssistantSource,
   type CompanyChatTurn,
 } from '@/lib/companyAssistant';
 import { Badge } from '@/components/ui/badge';
@@ -48,24 +48,6 @@ function errorMessage(error: unknown, texts: CompanyAssistantTexts, fallback: st
   const seconds = error instanceof CompanyAssistantError ? error.retryAfterSeconds : undefined;
   return seconds && Number.isFinite(seconds) && seconds > 0
     ? `${message} ${texts.retryAfter.replace('{seconds}', String(Math.ceil(seconds)))}` : message;
-}
-
-function SourceList({ sources, label }: { sources: AssistantSource[]; label: string }) {
-  if (sources.length === 0) return null;
-  return <div className="space-y-1.5 border-t pt-3 mt-3">
-    <p className="text-xs font-medium text-muted-foreground">{label}</p>
-    <ul className="flex flex-wrap gap-2">
-      {sources.map((source, index) => {
-        const url = safeAssistantUrl(source.url);
-        return <li key={`${source.id}-${index}`} className="max-w-full">
-          {url ? <a href={url} target={url.startsWith('/') ? undefined : '_blank'} rel="noopener noreferrer"
-            className="inline-flex max-w-full items-center gap-1 rounded-md border bg-background px-2 py-1 text-xs text-primary hover:underline">
-            <span className="break-words">[{source.id}] {source.label}</span><ExternalLink className="h-3 w-3 shrink-0" />
-          </a> : <span className="inline-block rounded-md border bg-background px-2 py-1 text-xs break-words">[{source.id}] {source.label}</span>}
-        </li>;
-      })}
-    </ul>
-  </div>;
 }
 
 export function CompanyAssistant(props: CompanyAssistantProps) {
@@ -290,8 +272,7 @@ function CompanyAssistantContent({ companyId, isOwner, userId }: CompanyAssistan
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                   <span className="font-medium">{texts.assistant}</span><time dateTime={turn.created_at}>{formatDate(turn.created_at)}</time>
                 </div>
-                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{turn.answer}</p>
-                <SourceList sources={turn.sources} label={texts.sources} />
+                <AssistantContent content={turn.answer} sources={turn.sources} />
               </div>
             </article>)}
             {chat.isPending && <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />{texts.thinking}</p>}
@@ -336,7 +317,7 @@ function CompanyAssistantContent({ companyId, isOwner, userId }: CompanyAssistan
           {refresh.isError && <p role="alert" className="text-sm text-destructive">{errorMessage(refresh.error, texts, texts.newsError)}</p>}
           {settings.data?.news_summary && <section className="rounded-lg bg-primary/5 p-3 space-y-2">
             <h3 className="text-sm font-medium">{texts.newsSummary}</h3>
-            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{settings.data.news_summary}</p>
+            <AssistantContent content={settings.data.news_summary} />
           </section>}
           {news.isPending && <p role="status" className="text-sm text-muted-foreground">{texts.loading}</p>}
           {news.isError && <div role="alert" className="space-y-2"><p className="text-sm text-destructive">{texts.loadError}</p>

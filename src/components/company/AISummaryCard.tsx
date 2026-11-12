@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Loader2, Save } from 'lucide-react';
+import { AssistantContent } from '@/components/ai/AssistantContent';
 
 interface AISummaryCardProps {
   readOnly?: boolean;
@@ -57,16 +58,7 @@ export function AISummaryCard({
       </CardHeader>
       <CardContent>
         {summary ? (
-          <div
-            className="prose prose-sm max-w-none dark:prose-invert
-              prose-headings:text-foreground prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2
-              prose-h3:text-base prose-h4:text-sm
-              prose-p:text-muted-foreground prose-p:leading-relaxed
-              prose-li:text-muted-foreground prose-li:leading-relaxed
-              prose-strong:text-foreground prose-strong:font-semibold
-              prose-ul:my-2 prose-ol:my-2"
-            dangerouslySetInnerHTML={{ __html: summary }}
-          />
+          <AssistantContent content={summary} allowHtml />
         ) : (
           <p className="text-sm text-muted-foreground text-center py-6">
             {emptyText}

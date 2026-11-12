@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ExternalLink, Loader2, MessageSquare, Send, X } from 'lucide-react';
+import { Loader2, MessageSquare, Send, X } from 'lucide-react';
+import { AssistantContent } from '@/components/ai/AssistantContent';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { analysisChatTranslations } from '@/i18n/analysisChat';
@@ -12,7 +13,6 @@ import {
 } from '@/lib/analysisChat';
 import {
   assistantKeys, CompanyAssistantError, invokeAssistant, loadAssistantSettings,
-  safeAssistantUrl, type AssistantSource,
 } from '@/lib/companyAssistant';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,24 +32,6 @@ export function AnalysisChatBubble(props: AnalysisChatBubbleProps) {
   const { user } = useAuth();
   if (!user) return null;
   return <AnalysisChatContent key={`${props.companyId}:${props.analysisId}:${user.id}`} {...props} userId={user.id} />;
-}
-
-function AnalysisSources({ sources, label }: { sources: AssistantSource[]; label: string }) {
-  if (sources.length === 0) return null;
-  return <div className="mt-3 space-y-2 border-t pt-3">
-    <p className="text-xs font-medium text-muted-foreground">{label}</p>
-    <ul className="flex flex-wrap gap-2">
-      {sources.map((source, index) => {
-        const url = safeAssistantUrl(source.url);
-        return <li key={`${source.id}-${index}`} className="max-w-full">
-          {url ? <a href={url} target={url.startsWith('/') ? undefined : '_blank'} rel="noopener noreferrer"
-            className="inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-xs text-primary hover:underline">
-            <span className="break-words">[{source.id}] {source.label}</span><ExternalLink className="h-3 w-3 shrink-0" />
-          </a> : <span className="inline-block rounded-md border px-2 py-1 text-xs break-words">[{source.id}] {source.label}</span>}
-        </li>;
-      })}
-    </ul>
-  </div>;
 }
 
 function AnalysisChatContent({ companyId, analysisId, analysisName, draft, getValuationContext, userId }: AnalysisChatBubbleProps & { userId: string }) {
@@ -198,8 +180,7 @@ function AnalysisChatContent({ companyId, analysisId, analysisName, draft, getVa
           </div>
           <div className="rounded-lg border p-3">
             <p className="mb-2 text-xs font-medium text-muted-foreground">{texts.assistant}</p>
-            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{turn.answer}</p>
-            <AnalysisSources sources={turn.sources} label={common.sources} />
+            <AssistantContent content={turn.answer} sources={turn.sources} />
           </div>
         </article>)}
         {chat.isPending && <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">

@@ -197,7 +197,21 @@ describe('AnalysisChatBubble', () => {
     expect(mocks.invoke).toHaveBeenCalledOnce();
   });
 
-  it('renders model content as text and rejects unsafe source links', async () => {
+  it('renders a comparison table and connects inline citations to the analysis source', async () => {
+    mocks.history.mockResolvedValue([turn({
+      answer: '### Valuation\n\nEstimated price is **120 SEK** [V0].\n\n| Year | MoS |\n| --- | ---: |\n| 2027 | 20% |',
+      sources: [{ id: 'V0', label: 'Current valuation' }],
+    })]);
+    mount();
+    await openChat();
+    expect(await screen.findByRole('heading', { name: 'Valuation' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'MoS' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: 'Show source [V0]: Current valuation' }));
+    expect(document.activeElement).toHaveTextContent('[V0] Current valuation');
+    expect(mocks.invoke).not.toHaveBeenCalled();
+  });
+
+  it('renders raw model HTML as text and rejects unsafe source links', async () => {
     mocks.history.mockResolvedValue([turn({
       answer: '<img src=x onerror=alert(1)>',
       sources: [{ id: 'A1', label: 'Unsafe source', url: 'javascript:alert(1)' }, { id: 'A2', label: 'Analysis', url: '/company/company-1/analysis/analysis-1' }],

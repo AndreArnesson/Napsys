@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { AssistantContent } from '@/components/ai/AssistantContent';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -715,10 +716,7 @@ export function ReportAnalyzer({ companyId, analysisId, companyName, readOnly = 
               <Sparkles className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium">AI-analys</span>
             </div>
-            <div
-              className="prose prose-sm max-w-none dark:prose-invert"
-              dangerouslySetInnerHTML={{ __html: aiResult }}
-            />
+            <AssistantContent content={aiResult} allowHtml />
           </div>
         )}
       </CardContent>

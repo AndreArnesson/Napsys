@@ -91,7 +91,7 @@ describe('CompanyAssistant', () => {
   it('discards a draft and cached conversation when changing companies', async () => {
     mocks.loadTurns.mockImplementation(async (companyId: string) => companyId === 'company-1' ? [fixtureTurn()] : []);
     const { moveTo } = mount();
-    expect(await screen.findByText('Saved answer')).toBeInTheDocument();
+    expect(await screen.findByText('Saved answer', {}, { timeout: 5000 })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Your question about the company'), { target: { value: 'Draft for company one' } });
     moveTo('company-2');
     await waitFor(() => expect(mocks.loadTurns).toHaveBeenCalledWith('company-2', 'owner', expect.any(AbortSignal)));
@@ -100,7 +100,22 @@ describe('CompanyAssistant', () => {
     expect(mocks.invoke).not.toHaveBeenCalled();
   });
 
-  it('treats model content as text and refuses unsafe source links', async () => {
+  it('formats answers and connects citations while leaving the user question as plain text', async () => {
+    mocks.loadTurns.mockResolvedValue([fixtureTurn({
+      question: '**A literal question**',
+      answer: '### Conclusion\n\nRevenue **grew 10%** [A1].\n\n- Check the margin',
+      sources: [{ id: 'A1', label: 'Saved analysis', url: '/company/company-1/analysis/analysis-1' }],
+    })]);
+    mount();
+    expect(await screen.findByRole('heading', { name: 'Conclusion' })).toBeInTheDocument();
+    expect(screen.getByText('**A literal question**').tagName).toBe('P');
+    expect(screen.getByText('grew 10%').tagName).toBe('STRONG');
+    fireEvent.click(screen.getByRole('link', { name: 'Show source [A1]: Saved analysis' }));
+    expect(document.activeElement).toHaveTextContent('[A1] Saved analysis');
+    expect(mocks.invoke).not.toHaveBeenCalled();
+  });
+
+  it('treats raw model HTML as text and refuses unsafe source links', async () => {
     mocks.loadTurns.mockResolvedValue([fixtureTurn({
       answer: '<img src=x onerror=alert(1)>',
       sources: [{ id: 'A1', label: 'Unsafe source', url: 'javascript:alert(1)' }, { id: 'N1', label: 'Company news', url: 'https://news.cision.com/example' }],

@@ -11,6 +11,12 @@ bolaget. Servern hämtar alla underlag med användarens verifierade JWT och RLS.
 Assistenten kan inte ändra bolagsdata. Ägaren kan stänga av chatten för ett bolag.
 Högst 100 chattomgångar sparas per privat konversation; de senaste 20 visas.
 
+Svaren visas med Markdown för rubriker, listor, fetstil och tabeller. Tabeller
+kan scrollas i sidled i mindre vyer. Källhänvisningar som `[A1]` flyttar fokus
+till motsvarande underlag under det aktuella svaret; okända käll-ID förblir text.
+Chattens HTML visas som text. Äldre HTML-sammanfattningar och rapportanalyser
+saneras före visning, och AI-innehåll laddar inga externa bilder.
+
 ## Chatt i en analys
 
 I analysvyn öppnar chattbubblan nere till höger en flytande popup för den valda
