@@ -118,9 +118,10 @@ export function createInstrumentSearch(fetcher: typeof fetch = fetch) {
   };
 }
 
-export function createBorsdataHandler({ loadCompany, search }: {
+export function createBorsdataHandler({ loadCompany, search, authorizeSearch }: {
   loadCompany: (req: Request, companyId: string) => Promise<CompanyIdentity | null>;
   search: (term: string) => Promise<BorsdataInstrument[]>;
+  authorizeSearch?: (req: Request) => Promise<void>;
 }) {
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
     status, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
@@ -133,6 +134,17 @@ export function createBorsdataHandler({ loadCompany, search }: {
       if (text.length > 2048) throw new BorsdataError('invalid_request', 400);
       let body: unknown;
       try { body = JSON.parse(text); } catch { throw new BorsdataError('invalid_request', 400); }
+      if (body && typeof body === 'object' && 'query' in body) {
+        if ('companyId' in body || typeof body.query !== 'string' || body.query.trim().length < 2 || body.query.length > 120) {
+          throw new BorsdataError('invalid_request', 400);
+        }
+        // Creating a company needs search before a company ID exists. This mode
+        // still requires a verified signed-in user and never reads company rows.
+        if (!authorizeSearch) throw new BorsdataError('unauthorized', 401);
+        await authorizeSearch(req);
+        const results = await search(body.query.trim());
+        return json({ candidates: [...new Map(results.map(item => [item.urlName, item])).values()] });
+      }
       const companyId = body && typeof body === 'object' && 'companyId' in body ? body.companyId : null;
       if (typeof companyId !== 'string' || !uuid.test(companyId)) throw new BorsdataError('invalid_request', 400);
       const company = await loadCompany(req, companyId);

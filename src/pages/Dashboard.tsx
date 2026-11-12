@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { CompanyCard } from '@/components/company/CompanyCard';
+import { CompanySearch } from '@/components/company/CompanySearch';
 import { WatchlistSection } from '@/components/watchlist/WatchlistSection';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -17,6 +18,8 @@ import { Plus, Search, Building2, Loader2, Trash2, Pencil, ArrowUpDown, AlertTri
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { CURRENCIES, EXCHANGES } from '@/lib/companyMarkets';
+import { borsdataCompanyFields } from '@/lib/borsdata';
+import { borsdataTranslations } from '@/i18n/borsdata';
 
 type SortOption = 'latest_updated' | 'latest_analysis' | 'name_asc' | 'name_desc' | 'price_up' | 'price_down' | 'mos_high' | 'mos_low';
 type TypeFilter = 'all' | 'stock' | 'investment_company' | 'fund' | 'etf';
@@ -288,7 +291,7 @@ export default function Dashboard() {
                 {t.dashboard.addCompany}
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{t.dashboard.addCompany}</DialogTitle>
                 <DialogDescription>
@@ -297,6 +300,13 @@ export default function Dashboard() {
               </DialogHeader>
               <form onSubmit={(event) => { event.preventDefault(); void handleCreateCompany(); }}>
               <div className="space-y-4 py-4">
+                <CompanySearch disabled={creating} onSelect={instrument => {
+                  const fields = borsdataCompanyFields(instrument);
+                  setNewCompanyName(fields.name);
+                  setNewCompanyTicker(fields.ticker);
+                  setNewExchange(fields.exchange);
+                }} />
+                <p className="text-xs text-muted-foreground">{borsdataTranslations[language].checkMarket}</p>
                 <div className="space-y-2">
                   <Label htmlFor="company-name">{t.company.name} *</Label>
                   <Input

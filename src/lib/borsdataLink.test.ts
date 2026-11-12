@@ -65,6 +65,30 @@ describe('Börsdata public search', () => {
 });
 
 describe('Börsdata link handler', () => {
+  it('searches by name before a company exists, after authenticating the caller', async () => {
+    const loadCompany = vi.fn(), search = vi.fn().mockResolvedValue([investorA, investorB, investorB]);
+    const authorizeSearch = vi.fn().mockResolvedValue(undefined);
+    const response = await createBorsdataHandler({ loadCompany, search, authorizeSearch })(request({ query: ' Investor ' }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ candidates: [investorA, investorB] });
+    expect(search).toHaveBeenCalledExactlyOnceWith('Investor');
+    expect(authorizeSearch.mock.invocationCallOrder[0]).toBeLessThan(search.mock.invocationCallOrder[0]);
+    expect(loadCompany).not.toHaveBeenCalled();
+  });
+
+  it('fails closed for unauthenticated raw searches and rejects short, long, or mixed queries', async () => {
+    const loadCompany = vi.fn(), search = vi.fn();
+    const handler = createBorsdataHandler({ loadCompany, search });
+    expect((await handler(request({ query: 'Investor' }))).status).toBe(401);
+    const denied = createBorsdataHandler({ loadCompany, search, authorizeSearch: async () => { throw new BorsdataError('unauthorized', 401); } });
+    expect((await denied(request({ query: 'Investor' }))).status).toBe(401);
+    for (const body of [{ query: 'x' }, { query: 'x'.repeat(121) }, { query: 'Investor', companyId }, { query: 123 }]) {
+      expect((await handler(request(body))).status).toBe(400);
+    }
+    expect(loadCompany).not.toHaveBeenCalled();
+    expect(search).not.toHaveBeenCalled();
+  });
+
   it('checks company access before searching and returns a deduplicated confident match', async () => {
     const loadCompany = vi.fn().mockResolvedValue(company);
     const search = vi.fn().mockResolvedValue([cheffelo, warehouse]);

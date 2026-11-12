@@ -9,6 +9,15 @@ name, ticker, and exchange through the caller's RLS-scoped client. Owners and
 current share recipients can resolve a link. No company data is modified.
 Gateway JWT verification remains enabled.
 
+The same function also accepts `{ query }` for company creation. This mode
+authenticates the user before searching public instrument metadata and does not
+require or read a company row. Queries must contain 2–120 characters and cannot
+be combined with `companyId`. The creation dialog debounces input by 350 ms and
+offers results with name, ticker, and country. Selecting a result fills in name
+and ticker and sets the exchange for supported Nordic/US listings. Other
+exchanges remain unselected. Reporting and trading currencies still require
+explicit user choices. No record is created until the form is submitted.
+
 Only name, ticker, country, market ID, and URL slug come from Börsdata's public
 terminal search (`/api/terminal/instruments?name=…&take=40`). No financial report
 data is fetched and no Börsdata API key is needed. This endpoint is used by the

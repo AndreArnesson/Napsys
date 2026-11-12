@@ -46,6 +46,47 @@ function choose(label: RegExp, option: string) {
 }
 
 describe('creating a company with explicit market settings', () => {
+  it('finds the ticker by company name and saves the selected share class and exchange', async () => {
+    mocks.invoke.mockImplementation(async (name: string) => name === 'borsdata-link' ? {
+      data: { candidates: [
+        { name: 'Investor A', ticker: 'INVE A', country: 'SWE', urlName: 'investor-a', marketId: 1 },
+        { name: 'Investor B', ticker: 'INVE B', country: 'SWE', urlName: 'investor', marketId: 1 },
+      ] }, error: null,
+    } : { data: { price: 42 }, error: null });
+    const form = openForm();
+    fireEvent.change(form.getByRole('combobox', { name: 'Find company and ticker' }), { target: { value: 'Investor' } });
+    fireEvent.click(await form.findByRole('option', { name: /Investor B/ }));
+    expect(form.getByRole('textbox', { name: /^Name/ })).toHaveValue('Investor B');
+    expect(form.getByRole('textbox', { name: 'Ticker' })).toHaveValue('INVE B');
+    expect(form.getByRole('combobox', { name: /^Exchange/ })).toHaveTextContent('Stockholm (.ST)');
+    expect(form.getByRole('button', { name: 'Add' })).toBeDisabled();
+    choose(/Reporting Currency/, 'SEK');
+    choose(/Trading Currency/, 'SEK');
+    fireEvent.click(form.getByRole('button', { name: 'Add' }));
+    await waitFor(() => expect(mocks.insert).toHaveBeenCalledWith({
+      user_id: 'owner', name: 'Investor B', ticker: 'INVE B', reporting_currency: 'SEK', trading_currency: 'SEK', exchange: 'stockholm',
+    }));
+    expect(mocks.invoke).toHaveBeenCalledWith('fetch-stock-price', { body: { ticker: 'INVE B', exchange: 'stockholm' } });
+  });
+
+  it('clears an earlier exchange when another search result has no reliable exchange mapping', async () => {
+    mocks.invoke.mockImplementation(async (_: string, options: { body: { query: string } }) => ({
+      data: { candidates: options.body.query === 'Cheffelo'
+        ? [{ name: 'Cheffelo', ticker: 'CHEF', country: 'SWE', urlName: 'lmk-group', marketId: 4 }]
+        : [{ name: 'ASML', ticker: 'ASML', country: 'NLD', urlName: 'asml-holding', marketId: 45 }] }, error: null,
+    }));
+    const form = openForm();
+    const input = form.getByRole('combobox', { name: 'Find company and ticker' });
+    fireEvent.change(input, { target: { value: 'Cheffelo' } });
+    fireEvent.click(await form.findByRole('option', { name: /Cheffelo/ }));
+    expect(form.getByRole('combobox', { name: /^Exchange/ })).toHaveTextContent('Stockholm (.ST)');
+    fireEvent.change(input, { target: { value: 'ASML' } });
+    fireEvent.click(await form.findByRole('option', { name: /ASML/ }));
+    expect(form.getByRole('textbox', { name: 'Ticker' })).toHaveValue('ASML');
+    expect(form.getByRole('combobox', { name: /^Exchange/ })).toHaveTextContent('Choose exchange');
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
   it('requires an explicit choice for each currency and the exchange, including direct form submission', () => {
     const form = openForm();
     fireEvent.change(form.getByRole('textbox', { name: /^Name/ }), { target: { value: 'Example' } });
